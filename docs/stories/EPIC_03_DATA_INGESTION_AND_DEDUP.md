@@ -1,54 +1,100 @@
-# EPIC-03: Thu thập Tin Đa kênh & Khử Trùng lặp (Data Ingestion & De-duplication)
+# EPIC-03: Thu thập Dữ liệu Đa kênh, Bóc tách AI & Khử Trùng lặp (Multi-channel Ingestion, AI Parsing & De-duplication)
 
-## Mục tiêu
-Tự động hóa hoàn toàn quy trình đưa tin từ các hội nhóm Zalo, Telegram, Facebook vào hệ thống; dùng AI chuẩn hóa dữ liệu và loại bỏ hoàn toàn các tin trùng lặp hoặc tin rác.
+## 1. Mục tiêu Tổng quan
+Tự động hóa hoàn toàn quy trình đưa tin từ các hội nhóm **Telegram, WhatsApp, Zalo Web, Facebook Groups** vào hệ thống; sử dụng **Google Gemini 3.5 Flash Lite** để bóc tách văn bản tự do thành cấu trúc JSON chuẩn; ứng dụng thuật toán **Khử trùng lặp đa tầng (Deterministic Matching + Perceptual Image Hashing - pHash)** để loại bỏ bài trùng lặp và lọc bỏ triệt để tin rác.
 
 ---
 
-### User Story 3.1: Thu thập tin nhắn từ Telegram / Chrome Extension
+## 2. Kiến trúc Tổng thể Hệ thống Ingestion
+
+```mermaid
+flowchart TD
+    subgraph SOURCES["Các Nguồn Thu Thập (Multi-channel Sources)"]
+        TG["Telegram Bot Listener\n(Bot: @AptSaleHunter_bot)"]
+        WA["WhatsApp Gateway\n(Webhook & Web Extension)"]
+        EXT["Chrome Extension 1-Click\n(Zalo Web, FB Groups, WhatsApp)"]
+        MN["Web Portal Quick Paste\n(Quản lý dán tin thô)"]
+    end
+
+    TG --> INGEST["Ingestion Controller & Pipeline\n(/api/v1/ingestion)"]
+    WA --> INGEST
+    EXT --> INGEST
+    MN --> INGEST
+
+    INGEST --> NOISE["Bộ lọc Intent & Tin rác\n(Noise Filter Engine)"]
+    NOISE -->|Tin tìm phòng / Spam| DROP["Bỏ qua & Lưu Log Thống Kê"]
+    NOISE -->|Tin cho thuê hợp lệ| GEMINI["Bộ não AI Gemini 3.5 Flash Lite\n- Bóc tách tiếng lóng BĐS VN\n- Structured JSON Schema Output"]
+
+    GEMINI --> DEDUP["Động cơ Khử Trùng Lặp Đa Tầng"]
+    DEDUP -->|Tầng 1: Trùng SĐT + Địa chỉ| MERGE["Gộp vào Sub-listings của Căn Master"]
+    DEDUP -->|Tầng 2: pHash Ảnh tương đồng > 85%| MERGE
+    DEDUP -->|Căn mới độc lập| CREATE["Tạo Căn Hộ Mới vào Bảng Hàng"]
+```
+
+---
+
+## 3. Danh sách User Stories Chi tiết
+
+### User Story 3.1: Bộ não AI Bóc tách Tin BĐS & Lọc Tin Rác (Gemini LLM Parsing & Noise Filter)
+* **Là một:** Hệ thống xử lý dữ liệu tự động.
+* **Tôi muốn:** Dùng mô hình `Gemini 3.5 Flash Lite` với cấu hình Structured Output (JSON Schema) để đọc hiểu văn bản tin đăng tiếng Việt tự do và phân loại ý định (Intent Classification).
+* **Để:** Chuyển đổi mọi bài đăng viết tắt, dùng tiếng lóng BĐS thành dữ liệu có cấu trúc hoàn chỉnh và loại bỏ hoàn toàn các tin "cần tìm phòng", tin quảng cáo rác trước khi lưu vào kho.
+* **Tiêu chí chấp nhận (Acceptance Criteria):**
+  1. **Lọc tin rác (Noise Filter):**
+     * Tự động phát hiện các bài viết thuộc dạng: *Cần tìm phòng, Hỏi thăm phòng trọ, Quảng cáo đồ gia dụng, Vay tiền/Spam*.
+     * Nếu không phải là tin **"Cho thuê căn hộ/phòng trọ"** $\rightarrow$ Đánh dấu trạng thái `REJECTED_NOISE` và dừng xử lý.
+  2. **Trích xuất thông số BĐS tiếng Việt:**
+     * **Tiêu đề gợi ý:** Rút gọn chuyên nghiệp theo chuẩn BĐS.
+     * **Giá thuê (`price`):** Chuẩn hóa mọi định dạng (*6tr5, 6.5tr, 6500k, 6 triệu 500* $\rightarrow$ `6500000`).
+     * **Tiền cọc (`deposit`):** Nhận diện từ *cọc 1 tháng, cọc 2 tháng, cọc 5tr* $\rightarrow$ số tiền cụ thể.
+     * **Địa chỉ & Khu vực:** Tách riêng `address` (Số nhà, Ngõ, Đường) và `district` (Quận chuẩn tại Hà Nội: Cầu Giấy, Nam Từ Liêm, Đống Đa...).
+     * **Thuộc tính phòng:** Số phòng ngủ (`bedrooms`), diện tích (`area`), loại phòng (*Studio, 1N1K, 2N1K, Duplex*).
+     * **Tiện ích:** `elevator` (Thang máy), `allowPets` (Nuôi Pet), `carParking` (Ô tô đỗ cửa), `pcccStandard` (PCCC).
+     * **Phí dịch vụ:** Điện (đ/kWh), Nước (đ/khối hoặc người), Dịch vụ chung.
+     * **Đầu mối liên hệ:** Số điện thoại (`phone`) và Tên chủ nhà/môi giới.
+  3. **Tốc độ & Độ tin cậy:**
+     * Thời gian bóc tách trung bình dưới 1.2 giây/bài.
+     * Cơ chế Fallback an toàn: Nếu bài đăng thiếu giá hoặc địa chỉ quá mơ hồ, gắn nhãn `NEEDS_REVIEW` để Quản lý kiểm tra nhanh trên giao diện.
+
+---
+
+### User Story 3.2: Khử Trùng lặp Đa tầng (Multi-tier Deduplication & Image pHash)
+* **Là một:** Quản lý kho hàng và CTV môi giới.
+* **Tôi muốn:** Khi có tin mới được đưa vào từ bất kỳ nguồn nào, hệ thống tự động kiểm tra xem căn hộ này đã có trong cơ sở dữ liệu hay chưa.
+* **Để:** Bảng hàng luôn sạch sẽ, không bị nhân bản hàng chục lần cùng một căn hộ từ nhiều nguồn khác nhau.
+* **Tiêu chí chấp nhận (Acceptance Criteria):**
+  1. **Tầng 1 - So khớp Định danh (Deterministic Matching):**
+     * Trùng số điện thoại đầu mối (`ownerContact.phone`) VÀ trùng tên đường/ngõ địa chỉ $\rightarrow$ Xác định trùng lặp 100%.
+  2. **Tầng 2 - So khớp Ảnh Nhận thức (Perceptual Image Hash - pHash):**
+     * Mỗi hình ảnh được tải về sẽ được tính toán mã băm 64-bit `pHash`.
+     * So sánh khoảng cách Hamming (Hamming Distance) giữa ảnh mới và kho ảnh hiện có.
+     * Nếu có từ **2 hình ảnh** trở lên đạt độ tương đồng $\ge 85\%$ với một căn hộ đã tồn tại $\rightarrow$ Xác định trùng lặp phòng.
+  3. **Cơ chế Gộp Căn Master - Sub:**
+     * Khi phát hiện trùng lặp: Không tạo căn hộ mới.
+     * Tự động thêm bản ghi vào mảng `subListings` của căn Master (ghi nhận: Nguồn, Giá tại nguồn, Ngày đăng, Link gốc).
+     * Cập nhật thời điểm tương tác gần nhất (`lastActivityAt`) của căn Master.
+
+---
+
+### User Story 3.3: Thu thập Đa kênh (Telegram Bot Listener, WhatsApp & Chrome Extension Gateway)
 * **Là một:** Quản lý hệ thống.
-* **Tôi muốn:** Hệ thống tự động nhận tin nhắn từ các nhóm Telegram nguồn hoặc nhận dữ liệu từ Chrome Extension (khi tôi lướt Facebook/Zalo Web).
-* **Để:** Không phải ngồi đọc và copy thủ công từng bài đăng từ sáng đến tối.
+* **Tôi muốn:** Tự động hóa việc thu thập bài đăng từ các nhóm **Telegram**, các nhóm **WhatsApp**, và bài đăng trên **Zalo Web / Facebook Groups**.
+* **Để:** Không phải tốn từ 2-4 tiếng mỗi ngày copy thủ công từng bài đăng giữa các ứng dụng nhắn tin.
 * **Tiêu chí chấp nhận (Acceptance Criteria):**
-  1. **Telegram Ingestion:** Module Telegram Listener lắng nghe các tin nhắn mới từ các group/channel nguồn được cấu hình.
-  2. **Webhook API cho Extension:** Cung cấp 1 API endpoint bảo mật để nhận nội dung bài viết và link ảnh từ Chrome Extension khi người dùng click "Import tin".
-  3. Tin nhắn thô (Raw text, hình ảnh gốc, thời gian, tên nguồn) được đưa vào hàng đợi xử lý (Job Queue).
+  1. **Telegram Ingestion (`@AptSaleHunter_bot`):**
+     * Bot chạy nền chế độ Long Polling (không cần mở port công khai hoặc domain webhook phức tạp).
+     * Lắng nghe bài đăng mới từ các nhóm/kênh Telegram được cấp quyền.
+     * Hỗ trợ nhận tin được Forward từ các nhóm khác về nhóm nội bộ.
+     * Tự động tải ảnh chất lượng gốc từ máy chủ Telegram đẩy lên Cloudinary và đưa vào hàng đợi bóc tách.
+  2. **WhatsApp & Multi-source Ingestion Gateway:**
+     * Endpoint bảo mật `POST /api/v1/ingestion/webhook` hỗ trợ nhận payload chuẩn từ WhatsApp Business API / Webhook bot.
+     * Endpoint `POST /api/v1/ingestion/extension-import` dành riêng cho Chrome Extension: CTV/Quản lý chỉ cần 1 click trên giao diện Web (WhatsApp Web, Zalo Web, Facebook Group) để đẩy tin kèm album ảnh về hệ thống.
+     * Endpoint `POST /api/v1/ingestion/quick-paste` trên giao diện Portal Web để Quản lý có thể dán trực tiếp đoạn văn bản thô dài vào phân tích ngay.
 
 ---
 
-### User Story 3.2: Trích xuất thông tin tự động bằng AI (LLM Parsing Engine)
-* **Là một:** Hệ thống xử lý dữ liệu.
-* **Tôi muốn:** Dùng mô hình ngôn ngữ (Gemini Flash) để phân tích đoạn văn bản tự do của người đăng tin thành cấu trúc JSON chuẩn.
-* **Để:** Điền tự động vào các trường dữ liệu căn hộ mà không cần con người gõ lại.
-* **Tiêu chí chấp nhận (Acceptance Criteria):**
-  1. Trích xuất chính xác tối thiểu:
-     * Quận, Tên đường/Ngõ.
-     * Giá thuê (chuẩn hóa: *6tr5*, *6.5tr*, *6500k* $\rightarrow$ `6500000`).
-     * Số phòng ngủ / Loại phòng (Studio, 1PN, 2PN, Duplex).
-     * SĐT liên hệ của người đăng.
-     * Các tiện ích chính (thang máy, ban công, nuôi thú cưng).
-  2. Tốc độ parse dưới 1.5 giây mỗi bài.
-  3. Xử lý fallback an toàn: Nếu AI không nhận diện được giá, gắn cờ `NEEDS_REVIEW` để người quản lý duyệt tay.
-
----
-
-### User Story 3.3: Khử trùng lặp đa tầng (Multi-tier De-duplication)
-* **Là một:** Quản lý và CTV.
-* **Tôi muốn:** Khi có tin mới được đưa vào, hệ thống tự động kiểm tra xem căn hộ này đã tồn tại trong database hay chưa.
-* **Để:** Bảng hàng không bị nhân bản hàng chục lần một căn phòng.
-* **Tiêu chí chấp nhận (Acceptance Criteria):**
-  1. **Tầng 1 (SĐT & Địa chỉ):** Khớp SĐT liên hệ và cùng địa chỉ/tên ngõ $\rightarrow$ Xác định trùng 100%, tự động gộp vào căn Master.
-  2. **Tầng 2 (Perceptual Image Hash):** Tạo mã hash 64-bit cho ảnh bằng thuật toán `pHash`. Nếu bài viết mới có từ 2 bức ảnh có độ tương đồng > 85% với ảnh của một căn đã có $\rightarrow$ Đánh dấu trùng lặp ảnh.
-  3. Nếu xác định trùng: Tự động bổ sung thông tin mới vào `subListings` của căn Master, không tạo căn mới độc lập.
-
----
-
-### User Story 3.4: Bộ lọc tin rác & Phân loại bài đăng (Noise Filtering)
-* **Là một:** Hệ thống.
-* **Tôi muốn:** Tự động phát hiện và loại bỏ các bài viết "Cần tìm phòng", "Quảng cáo đồ gia dụng", "Tin lừa đảo/spam".
-* **Để:** Chỉ lưu vào kho những tin thực sự là "Chính chủ/Môi giới cho thuê căn hộ".
-* **Tiêu chí chấp nhận (Acceptance Criteria):**
-  1. Sử dụng bộ lọc từ khóa kết hợp Intent Classification của AI.
-  2. Nếu phát hiện các câu như: *"Em sinh viên cần tìm phòng...", "Ai có phòng khu vực... inbox em"* $\rightarrow$ Bỏ qua, không lưu vào bảng hàng.
-  3. Báo cáo tỷ lệ lọc tin rác trên Dashboard quản trị.
-
+## 4. Công nghệ & Thư viện Triển khai
+* **AI Model:** Google Gemini 3.5 Flash Lite (`@google/genai` hoặc Native Google REST API với Structured Output).
+* **Telegram Bot:** `telegraf` hoặc `node-telegram-bot-api` (hoạt động theo chế độ Long Polling tối ưu tài nguyên).
+* **Xử lý Ảnh & pHash:** `sharp` + thư viện tính Perceptual Hash (nhỏ gọn, hiệu năng cao, zero-bloat).
+* **Lưu trữ Hàng đợi:** In-memory async worker queue gọn nhẹ theo triết lý Ponytail (không cần Redis cồng kềnh cho giai đoạn MVP).
