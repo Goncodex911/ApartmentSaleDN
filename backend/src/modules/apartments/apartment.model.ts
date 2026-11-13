@@ -2,7 +2,7 @@ import { Schema, model, Document, Types } from 'mongoose';
 
 export interface ISubListing {
   _id?: Types.ObjectId;
-  sourceType: 'TELEGRAM' | 'ZALO' | 'FACEBOOK' | 'MANUAL';
+  sourceType: 'TELEGRAM' | 'WHATSAPP' | 'ZALO' | 'FACEBOOK' | 'MANUAL';
   sourceName?: string;
   sourceUrl?: string;
   price?: number;
@@ -52,6 +52,7 @@ export interface IApartment extends Document {
     parkingMotor?: number;
   };
   images: string[];
+  imageHashes?: string[];
   videos?: string[];
   ownerContact: {
     name: string;
@@ -70,7 +71,7 @@ const subListingSchema = new Schema<ISubListing>(
   {
     sourceType: {
       type: String,
-      enum: ['TELEGRAM', 'ZALO', 'FACEBOOK', 'MANUAL'],
+      enum: ['TELEGRAM', 'WHATSAPP', 'ZALO', 'FACEBOOK', 'MANUAL'],
       default: 'MANUAL',
     },
     sourceName: { type: String, trim: true },
@@ -125,6 +126,7 @@ const apartmentSchema = new Schema<IApartment>(
       parkingMotor: { type: Number },
     },
     images: [{ type: String }],
+    imageHashes: [{ type: String }],
     videos: [{ type: String }],
     ownerContact: {
       name: { type: String, required: true, trim: true },

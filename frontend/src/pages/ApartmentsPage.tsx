@@ -7,8 +7,9 @@ import { ApartmentCard } from '../components/apartment/ApartmentCard.js';
 import { ApartmentDetailModal } from '../components/apartment/ApartmentDetailModal.js';
 import { ApartmentModal } from '../components/apartment/ApartmentModal.js';
 import { ApartmentFilters } from '../components/apartment/ApartmentFilters.js';
+import { QuickPasteModal } from '../components/apartment/QuickPasteModal.js';
 import { ProfileModal } from '../components/profile/ProfileModal.js';
-import { Plus, RefreshCw, Loader2, Building, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, RefreshCw, Loader2, Building, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 
 export const ApartmentsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,6 +31,7 @@ export const ApartmentsPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingApartment, setEditingApartment] = useState<Apartment | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isQuickPasteOpen, setIsQuickPasteOpen] = useState(false);
 
   useEffect(() => {
     const fetchMe = async () => {
@@ -114,13 +116,24 @@ export const ApartmentsPage: React.FC = () => {
             </button>
 
             {isManagerOrAdmin && (
-              <button
-                onClick={() => { setEditingApartment(null); setIsModalOpen(true); }}
-                className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition-all hover:scale-[1.02]"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Thêm căn hộ mới</span>
-              </button>
+              <>
+                <button
+                  onClick={() => setIsQuickPasteOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs sm:text-sm font-bold rounded-xl border border-indigo-200 shadow-sm transition-all hover:scale-[1.02]"
+                  title="Nhập nhanh bài đăng từ Zalo, Telegram, Facebook bằng AI"
+                >
+                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                  <span className="hidden sm:inline">Nhập nhanh AI</span>
+                  <span className="sm:hidden">AI</span>
+                </button>
+                <button
+                  onClick={() => { setEditingApartment(null); setIsModalOpen(true); }}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition-all hover:scale-[1.02]"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Thêm căn hộ</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -207,6 +220,13 @@ export const ApartmentsPage: React.FC = () => {
         initialData={editingApartment}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onSuccess={() => fetchApartments(1)}
+      />
+
+      {/* Modal Nhập Nhanh AI */}
+      <QuickPasteModal
+        isOpen={isQuickPasteOpen}
+        onClose={() => setIsQuickPasteOpen(false)}
         onSuccess={() => fetchApartments(1)}
       />
 
