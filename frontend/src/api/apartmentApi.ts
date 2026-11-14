@@ -45,7 +45,7 @@ export interface Apartment {
   };
   subListings?: Array<{
     _id?: string;
-    sourceType: 'TELEGRAM' | 'ZALO' | 'FACEBOOK' | 'MANUAL';
+    sourceType: 'TELEGRAM' | 'WHATSAPP' | 'ZALO' | 'FACEBOOK' | 'MANUAL';
     sourceName?: string;
     sourceUrl?: string;
     price?: number;
@@ -60,9 +60,20 @@ export interface Apartment {
   }>;
   status: 'AVAILABLE' | 'UPCOMING' | 'DEPOSITED' | 'RENTED';
   availableDate?: string;
+  distanceKm?: number;
+  nearestLandmark?: string;
   managerId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Landmark {
+  id: string;
+  name: string;
+  shortName: string;
+  district: string;
+  coordinates: [number, number];
+  category: string;
 }
 
 export interface Pagination {
@@ -75,6 +86,21 @@ export interface Pagination {
 export const apartmentApi = {
   getApartments: async (params: Record<string, any> = {}) => {
     const res = await apiClient.get('/apartments', { params });
+    return res.data;
+  },
+
+  searchApartments: async (params: Record<string, any> = {}) => {
+    const res = await apiClient.get('/apartments/search', { params });
+    return res.data;
+  },
+
+  searchNaturalApartments: async (query: string, params: Record<string, any> = {}) => {
+    const res = await apiClient.post('/apartments/search/natural', { query }, { params });
+    return res.data;
+  },
+
+  getLandmarks: async () => {
+    const res = await apiClient.get('/apartments/search/landmarks');
     return res.data;
   },
 
