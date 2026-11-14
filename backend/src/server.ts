@@ -1,10 +1,4 @@
-import dotenv from 'dotenv';
-import path from 'path';
-
-// Đọc file .env từ thư mục gốc hoặc thư mục hiện tại
-dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
-dotenv.config(); // Fallback nếu chạy trực tiếp trong backend
-
+import './config/env.js'; // Nạp .env TRƯỚC mọi module khác (xem giải thích trong config/env.ts)
 import { app } from './app.js';
 import { connectDB } from './config/db.js';
 import { TelegramService } from './modules/ingestion/telegram.service.js';

@@ -5,6 +5,7 @@ import { authRoutes } from './modules/auth/auth.routes.js';
 import { apartmentRoutes } from './modules/apartments/apartment.routes.js';
 import { userRoutes } from './modules/users/user.routes.js';
 import { ingestionRoutes } from './modules/ingestion/ingestion.routes.js';
+import { shareRoutes } from './modules/share/share.routes.js';
 import { errorHandler } from './middlewares/error.js';
 
 export const app = express();
@@ -27,6 +28,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/apartments', apartmentRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/ingestion', ingestionRoutes);
+app.use('/api/v1/share', shareRoutes);
 
 // Xử lý lỗi tập trung
 app.use(errorHandler);

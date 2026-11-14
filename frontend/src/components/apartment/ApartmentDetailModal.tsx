@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { Apartment } from '../../api/apartmentApi.js';
+import { User } from '../../api/authApi.js';
 import { StatusBadge } from './StatusBadge.js';
-import { X, MapPin, Phone, ShieldAlert, Sparkles, Layers, DollarSign } from 'lucide-react';
+import { CopyShareButton } from './CopyShareButton.js';
+import { DownloadPhotosButton } from './DownloadPhotosButton.js';
+import { ShareLinkButton } from './ShareLinkButton.js';
+import { X, MapPin, Phone, Sparkles, Layers } from 'lucide-react';
 
 interface ApartmentDetailModalProps {
   apartment: Apartment | null;
-  userRole?: string;
+  currentUser: User | null;
   isOwnerOrAdmin: boolean;
   onClose: () => void;
   onStatusUpdated?: (newStatus: any, newDate?: string) => void;
@@ -13,23 +17,24 @@ interface ApartmentDetailModalProps {
 
 export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
   apartment,
-  userRole,
+  currentUser,
   isOwnerOrAdmin,
   onClose,
   onStatusUpdated,
 }) => {
-  if (!apartment) return null;
+  // Hook phải gọi trước mọi lệnh return (Rules of Hooks); trang cha đặt key theo _id nên state reset khi đổi căn
+  const [activeImage, setActiveImage] = useState(apartment?.images?.[0] || '');
 
-  const [activeImage, setActiveImage] = useState(
-    apartment.images && apartment.images.length > 0 ? apartment.images[0] : ''
-  );
+  if (!apartment) return null;
 
   const formatPrice = (val?: number) => {
     if (!val) return '0 đ';
     return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
   };
 
-  const isCtv = userRole === 'COLLABORATOR';
+  const isCtv = currentUser?.role === 'COLLABORATOR';
+  const visibleImageCount = apartment.images.filter((url) => !apartment.hiddenImages?.includes(url)).length;
+  const hiddenImageCount = apartment.images.length - visibleImageCount;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
@@ -67,6 +72,15 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
               <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
               <span>{apartment.location.address}, {apartment.location.ward ? `${apartment.location.ward}, ` : ''}{apartment.location.district}, {apartment.location.city}</span>
             </p>
+            {/* Chia sẻ 1-Click cho CTV (Epic 5): copy tin, tải ảnh watermark, link xem phòng */}
+            <div key={apartment._id} className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <CopyShareButton apartment={apartment} ctv={currentUser} />
+              <DownloadPhotosButton apartmentId={apartment._id} photoCount={visibleImageCount} />
+              <ShareLinkButton apartmentId={apartment._id} disabled={apartment.status === 'RENTED'} />
+            </div>
+            {hiddenImageCount > 0 && (
+              <p className="mt-1.5 text-[11px] text-amber-700">🔒 Đã ẩn {hiddenImageCount} ảnh có SĐT nguồn cũ khi gửi khách</p>
+            )}
           </div>
 
           {/* Thư viện Ảnh (Cloudinary Gallery) */}

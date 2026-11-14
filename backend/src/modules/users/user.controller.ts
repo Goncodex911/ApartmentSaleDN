@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { UserService } from './user.service.js';
-import { updateProfileSchema } from './user.validation.js';
+import { updateProfileSchema, updateUserStatusSchema, listUsersQuerySchema } from './user.validation.js';
 import { AuthRequest } from '../../middlewares/auth.js';
 
 export class UserController {
@@ -24,6 +24,28 @@ export class UserController {
         message: 'Cập nhật hồ sơ thành công',
         data: updatedUser,
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // [ADMIN] GET /api/v1/users?status=PENDING — danh sách tài khoản chờ duyệt
+  static async listUsers(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { status } = listUsersQuerySchema.parse(req.query);
+      const users = await UserService.listByStatus(status);
+      res.status(200).json({ success: true, data: users });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // [ADMIN] PATCH /api/v1/users/:id/status — duyệt (ACTIVE) hoặc khóa (BLOCKED) tài khoản
+  static async updateStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { status } = updateUserStatusSchema.parse(req.body);
+      const user = await UserService.updateStatus(String(req.params.id), status);
+      res.status(200).json({ success: true, message: 'Cập nhật trạng thái tài khoản thành công', data: user });
     } catch (error) {
       next(error);
     }

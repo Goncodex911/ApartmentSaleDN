@@ -53,6 +53,7 @@ export interface IApartment extends Document {
   };
   images: string[];
   imageHashes?: string[];
+  hiddenImages?: string[]; // Ảnh có SĐT nguồn cũ (Gemini Vision phát hiện) — không gửi cho khách (Story 5.2)
   videos?: string[];
   ownerContact: {
     name: string;
@@ -127,6 +128,7 @@ const apartmentSchema = new Schema<IApartment>(
     },
     images: [{ type: String }],
     imageHashes: [{ type: String }],
+    hiddenImages: [{ type: String }],
     videos: [{ type: String }],
     ownerContact: {
       name: { type: String, required: true, trim: true },

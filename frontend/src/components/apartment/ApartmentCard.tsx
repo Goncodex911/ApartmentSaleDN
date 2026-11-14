@@ -1,11 +1,13 @@
 import React from 'react';
 import { Apartment } from '../../api/apartmentApi.js';
+import { User } from '../../api/authApi.js';
 import { StatusBadge } from './StatusBadge.js';
+import { CopyShareButton } from './CopyShareButton.js';
 import { MapPin, Image as ImageIcon, Eye, Edit2, Trash2, ShieldCheck, PawPrint, Car, ArrowUpCircle, Navigation } from 'lucide-react';
 
 interface ApartmentCardProps {
   apartment: Apartment;
-  userRole?: string;
+  currentUser: User | null;
   isOwnerOrAdmin: boolean;
   onViewDetail: (apt: Apartment) => void;
   onEdit?: (apt: Apartment) => void;
@@ -14,7 +16,7 @@ interface ApartmentCardProps {
 
 export const ApartmentCard: React.FC<ApartmentCardProps> = ({
   apartment,
-  userRole,
+  currentUser,
   isOwnerOrAdmin,
   onViewDetail,
   onEdit,
@@ -141,7 +143,7 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({
           <div className="text-xs">
             <span className="text-slate-400 block text-[10px]">Chủ nhà / Đầu mối:</span>
             <span className="font-medium text-slate-700">
-              {userRole === 'COLLABORATOR' ? apartment.ownerContact.phone : `${apartment.ownerContact.name} (${apartment.ownerContact.phone})`}
+              {currentUser?.role === 'COLLABORATOR' ? apartment.ownerContact.phone : `${apartment.ownerContact.name} (${apartment.ownerContact.phone})`}
             </span>
           </div>
 
@@ -172,6 +174,10 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({
               </button>
             )}
           </div>
+        </div>
+
+        <div className="pt-3">
+          <CopyShareButton apartment={apartment} ctv={currentUser} />
         </div>
       </div>
     </div>

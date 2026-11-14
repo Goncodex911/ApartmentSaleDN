@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  /* Ẩn thanh cuộn nhưng vẫn vuốt được (thanh lọc nhanh, slide ảnh) */
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @layer base {
   body {
     @apply font-sans antialiased bg-slate-50 text-slate-900;

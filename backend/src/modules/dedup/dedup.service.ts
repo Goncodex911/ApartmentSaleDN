@@ -1,7 +1,10 @@
 import { Apartment, IApartment } from '../apartments/apartment.model.js';
 import { GeminiService } from '../ingestion/gemini.service.js';
+import { GeminiVisionService } from '../ingestion/gemini-vision.service.js';
+import { fetchImageBuffer } from '../../utils/fetch-image.js';
+import { escapeRegex } from '../../utils/phone-text.js';
 import { PHashUtil } from './phash.util.js';
-import { IDedupCheckResult, IProcessListingInput } from './dedup.types.js';
+import { IProcessListingInput } from './dedup.types.js';
 
 export class DedupService {
   /**
@@ -70,27 +73,25 @@ export class DedupService {
   ): Promise<{ matchedApartment: IApartment; matchedCount: number } | null> {
     if (!newImageHashes || newImageHashes.length === 0) return null;
 
-    // Tìm các căn hộ trong cùng quận có lưu imageHashes
+    // Tìm các căn hộ trong cùng quận có lưu imageHashes (district do AI bóc tách từ tin public → phải escape regex)
     const query: any = { 'imageHashes.0': { $exists: true } };
     if (district) {
-      query['location.district'] = new RegExp(district.trim(), 'i');
+      query['location.district'] = new RegExp(escapeRegex(district.trim()), 'i');
     }
 
-    const candidates = await Apartment.find(query);
+    // Chỉ lấy imageHashes để so sánh; tải đầy đủ document cho căn khớp duy nhất ở cuối
+    const candidates = await Apartment.find(query).select('imageHashes').lean();
 
+    // Khớp khi có >= 2 ảnh trùng (hoặc 1 ảnh nếu bài chỉ có 1 ảnh duy nhất)
+    const threshold = newImageHashes.length === 1 ? 1 : 2;
     for (const apt of candidates) {
       const existingHashes = apt.imageHashes || [];
-      let matchCount = 0;
-
-      for (const newHash of newImageHashes) {
-        const found = existingHashes.some((oldHash) => PHashUtil.isMatch(newHash, oldHash, 8));
-        if (found) matchCount++;
-      }
-
-      // Nếu có >= 2 ảnh khớp (hoặc 1 ảnh nếu bài chỉ có 1 ảnh duy nhất)
-      const threshold = newImageHashes.length === 1 ? 1 : 2;
+      const matchCount = newImageHashes.filter((newHash) =>
+        existingHashes.some((oldHash) => PHashUtil.isMatch(newHash, oldHash, 8))
+      ).length;
       if (matchCount >= threshold) {
-        return { matchedApartment: apt, matchedCount: matchCount };
+        const matchedApartment = await Apartment.findById(apt._id);
+        if (matchedApartment) return { matchedApartment, matchedCount: matchCount };
       }
     }
 
@@ -113,14 +114,16 @@ export class DedupService {
 
     const ext = parseResult.extracted;
 
-    // Bước 2: Tính toán mã pHash cho các ảnh đính kèm (nếu có)
+    // Bước 2: Tải ảnh 1 lần và tính mã pHash (ảnh đã tải được dùng lại cho Gemini Vision ở Bước 5)
     const mediaUrls = input.mediaUrls || [];
     const newImageHashes: string[] = [];
+    const downloadedImages: { url: string; buffer: Buffer }[] = [];
 
     for (const url of mediaUrls) {
       try {
-        const hash = await PHashUtil.computeDHash(url);
-        if (hash) newImageHashes.push(hash);
+        const buffer = await fetchImageBuffer(url);
+        newImageHashes.push(await PHashUtil.computeDHash(buffer)); // ảnh hỏng sẽ lỗi ở đây và bị bỏ qua
+        downloadedImages.push({ url, buffer });
       } catch (_e) {
         // Bỏ qua lỗi nếu 1 ảnh không tải được
       }
@@ -157,7 +160,9 @@ export class DedupService {
       }
     }
 
-    // Bước 5: Tin hoàn toàn mới -> Tạo Master Apartment mới
+    // Bước 5: Tin hoàn toàn mới -> Gemini Vision đánh dấu ảnh dán SĐT nguồn cũ (Story 5.2) -> Tạo Master
+    const phoneImageIndexes = await GeminiVisionService.detectImagesWithPhone(downloadedImages.map((img) => img.buffer));
+
     const newApartment = await Apartment.create({
       title: ext.title,
       description: input.rawText,
@@ -184,6 +189,7 @@ export class DedupService {
       fees: ext.fees,
       images: mediaUrls,
       imageHashes: newImageHashes,
+      hiddenImages: phoneImageIndexes.map((index) => downloadedImages[index].url),
       ownerContact: ext.ownerContact,
       subListings: [
         {

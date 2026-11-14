@@ -12,7 +12,7 @@ const fileFilter = (
   if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
     cb(null, true);
   } else {
-    cb(new Error('Chỉ chấp nhận file định dạng hình ảnh hoặc video'));
+    cb(Object.assign(new Error('Chỉ chấp nhận file định dạng hình ảnh hoặc video'), { status: 400 }));
   }
 };
 

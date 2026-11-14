@@ -3,6 +3,11 @@ import { CreateApartmentInput, UpdateApartmentInput, UpdateStatusInput, AddSubLi
 import { uploadBufferToCloudinary } from '../../config/cloudinary.js';
 import { GeocodingService } from '../search/geocoding.service.js';
 import { Types } from 'mongoose';
+import { maskPhonesInText, escapeRegex } from '../../utils/phone-text.js';
+
+const STATUSES_VISIBLE_TO_CTV = ['AVAILABLE', 'UPCOMING', 'DEPOSITED'];
+// Chỉ nhận giá trị chuỗi: qs cho phép ?status[$ne]=X tạo object → chèn toán tử MongoDB vào filter
+const queryText = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
 
 export interface ApartmentFilterQuery {
   page?: number | string;
@@ -18,33 +23,28 @@ export interface ApartmentFilterQuery {
 
 export class ApartmentService {
   /**
-   * Data Masking: Che giấu SĐT và xóa ghi chú mật của chủ nhà nếu là CTV
+   * Data Masking: Che giấu SĐT và xóa ghi chú mật của chủ nhà nếu không phải Admin/Manager (Story 1.2).
+   * Che cả SĐT nằm trong văn bản tự do (title, description, rawContent): tin nhập từ Telegram/Zalo
+   * lưu nguyên văn bài đăng gốc nên luôn chứa SĐT chủ nhà.
    */
   static maskApartment(doc: IApartment | any, role?: string): any {
     if (!doc) return null;
     const item = doc.toObject ? doc.toObject() : { ...doc };
-    const isPrivileged = role === 'ADMIN' || role === 'MANAGER';
+    if (role === 'ADMIN' || role === 'MANAGER') return item;
 
-    if (!isPrivileged) {
-      if (item.ownerContact) {
-        if (item.ownerContact.phone) {
-          item.ownerContact.phone = item.ownerContact.phone.replace(/(\d{4})\d{3}(\d{3})/, '$1***$2');
-        }
-        delete item.ownerContact.note;
-      }
-      if (Array.isArray(item.subListings)) {
-        item.subListings = item.subListings.map((sub: any) => {
-          const subObj = sub.toObject ? sub.toObject() : { ...sub };
-          if (subObj.ownerContact) {
-            if (subObj.ownerContact.phone) {
-              subObj.ownerContact.phone = subObj.ownerContact.phone.replace(/(\d{4})\d{3}(\d{3})/, '$1***$2');
-            }
-            delete subObj.ownerContact.note;
-          }
-          return subObj;
-        });
-      }
-    }
+    const maskContact = (contact?: { phone?: string; note?: string }) =>
+      contact && { ...contact, phone: contact.phone?.replace(/(\d{4})\d{3}(\d{3})/, '$1***$2'), note: undefined };
+    const maskText = (text?: string) => (text ? maskPhonesInText(text) : text);
+
+    item.title = maskText(item.title);
+    item.description = maskText(item.description);
+    item.ownerContact = maskContact(item.ownerContact);
+    delete item.imageHashes; // Dữ liệu nội bộ của bộ khử trùng, không cần gửi ra ngoài
+    item.subListings = (item.subListings || []).map((sub: any) => ({
+      ...sub,
+      ownerContact: maskContact(sub.ownerContact),
+      rawContent: maskText(sub.rawContent),
+    }));
     return item;
   }
 
@@ -87,13 +87,26 @@ export class ApartmentService {
     if (user.role !== 'ADMIN' && apartment.managerId.toString() !== user.id) {
       throw { status: 403, message: 'Bạn không có quyền chỉnh sửa căn hộ này' };
     }
-    if (data.location && (!data.location.coordinates || data.location.coordinates.length < 2)) {
+    // Chỉ geocode lại khi địa chỉ/quận thực sự đổi — tránh ghi đè tọa độ chính xác bằng tọa độ ước lượng
+    const addressChanged =
+      (data.location?.address && data.location.address !== apartment.location.address) ||
+      (data.location?.district && data.location.district !== apartment.location.district);
+    if (data.location && addressChanged && !data.location.coordinates) {
       const geo =
         GeocodingService.resolveCoordinates(data.location.address || apartment.location.address) ||
         GeocodingService.resolveCoordinates(data.location.district || apartment.location.district);
       if (geo) data.location.coordinates = geo.coordinates;
     }
-    Object.assign(apartment, data);
+    // Gán từng trường con (VD: attributes.elevator) thay vì ghi đè cả object (Object.assign)
+    // → gửi một phần attributes/location/ownerContact không làm mất các trường còn lại
+    for (const [key, value] of Object.entries(data)) {
+      const isNestedObject = value !== null && typeof value === 'object' && !Array.isArray(value);
+      if (!isNestedObject) {
+        apartment.set(key, value);
+        continue;
+      }
+      for (const [subKey, subValue] of Object.entries(value)) apartment.set(`${key}.${subKey}`, subValue);
+    }
     await apartment.save();
     return apartment;
   }
@@ -152,7 +165,7 @@ export class ApartmentService {
     if (user.role !== 'ADMIN' && apartment.managerId.toString() !== user.id) {
       throw { status: 403, message: 'Bạn không có quyền xóa căn hộ này' };
     }
-    await Apartment.findByIdAndDelete(id);
+    await apartment.deleteOne();
     return true;
   }
 
@@ -164,32 +177,31 @@ export class ApartmentService {
 
     const filter: any = {};
     const isPrivileged = role === 'ADMIN' || role === 'MANAGER';
-    if (query.status) {
-      if (query.status === 'ALL') {
-        if (!isPrivileged) filter.status = { $ne: 'RENTED' };
-      } else {
-        filter.status = query.status;
-      }
+    const status = queryText(query.status);
+    const district = queryText(query.district);
+    const furnishing = queryText(query.furnishing);
+    const minPrice = Number(queryText(query.minPrice));
+    const maxPrice = Number(queryText(query.maxPrice));
+
+    // CTV/khách không bao giờ thấy căn đã cho thuê (kể cả khi tự truyền status=RENTED)
+    if (isPrivileged) {
+      if (status && status !== 'ALL') filter.status = status;
     } else {
-      if (!isPrivileged) filter.status = { $in: ['AVAILABLE', 'UPCOMING', 'DEPOSITED'] };
+      filter.status = status && STATUSES_VISIBLE_TO_CTV.includes(status) ? status : { $in: STATUSES_VISIBLE_TO_CTV };
     }
 
-    if (query.district) filter['location.district'] = { $regex: query.district, $options: 'i' };
-    if (query.minPrice || query.maxPrice) {
+    if (district) filter['location.district'] = { $regex: escapeRegex(district), $options: 'i' };
+    if (minPrice || maxPrice) {
       filter.price = {};
-      if (query.minPrice) filter.price.$gte = Number(query.minPrice);
-      if (query.maxPrice) filter.price.$lte = Number(query.maxPrice);
+      if (minPrice) filter.price.$gte = minPrice;
+      if (maxPrice) filter.price.$lte = maxPrice;
     }
-    if (query.furnishing) filter['attributes.furnishing'] = query.furnishing;
-    if (query.elevator !== undefined) {
-      filter['attributes.elevator'] = query.elevator === 'true' || query.elevator === true;
-    }
-    if (query.allowPets !== undefined) {
-      filter['attributes.allowPets'] = query.allowPets === 'true' || query.allowPets === true;
-    }
+    if (furnishing) filter['attributes.furnishing'] = furnishing;
+    if (query.elevator !== undefined) filter['attributes.elevator'] = String(query.elevator) === 'true';
+    if (query.allowPets !== undefined) filter['attributes.allowPets'] = String(query.allowPets) === 'true';
 
     const [items, total] = await Promise.all([
-      Apartment.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Apartment.find(filter).select('-imageHashes').sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       Apartment.countDocuments(filter),
     ]);
 

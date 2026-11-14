@@ -1,4 +1,4 @@
-import { HANOI_LANDMARKS, HANOI_DISTRICT_CENTROIDS, ILandmark } from './landmarks.data.js';
+import { HANOI_LANDMARKS, HANOI_DISTRICT_CENTROIDS } from './landmarks.data.js';
 
 export interface IResolvedLocation {
   name: string;

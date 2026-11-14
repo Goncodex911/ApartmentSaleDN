@@ -37,6 +37,7 @@ export interface Apartment {
     parkingMotor?: number;
   };
   images: string[];
+  hiddenImages?: string[]; // Ảnh có SĐT nguồn cũ — không gửi khách (Story 5.2)
   videos?: string[];
   ownerContact: {
     name: string;
