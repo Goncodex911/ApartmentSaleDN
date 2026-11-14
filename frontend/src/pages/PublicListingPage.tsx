@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { formatVnd } from '../utils/format.js';
 import { useParams } from 'react-router-dom';
 import { shareApi, PublicListing } from '../api/shareApi.js';
 import { PhotoSlider } from '../components/public/PhotoSlider.js';
 import { CtvContactBar } from '../components/public/CtvContactBar.js';
+import { ChatWidget } from '../components/public/ChatWidget.js';
 import { MapPin, LinkIcon } from 'lucide-react';
 
-const formatVnd = (value: number) => new Intl.NumberFormat('vi-VN').format(value) + 'đ';
 const FURNISHING_LABEL = { FULL: 'Full đồ', BASIC: 'Đồ cơ bản', EMPTY: 'Nhà trống' } as const;
 
 // Bản đồ khu vực chung: tâm đã làm tròn ~500m từ backend, vòng tròn mờ thay cho ghim vị trí
@@ -135,6 +136,7 @@ export const PublicListingPage: React.FC = () => {
         </div>
       </div>
 
+      <ChatWidget code={code} ctvName={listing.ctv.name} greeting={listing.ctv.greetingMessage} />
       <CtvContactBar ctv={listing.ctv} />
     </div>
   );

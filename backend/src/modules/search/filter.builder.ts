@@ -1,5 +1,7 @@
 import { ISearchOptions } from './search.service.js';
 import { IResolvedLocation } from './geocoding.service.js';
+import { escapeRegex } from '../../utils/phone-text.js';
+import { buildStatusFilter } from '../apartments/apartment.model.js';
 
 export class FilterBuilder {
   /**
@@ -13,14 +15,15 @@ export class FilterBuilder {
   ): any {
     const filter: any = {};
 
-    // 1. Phân quyền: CTV không thấy phòng đã cho thuê (RENTED)
-    if (options.userRole === 'COLLABORATOR') filter.status = { $ne: 'RENTED' };
-    if (options.status) filter.status = options.status;
+    // 1. Phân quyền: CTV & khách vãng lai không bao giờ thấy căn đã cho thuê (kể cả khi tự truyền status=RENTED)
+    const statusFilter = buildStatusFilter(options.status, options.userRole);
+    if (statusFilter) filter.status = statusFilter;
 
     // 2. Lọc theo Quận/Huyện (chỉ áp dụng nếu không tìm theo điểm mốc)
     const targetDistrict = options.district || recognizedDistrict || resolvedLandmark?.district;
     if (targetDistrict && !resolvedLandmark) {
-      filter['location.district'] = new RegExp(targetDistrict, 'i');
+      // Escape: district có thể đến từ người dùng/AI (chat công khai) → chống regex injection & ReDoS
+      filter['location.district'] = new RegExp(escapeRegex(targetDistrict), 'i');
     }
 
     // 3. Lọc theo Khoảng giá (Story 4.3 1-Tap Faceted Price Range)

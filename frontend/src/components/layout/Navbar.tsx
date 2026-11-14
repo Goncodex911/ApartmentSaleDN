@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { User, authApi } from '../../api/authApi.js';
-import { Building2, UserCircle, LogOut, Copy, Check, UserCheck } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { Building2, UserCircle, LogOut, Copy, Check, UserCheck, LayoutGrid, Users } from 'lucide-react';
 import { PendingUsersModal } from './PendingUsersModal.js';
+import { NotificationBell } from './NotificationBell.js';
 
 interface NavbarProps {
   user: User | null;
@@ -34,26 +36,48 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onOpenProfile, onLogout })
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
+          {/* Logo + Điều hướng Bảng hàng / Khách hàng (Story 6.1) */}
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="p-2 bg-indigo-600 rounded-xl text-white shadow-sm">
               <Building2 className="w-6 h-6" />
             </div>
-            <div>
+            <div className="hidden lg:block">
               <h1 className="text-lg font-bold text-slate-900 leading-tight">RoomMaster</h1>
-              <p className="text-xs text-slate-500 hidden sm:block">Quản lý Căn hộ & Môi giới CTV</p>
+              <p className="text-xs text-slate-500">Quản lý Căn hộ & Môi giới CTV</p>
             </div>
+            {user && (
+              <nav className="flex items-center gap-1">
+                {[
+                  { to: '/apartments', label: 'Bảng hàng', Icon: LayoutGrid },
+                  { to: '/leads', label: 'Khách hàng', Icon: Users },
+                ].map(({ to, label, Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    title={label}
+                    className={({ isActive }) =>
+                      `flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-semibold ${
+                        isActive ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-100'
+                      }`
+                    }
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="hidden md:inline">{label}</span>
+                  </NavLink>
+                ))}
+              </nav>
+            )}
           </div>
 
           {/* User Profile & Actions */}
           {user && (
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-1 sm:gap-3">
               {/* Mã CTV Badge (Nhấn để copy) */}
               {user.ctvCode && (
                 <button
                   onClick={handleCopyCode}
                   title="Nhấn để copy mã định danh CTV"
-                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
                 >
                   <span>Mã: {user.ctvCode}</span>
                   {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 opacity-60" />}
@@ -62,7 +86,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onOpenProfile, onLogout })
 
               {/* Vai trò Badge */}
               <span
-                className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                className={`hidden sm:inline text-xs px-2.5 py-1 rounded-full font-medium ${
                   user.role === 'ADMIN'
                     ? 'bg-purple-100 text-purple-700'
                     : user.role === 'MANAGER'
@@ -84,6 +108,9 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onOpenProfile, onLogout })
                   <span className="hidden md:inline">Duyệt tài khoản</span>
                 </button>
               )}
+
+              {/* Thông báo khách mới / ghép căn (Story 6.2, 6.3) */}
+              <NotificationBell user={user} />
 
               {/* Tên & Mở Profile */}
               <button

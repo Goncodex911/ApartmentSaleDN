@@ -1,122 +1,74 @@
-import { Response, NextFunction } from 'express';
+import { Response } from 'express';
 import { SearchService } from './search.service.js';
 import { GeocodingService } from './geocoding.service.js';
 import { AuthRequest } from '../../middlewares/auth.js';
+import { asyncHandler } from '../../utils/async-handler.js';
+
+// Ép kiểu tham số query: qs có thể tạo object/mảng (?x[$ne]=1) → chỉ nhận chuỗi
+const text = (value: unknown) => (typeof value === 'string' && value ? value : undefined);
+const num = (value: unknown) => (text(value) !== undefined && Number.isFinite(Number(value)) ? Number(value) : undefined);
+const bool = (value: unknown) => (value === 'true' ? true : value === 'false' ? false : undefined);
+
+/**
+ * Tìm kiếm bằng câu tự nhiên AI (Story 4.4) — POST & GET /api/v1/apartments/search/natural
+ */
+async function runNaturalSearch(req: AuthRequest, res: Response) {
+  const queryText = String(req.body?.query || text(req.query.q) || '').slice(0, 300);
+  const result = await SearchService.searchNatural(queryText, {
+    page: num(req.query.page) ?? 1,
+    limit: num(req.query.limit) ?? 12,
+    userRole: req.user?.role,
+  });
+  res.status(200).json({
+    success: true,
+    data: result.items,
+    pagination: result.pagination,
+    naturalAnalysis: result.naturalAnalysis,
+    meta: result.meta,
+  });
+}
 
 export class SearchController {
   /**
-   * GET /api/v1/apartments/search
-   * Tìm kiếm mờ thông minh, hiểu tiếng lóng, bán kính GPS & Bộ lọc 1-chạm
+   * GET /api/v1/apartments/search — Tìm kiếm mờ thông minh, hiểu tiếng lóng, bán kính GPS & Bộ lọc 1-chạm
    */
-  public static async search(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const {
-        q,
-        district,
-        minPrice,
-        maxPrice,
-        status,
-        bedrooms,
-        furnishing,
-        page,
-        limit,
-        lat,
-        lng,
-        radiusKm,
-        landmark,
-        priceRange,
-        roomType,
-        elevator,
-        allowPets,
-        carParking,
-        balcony,
-        pcccStandard,
-        natural,
-      } = req.query;
+  static search = asyncHandler(async (req, res) => {
+    const query = req.query;
+    // Cờ ?natural=true → chuyển sang xử lý câu tự nhiên (lỗi vẫn đi qua asyncHandler của route này)
+    if (query.natural === 'true' && text(query.q)) return runNaturalSearch(req, res);
 
-      // Nếu có cờ ?natural=true, chuyển hướng sang xử lý câu tự nhiên
-      if (natural === 'true' && q) {
-        return SearchController.searchNatural(req, res, next);
-      }
+    const result = await SearchService.search({
+      q: text(query.q),
+      district: text(query.district),
+      minPrice: num(query.minPrice),
+      maxPrice: num(query.maxPrice),
+      status: text(query.status),
+      bedrooms: num(query.bedrooms),
+      furnishing: text(query.furnishing),
+      page: num(query.page) ?? 1,
+      limit: num(query.limit) ?? 12,
+      userRole: req.user?.role,
+      lat: num(query.lat),
+      lng: num(query.lng),
+      radiusKm: num(query.radiusKm),
+      landmark: text(query.landmark),
+      priceRange: text(query.priceRange),
+      roomType: text(query.roomType),
+      elevator: bool(query.elevator),
+      allowPets: bool(query.allowPets),
+      carParking: bool(query.carParking),
+      balcony: bool(query.balcony),
+      pcccStandard: bool(query.pcccStandard),
+    });
+    res.status(200).json({ success: true, data: result.items, pagination: result.pagination, meta: result.meta });
+  });
 
-      const parseBool = (val: any) => (val === 'true' ? true : val === 'false' ? false : undefined);
-
-      const result = await SearchService.search({
-        q: q ? String(q) : undefined,
-        district: district ? String(district) : undefined,
-        minPrice: minPrice ? Number(minPrice) : undefined,
-        maxPrice: maxPrice ? Number(maxPrice) : undefined,
-        status: status ? String(status) : undefined,
-        bedrooms: bedrooms ? Number(bedrooms) : undefined,
-        furnishing: furnishing ? String(furnishing) : undefined,
-        page: page ? Number(page) : 1,
-        limit: limit ? Number(limit) : 12,
-        userRole: req.user?.role,
-        lat: lat ? Number(lat) : undefined,
-        lng: lng ? Number(lng) : undefined,
-        radiusKm: radiusKm ? Number(radiusKm) : undefined,
-        landmark: landmark ? String(landmark) : undefined,
-        priceRange: priceRange ? String(priceRange) : undefined,
-        roomType: roomType ? String(roomType) : undefined,
-        elevator: parseBool(elevator),
-        allowPets: parseBool(allowPets),
-        carParking: parseBool(carParking),
-        balcony: parseBool(balcony),
-        pcccStandard: parseBool(pcccStandard),
-      });
-
-      res.status(200).json({
-        success: true,
-        data: result.items,
-        pagination: result.pagination,
-        meta: result.meta,
-      });
-    } catch (err) {
-      next(err);
-    }
-  }
+  static searchNatural = asyncHandler(runNaturalSearch);
 
   /**
-   * POST & GET /api/v1/apartments/search/natural
-   * Tìm kiếm bằng câu tự nhiên AI (Story 4.4)
+   * GET /api/v1/apartments/search/landmarks — Danh sách trường đại học, bệnh viện & tòa nhà văn phòng tại Hà Nội
    */
-  public static async searchNatural(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const queryText = (req.body?.query || req.query?.q || '').toString();
-      const page = req.query.page ? Number(req.query.page) : 1;
-      const limit = req.query.limit ? Number(req.query.limit) : 12;
-
-      const result = await SearchService.searchNatural(queryText, {
-        page,
-        limit,
-        userRole: req.user?.role,
-      });
-
-      res.status(200).json({
-        success: true,
-        data: result.items,
-        pagination: result.pagination,
-        naturalAnalysis: result.naturalAnalysis,
-        meta: result.meta,
-      });
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  /**
-   * GET /api/v1/apartments/search/landmarks
-   * Danh sách các trường đại học, bệnh viện & tòa nhà văn phòng tại Hà Nội
-   */
-  public static async getLandmarks(_req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const landmarks = GeocodingService.getLandmarks();
-      res.status(200).json({
-        success: true,
-        data: landmarks,
-      });
-    } catch (err) {
-      next(err);
-    }
-  }
+  static getLandmarks = asyncHandler(async (_req, res) => {
+    res.status(200).json({ success: true, data: GeocodingService.getLandmarks() });
+  });
 }

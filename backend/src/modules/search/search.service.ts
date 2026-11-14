@@ -126,6 +126,7 @@ export class SearchService {
     const searchOptions: ISearchOptions = {
       ...options,
       ...analysis.extracted,
+      userRole: options.userRole, // Đặt sau cùng: kết quả AI không bao giờ được ghi đè quyền người dùng
       q: undefined, // Không match nguyên câu văn vào title
     };
 
@@ -222,7 +223,8 @@ export class SearchService {
         },
       },
     ];
-    if (filter.status) pipeline.push({ $match: { status: filter.status } });
+    // Áp dụng TOÀN BỘ điều kiện lọc (quận, giá, tiện ích, phân quyền status) — trước đây chỉ lọc status
+    if (Object.keys(filter).length > 0) pipeline.push({ $match: filter });
     pipeline.push({
       $facet: {
         results: [{ $skip: skip }, { $limit: limit }],

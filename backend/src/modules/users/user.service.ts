@@ -1,4 +1,6 @@
 import { User, IUser } from '../auth/user.model.js';
+import { TelegramService } from '../ingestion/telegram.service.js';
+import { randomCode } from '../../utils/random-code.js';
 import { UpdateProfileInput } from './user.validation.js';
 
 export class UserService {
@@ -32,6 +34,20 @@ export class UserService {
     return updatedUser;
   }
 
+  /**
+   * Quản lý mặc định nhận căn từ các cổng nhập tin không đăng nhập (Telegram, Webhook).
+   * Chỉ chọn tài khoản ACTIVE (không chọn trúng tài khoản chờ duyệt/bị khóa); lấy người tạo sớm nhất cho ổn định.
+   */
+  static async findDefaultManagerId(): Promise<string> {
+    const manager = await User.findOne({ role: { $in: ['ADMIN', 'MANAGER'] }, status: 'ACTIVE' })
+      .sort({ createdAt: 1 })
+      .select('_id')
+      .lean();
+    // Không tạo căn "mồ côi" với managerId giả như trước — báo lỗi rõ ràng
+    if (!manager) throw { status: 503, message: 'Chưa có tài khoản Quản lý/ADMIN đang hoạt động để nhận tin' };
+    return String(manager._id);
+  }
+
   // [ADMIN] Danh sách tài khoản theo trạng thái (mặc định: đang chờ duyệt)
   static async listByStatus(status: IUser['status']) {
     return User.find({ status, role: { $ne: 'ADMIN' } }).select('name phone role ctvCode status createdAt').sort({ createdAt: -1 }).lean();
@@ -45,6 +61,24 @@ export class UserService {
     user.status = status;
     await user.save();
     return user;
+  }
+
+  /**
+   * Tạo mã liên kết Telegram dùng 1 lần, hết hạn sau 10 phút (Story 6.2 - AC5).
+   * Trả về deep link t.me/<bot>?start=<mã> — mở trên điện thoại là liên kết xong.
+   */
+  static async createTelegramLink(userId: string) {
+    const botUsername = await TelegramService.getBotUsername();
+    if (!botUsername) throw { status: 503, message: 'Hệ thống chưa cấu hình bot Telegram (TELEGRAM_BOT_TOKEN)' };
+
+    const code = randomCode(8);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await User.updateOne({ _id: userId }, { telegramLinkCode: code, telegramLinkExpiresAt: expiresAt });
+    return { deepLink: `https://t.me/${botUsername}?start=${code}`, code, expiresAt };
+  }
+
+  static async unlinkTelegram(userId: string) {
+    await User.updateOne({ _id: userId }, { $unset: { telegramChatId: 1 } });
   }
 
   // Lấy thông tin công khai của CTV thông qua ctvCode (dùng cho Public Landing Page)

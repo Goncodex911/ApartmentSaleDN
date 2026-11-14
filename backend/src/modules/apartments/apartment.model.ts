@@ -149,3 +149,13 @@ const apartmentSchema = new Schema<IApartment>(
 );
 
 export const Apartment = model<IApartment>('Apartment', apartmentSchema);
+
+// CTV & khách vãng lai không bao giờ thấy căn đã cho thuê — dùng chung cho danh sách (Epic 2) & tìm kiếm (Epic 4)
+export const STATUSES_VISIBLE_TO_CTV = ['AVAILABLE', 'UPCOMING', 'DEPOSITED'];
+export const isPrivilegedRole = (role?: string) => role === 'ADMIN' || role === 'MANAGER';
+
+/** Điều kiện lọc status theo quyền. Trả về undefined = không lọc (Admin/Manager xem tất cả). */
+export function buildStatusFilter(status: string | undefined, role?: string) {
+  if (isPrivilegedRole(role)) return status && status !== 'ALL' ? status : undefined;
+  return status && STATUSES_VISIBLE_TO_CTV.includes(status) ? status : { $in: STATUSES_VISIBLE_TO_CTV };
+}

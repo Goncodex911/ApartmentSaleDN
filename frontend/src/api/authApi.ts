@@ -11,6 +11,7 @@ export interface User {
   zaloLink?: string;
   avatarUrl?: string;
   greetingMessage?: string;
+  telegramChatId?: string; // Có giá trị = đã liên kết Telegram nhận thông báo (Story 6.2)
 }
 
 export const authApi = {

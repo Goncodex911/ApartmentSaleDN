@@ -13,6 +13,10 @@ export interface IUser extends Document {
   zaloLink?: string;
   avatarUrl?: string;
   greetingMessage?: string;
+  // Liên kết Telegram nhận thông báo khách mới / ghép căn (Story 6.2 - AC5)
+  telegramChatId?: string;
+  telegramLinkCode?: string;
+  telegramLinkExpiresAt?: Date;
   comparePassword(candidate: string): Promise<boolean>;
   createdAt: Date;
   updatedAt: Date;
@@ -35,12 +39,16 @@ const userSchema = new Schema<IUser>(
     zaloLink: { type: String, trim: true },
     avatarUrl: { type: String, trim: true },
     greetingMessage: { type: String, trim: true, default: 'Xin chào, rất vui được hỗ trợ bạn tìm căn hộ ưng ý!' },
+    telegramChatId: { type: String },
+    telegramLinkCode: { type: String, index: { sparse: true } },
+    telegramLinkExpiresAt: { type: Date },
   },
   {
     timestamps: true,
     toJSON: {
       transform(_doc, ret) {
         delete (ret as { password?: string }).password;
+        delete (ret as { telegramLinkCode?: string }).telegramLinkCode;
         return ret;
       },
     },

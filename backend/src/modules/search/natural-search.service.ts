@@ -1,5 +1,6 @@
 import { HANOI_DISTRICT_SYNONYMS } from './slang.dictionary.js';
 import { HANOI_LANDMARKS } from './landmarks.data.js';
+import { GeminiService } from '../ingestion/gemini.service.js';
 
 export interface INaturalExtracted {
   district?: string;
@@ -22,6 +23,27 @@ export interface INaturalAnalysisResult {
   extracted: INaturalExtracted;
   badges: Array<{ label: string; type: 'district' | 'landmark' | 'price' | 'roomType' | 'amenity' }>;
   summary: string;
+}
+
+const ROOM_TYPES = ['studio', '1pn', '2pn', 'duplex'];
+const FURNISHING_VALUES = ['FULL', 'BASIC', 'EMPTY'];
+const AMENITY_KEYS = ['elevator', 'allowPets', 'carParking', 'balcony', 'pcccStandard'] as const;
+
+/**
+ * Kết quả AI có thể bị khách chèn lệnh (prompt injection, VD bắt AI trả thêm "userRole":"ADMIN")
+ * → chỉ giữ đúng các trường lọc, đúng kiểu dữ liệu.
+ */
+function sanitizeExtracted(raw: any): INaturalExtracted {
+  const result: INaturalExtracted = {};
+  if (typeof raw?.district === 'string' && raw.district.trim()) result.district = raw.district.trim().slice(0, 50);
+  if (typeof raw?.landmark === 'string' && raw.landmark.trim()) result.landmark = raw.landmark.trim().slice(0, 80);
+  if (ROOM_TYPES.includes(raw?.roomType)) result.roomType = raw.roomType;
+  if (FURNISHING_VALUES.includes(raw?.furnishing)) result.furnishing = raw.furnishing;
+  if (Number(raw?.minPrice) > 0) result.minPrice = Number(raw.minPrice);
+  if (Number(raw?.maxPrice) > 0) result.maxPrice = Number(raw.maxPrice);
+  if (Number.isInteger(raw?.bedrooms) && raw.bedrooms >= 0 && raw.bedrooms <= 10) result.bedrooms = raw.bedrooms;
+  for (const key of AMENITY_KEYS) if (raw?.[key] === true) result[key] = true;
+  return result;
 }
 
 export class NaturalSearchService {
@@ -163,7 +185,7 @@ Trả về DUY NHẤT một đối tượng JSON chuẩn (không giải thích):
   "furnishing": "FULL nếu yêu cầu đầy đủ nội thất"
 }`;
 
-    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const model = GeminiService.getModel(); // Dùng chung cấu hình model với bộ bóc tách tin
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4000);
@@ -182,7 +204,7 @@ Trả về DUY NHẤT một đối tượng JSON chuẩn (không giải thích):
       if (!res.ok) return null;
       const data = (await res.json()) as any;
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      return text ? (JSON.parse(text) as INaturalExtracted) : null;
+      return text ? sanitizeExtracted(JSON.parse(text)) : null;
     } finally {
       clearTimeout(timeout);
     }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../../api/authApi.js';
 import { userApi } from '../../api/userApi.js';
+import { TelegramLinkSection } from './TelegramLinkSection.js';
 import { X, UserCircle, Phone, MessageSquare, ExternalLink, Loader2, Check } from 'lucide-react';
 
 // Trang cha chỉ render modal khi đang mở → mỗi lần mở là một lần mount mới, state tự lấy theo user hiện tại
@@ -142,8 +143,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
               placeholder="VD: Em Hải chuyên viên căn hộ Cầu Giấy xin chào anh/chị!"
               className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
             />
-            <span className="text-[11px] text-slate-400 block">Lời chào này sẽ tự động gắn vào bài đăng Zalo khi bạn copy gửi khách.</span>
+            <span className="text-[11px] text-slate-400 block">Hiển thị trên trang xem phòng và là câu chào đầu tiên của trợ lý AI khi khách chat.</span>
           </div>
+
+          <TelegramLinkSection linked={Boolean(user.telegramChatId)} />
 
           {/* Footer */}
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
