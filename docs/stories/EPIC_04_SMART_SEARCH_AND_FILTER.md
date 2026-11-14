@@ -53,3 +53,4 @@ Tạo ra công cụ tìm kiếm chuẩn xác, linh hoạt, chịu lỗi tốt, h
   1. AI trích xuất các tiêu chí: `district: Cầu Giấy`, `type: 1N1K`, `price_max: 7000000`, `amenity: thang_may`.
   2. Tự động áp dụng vào query tìm kiếm và trả về danh sách căn phù hợp.
 
+

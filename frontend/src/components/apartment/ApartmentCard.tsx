@@ -1,7 +1,7 @@
 import React from 'react';
 import { Apartment } from '../../api/apartmentApi.js';
 import { StatusBadge } from './StatusBadge.js';
-import { MapPin, Image as ImageIcon, Eye, Edit2, Trash2, ShieldCheck, PawPrint, Car, ArrowUpCircle } from 'lucide-react';
+import { MapPin, Image as ImageIcon, Eye, Edit2, Trash2, ShieldCheck, PawPrint, Car, ArrowUpCircle, Navigation } from 'lucide-react';
 
 interface ApartmentCardProps {
   apartment: Apartment;
@@ -54,6 +54,14 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({
             HH: {apartment.commission.type === 'PERCENT' ? `${apartment.commission.value}%` : formatPrice(apartment.commission.value)}
           </span>
         )}
+
+        {/* Khoảng cách đến Điểm mốc (Story 4.2) */}
+        {apartment.distanceKm !== undefined && (
+          <span className="absolute top-2.5 right-2.5 bg-emerald-700/90 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow-md flex items-center gap-1">
+            <Navigation className="w-3 h-3 text-white" />
+            Cách {apartment.nearestLandmark || 'mốc'}: {apartment.distanceKm} km
+          </span>
+        )}
       </div>
 
       {/* Nội dung chi tiết */}
@@ -81,10 +89,17 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({
             {apartment.title}
           </h3>
 
-          {/* Địa chỉ */}
-          <p className="text-xs text-slate-500 flex items-center gap-1 mb-3">
-            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span className="truncate">{apartment.location.district}, {apartment.location.address}</span>
+          {/* Địa chỉ & Khoảng cách */}
+          <p className="text-xs text-slate-500 flex items-center justify-between gap-1 mb-3">
+            <span className="flex items-center gap-1 truncate">
+              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="truncate">{apartment.location.district}, {apartment.location.address}</span>
+            </span>
+            {apartment.distanceKm !== undefined && (
+              <span className="shrink-0 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded ml-1">
+                📍 {apartment.distanceKm} km
+              </span>
+            )}
           </p>
 
           {/* Thuộc tính & Tiện ích nổi bật */}

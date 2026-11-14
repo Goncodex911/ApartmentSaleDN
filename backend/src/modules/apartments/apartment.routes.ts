@@ -3,6 +3,7 @@ import { ApartmentController } from './apartment.controller.js';
 import { authMiddleware } from '../../middlewares/auth.js';
 import { requireRoles, optionalAuthMiddleware } from '../../middlewares/rbac.js';
 import { uploadMiddleware } from '../../middlewares/upload.js';
+import { searchRoutes } from '../search/search.routes.js';
 
 const router = Router();
 
@@ -31,6 +32,7 @@ router.delete(
 );
 
 // 4. Tra cứu công khai hoặc theo quyền hạn CTV (kèm Data Masking)
+router.use('/search', searchRoutes);
 router.get('/', optionalAuthMiddleware, ApartmentController.getAll);
 router.get('/:id', optionalAuthMiddleware, ApartmentController.getById);
 
