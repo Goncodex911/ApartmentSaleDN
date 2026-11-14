@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatVnd } from '../../utils/format.js';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { StatusBadge } from './StatusBadge.js';
@@ -27,10 +28,6 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
 
   if (!apartment) return null;
 
-  const formatPrice = (val?: number) => {
-    if (!val) return '0 đ';
-    return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
-  };
 
   const isCtv = currentUser?.role === 'COLLABORATOR';
   const visibleImageCount = apartment.images.filter((url) => !apartment.hiddenImages?.includes(url)).length;
@@ -51,7 +48,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
             />
             {apartment.commission && apartment.commission.value > 0 && (
               <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
-                Hoa hồng: {apartment.commission.type === 'PERCENT' ? `${apartment.commission.value}%` : formatPrice(apartment.commission.value)}
+                Hoa hồng: {apartment.commission.type === 'PERCENT' ? `${apartment.commission.value}%` : formatVnd(apartment.commission.value)}
               </span>
             )}
           </div>
@@ -115,19 +112,19 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 text-xs">
             <div>
               <span className="text-slate-400 block mb-0.5">Giá thuê</span>
-              <span className="text-sm font-bold text-indigo-600">{formatPrice(apartment.price)}/tháng</span>
+              <span className="text-sm font-bold text-indigo-600">{formatVnd(apartment.price)}/tháng</span>
             </div>
             <div>
               <span className="text-slate-400 block mb-0.5">Tiền cọc</span>
-              <span className="text-sm font-semibold text-slate-700">{formatPrice(apartment.deposit)}</span>
+              <span className="text-sm font-semibold text-slate-700">{formatVnd(apartment.deposit)}</span>
             </div>
             <div>
               <span className="text-slate-400 block mb-0.5">Tiền điện</span>
-              <span className="font-semibold text-slate-700">{apartment.fees?.electricity ? `${formatPrice(apartment.fees.electricity)}/kWh` : 'Chưa rõ'}</span>
+              <span className="font-semibold text-slate-700">{apartment.fees?.electricity ? `${formatVnd(apartment.fees.electricity)}/kWh` : 'Chưa rõ'}</span>
             </div>
             <div>
               <span className="text-slate-400 block mb-0.5">Tiền nước</span>
-              <span className="font-semibold text-slate-700">{apartment.fees?.water ? `${formatPrice(apartment.fees.water)}/khối` : 'Chưa rõ'}</span>
+              <span className="font-semibold text-slate-700">{apartment.fees?.water ? `${formatVnd(apartment.fees.water)}/khối` : 'Chưa rõ'}</span>
             </div>
           </div>
 
@@ -203,7 +200,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
                       <span className="font-semibold text-slate-800">[{sub.sourceType}] {sub.sourceName || 'Nguồn tham chiếu'}</span>
                       <p className="text-slate-500 text-[11px]">SĐT: {sub.ownerContact?.phone || 'Chưa rõ'}</p>
                     </div>
-                    <span className="font-bold text-sky-600">{formatPrice(sub.price)}</span>
+                    <span className="font-bold text-sky-600">{formatVnd(sub.price)}</span>
                   </div>
                 ))}
               </div>

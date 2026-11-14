@@ -19,6 +19,7 @@ export const ApartmentsPage: React.FC = () => {
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 1, limit: 12, totalPages: 1 });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   // Filters state
   const [searchDistrict, setSearchDistrict] = useState('');
@@ -44,6 +45,7 @@ export const ApartmentsPage: React.FC = () => {
   const fetchApartments = async (page = 1, overrideQ?: string, overrideLm?: string, overrideRad?: string, overrideFacets?: Partial<FacetedFilterValues>) => {
     try {
       setLoading(true);
+      setLoadError('');
       const qText = overrideQ !== undefined ? overrideQ : searchDistrict;
       const lmVal = overrideLm !== undefined ? overrideLm : selectedLandmark;
       const radVal = overrideRad !== undefined ? overrideRad : radiusKm;
@@ -73,8 +75,8 @@ export const ApartmentsPage: React.FC = () => {
         setApartments(res.items || []);
       }
       setPagination(res.pagination || { total: 0, page: 1, limit: 12, totalPages: 1 });
-    } catch (err) {
-      console.error('Lỗi tải danh sách căn hộ:', err);
+    } catch {
+      setLoadError('Không tải được danh sách căn hộ. Vui lòng kiểm tra mạng và thử lại.');
     } finally {
       setLoading(false);
     }
@@ -87,6 +89,7 @@ export const ApartmentsPage: React.FC = () => {
     if (!searchDistrict || !searchDistrict.trim()) return;
     try {
       setLoading(true);
+      setLoadError('');
       const res = await apartmentApi.searchNaturalApartments(searchDistrict.trim());
       setApartments(res.data || []);
       setPagination(res.pagination || { total: 0, page: 1, limit: 12, totalPages: 1 });
@@ -105,33 +108,24 @@ export const ApartmentsPage: React.FC = () => {
         if (ext.minPrice) setMinPrice(String(ext.minPrice));
         if (ext.landmark) setSelectedLandmark(ext.landmark);
       }
-    } catch (err) {
-      console.error('Lỗi AI Search:', err);
+    } catch {
+      setLoadError('Tìm kiếm AI đang gặp sự cố, vui lòng thử lại hoặc dùng bộ lọc nhanh.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePriceRangeChange = (val: string) => {
-    const next = { ...faceted, priceRange: faceted.priceRange === val ? '' : val };
+  // Áp dụng bộ lọc nhanh: lưu state + tải lại ngay (không cần nút "Áp dụng" — Story 4.3)
+  const applyFacets = (next: FacetedFilterValues) => {
     setFaceted(next);
     fetchApartments(1, undefined, undefined, undefined, next);
   };
-  const handleRoomTypeChange = (val: string) => {
-    const next = { ...faceted, roomType: faceted.roomType === val ? '' : val };
-    setFaceted(next);
-    fetchApartments(1, undefined, undefined, undefined, next);
-  };
-  const handleAmenityToggle = (key: keyof Omit<FacetedFilterValues, 'priceRange' | 'roomType'>) => {
-    const next = { ...faceted, [key]: !faceted[key] };
-    setFaceted(next);
-    fetchApartments(1, undefined, undefined, undefined, next);
-  };
+  const handlePriceRangeChange = (val: string) => applyFacets({ ...faceted, priceRange: faceted.priceRange === val ? '' : val });
+  const handleRoomTypeChange = (val: string) => applyFacets({ ...faceted, roomType: faceted.roomType === val ? '' : val });
+  const handleAmenityToggle = (key: keyof Omit<FacetedFilterValues, 'priceRange' | 'roomType'>) => applyFacets({ ...faceted, [key]: !faceted[key] });
   const handleResetFilters = () => {
-    const reset = { priceRange: '', roomType: '', elevator: false, allowPets: false, carParking: false, balcony: false, pcccStandard: false };
-    setFaceted(reset);
     setNaturalAnalysis(null);
-    fetchApartments(1, undefined, undefined, undefined, reset);
+    applyFacets({ priceRange: '', roomType: '', elevator: false, allowPets: false, carParking: false, balcony: false, pcccStandard: false });
   };
 
   const isManagerOrAdmin = currentUser?.role === 'MANAGER' || currentUser?.role === 'ADMIN';
@@ -206,6 +200,11 @@ export const ApartmentsPage: React.FC = () => {
           <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
             <p className="text-sm font-medium">Đang tải dữ liệu bảng hàng...</p>
+          </div>
+        ) : loadError ? (
+          <div className="py-16 bg-white rounded-2xl border border-rose-200 text-center space-y-3 p-6">
+            <p className="text-sm text-rose-700">{loadError}</p>
+            <button onClick={() => fetchApartments(pagination.page)} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold">Thử lại</button>
           </div>
         ) : apartments.length === 0 ? (
           <div className="py-16 bg-white rounded-2xl border border-slate-200 text-center space-y-3 p-6">

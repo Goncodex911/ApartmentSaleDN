@@ -1,10 +1,13 @@
 import { DedupService } from '../dedup/dedup.service.js';
 import { uploadBufferToCloudinary } from '../../config/cloudinary.js';
 import { User } from '../auth/user.model.js';
+import { UserService } from '../users/user.service.js';
 
 // Telegram gửi album thành NHIỀU message cùng media_group_id (mỗi message 1 ảnh, chỉ 1 message có caption).
 // Gom các message của album, chờ ALBUM_WAIT_MS kể từ ảnh cuối cùng rồi mới xử lý thành 1 bài đăng hoàn chỉnh.
 const ALBUM_WAIT_MS = 2500;
+const WELCOME_MESSAGE =
+  '👋 Xin chào! Tôi là Bot Tự Động Thu Thập Tin BĐS.\n\nHãy thêm tôi vào các nhóm cho thuê phòng, tôi sẽ tự động bóc tách tin đăng và đẩy vào Kho Bảng hàng của hệ thống!';
 
 const logError = (context: string) => (err: Error) => console.error(`❌ [Telegram Bot] ${context}:`, err.message);
 
@@ -116,14 +119,10 @@ export class TelegramService {
     // Caption của album có thể nằm ở bất kỳ ảnh nào
     const rawText: string = messages.map((m) => m.text || m.caption || '').find((text) => text.trim()) || '';
 
-    // Phản hồi lệnh /start
-    if (rawText.trim() === '/start') {
-      await this.sendMessage(
-        token,
-        chatId,
-        '👋 Xin chào! Tôi là Bot Tự Động Thu Thập Tin BĐS.\n\nHãy thêm tôi vào các nhóm cho thuê phòng, tôi sẽ tự động bóc tách tin đăng và đẩy vào Kho Bảng hàng của hệ thống!',
-        first.message_id
-      );
+    // Lệnh /start [mã liên kết]: chào, hoặc liên kết tài khoản để nhận thông báo khách mới (Story 6.2)
+    const startCommand = rawText.trim().match(/^\/start(?:@\w+)?(?:\s+([a-z0-9]{8}))?$/i);
+    if (startCommand) {
+      await this.handleStartCommand(token, first, startCommand[1]);
       return;
     }
 
@@ -141,8 +140,7 @@ export class TelegramService {
     if (failedCount > 0) console.error(`⚠️ [Telegram Bot] Không tải được ${failedCount}/${uploads.length} ảnh của bài đăng`);
 
     // 2. Tìm Manager để gắn quyền sở hữu
-    const defaultManager = await User.findOne({ role: { $in: ['ADMIN', 'MANAGER'] }, status: 'ACTIVE' });
-    const managerId = defaultManager ? String(defaultManager._id) : '000000000000000000000000';
+    const managerId = await UserService.findDefaultManagerId();
 
     // 3. Đưa vào Pipeline bóc tách AI & Khử trùng lặp đa tầng
     const sourceName = first.chat.title || first.from?.first_name || 'Nhóm Telegram BĐS';
@@ -160,6 +158,53 @@ export class TelegramService {
       ? `ℹ️ [GỘP TRÙNG LẶP] Tin đăng trùng với Căn Master trên hệ thống.\nĐã tự động cập nhật nguồn "${sourceName}" vào danh sách so sánh giá.`
       : `✅ [ĐÃ LƯU BẢNG HÀNG]\n🏢 Tiêu đề: ${result.apartment.title}\n💰 Giá: ${result.apartment.price.toLocaleString('vi-VN')} đ/tháng\n📍 Khu vực: ${result.apartment.location.district}\n🖼 Số ảnh: ${mediaUrls.length}`;
     await this.sendMessage(token, chatId, replyText, first.message_id);
+  }
+
+  /**
+   * /start <mã>: liên kết chat riêng với tài khoản có mã 1 lần còn hạn (tạo trong mục Hồ sơ).
+   * Không liên kết bằng ctvCode vì mã này công khai → người lạ có thể nhận trộm thông báo khách.
+   */
+  private static async handleStartCommand(token: string, message: any, linkCode?: string): Promise<void> {
+    if (!linkCode || message.chat.type !== 'private') {
+      await this.sendMessage(token, message.chat.id, WELCOME_MESSAGE, message.message_id);
+      return;
+    }
+
+    const user = await User.findOneAndUpdate(
+      { telegramLinkCode: linkCode.toLowerCase(), telegramLinkExpiresAt: { $gt: new Date() } },
+      { telegramChatId: String(message.chat.id), $unset: { telegramLinkCode: 1, telegramLinkExpiresAt: 1 } },
+      { new: true }
+    );
+    await this.sendMessage(
+      token,
+      message.chat.id,
+      user
+        ? `✅ Đã liên kết tài khoản ${user.name} (${user.ctvCode}). Bạn sẽ nhận thông báo khách mới và căn phù hợp tại đây.`
+        : '❌ Mã liên kết không hợp lệ hoặc đã hết hạn (10 phút). Vui lòng tạo mã mới trong mục Hồ sơ.'
+    );
+  }
+
+  /** Gửi thông báo tới 1 chat đã liên kết (dùng bởi NotificationService). Không có bot token thì bỏ qua. */
+  public static async sendToChat(chatId: string, text: string): Promise<void> {
+    const token = this.getToken();
+    if (token) await this.sendMessage(token, chatId, text);
+  }
+
+  private static botUsername: string | null = null;
+
+  /** Username của bot (để tạo deep link t.me/<bot>?start=<mã>), gọi getMe 1 lần rồi lưu lại. */
+  public static async getBotUsername(): Promise<string | null> {
+    const token = this.getToken();
+    if (!token) return null;
+    if (!this.botUsername) {
+      try {
+        const data = (await (await fetch(`https://api.telegram.org/bot${token}/getMe`)).json()) as any;
+        this.botUsername = data.result?.username ?? null;
+      } catch {
+        return null;
+      }
+    }
+    return this.botUsername;
   }
 
   /**

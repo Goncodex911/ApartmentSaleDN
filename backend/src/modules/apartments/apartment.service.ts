@@ -1,11 +1,11 @@
-import { Apartment, IApartment } from './apartment.model.js';
+import { Apartment, IApartment, buildStatusFilter, isPrivilegedRole } from './apartment.model.js';
 import { CreateApartmentInput, UpdateApartmentInput, UpdateStatusInput, AddSubListingInput } from './apartment.validation.js';
 import { uploadBufferToCloudinary } from '../../config/cloudinary.js';
 import { GeocodingService } from '../search/geocoding.service.js';
 import { Types } from 'mongoose';
 import { maskPhonesInText, escapeRegex } from '../../utils/phone-text.js';
+import { LeadMatchingService } from '../leads/lead-matching.service.js';
 
-const STATUSES_VISIBLE_TO_CTV = ['AVAILABLE', 'UPCOMING', 'DEPOSITED'];
 // Chỉ nhận giá trị chuỗi: qs cho phép ?status[$ne]=X tạo object → chèn toán tử MongoDB vào filter
 const queryText = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
 
@@ -30,7 +30,7 @@ export class ApartmentService {
   static maskApartment(doc: IApartment | any, role?: string): any {
     if (!doc) return null;
     const item = doc.toObject ? doc.toObject() : { ...doc };
-    if (role === 'ADMIN' || role === 'MANAGER') return item;
+    if (isPrivilegedRole(role)) return item;
 
     const maskContact = (contact?: { phone?: string; note?: string }) =>
       contact && { ...contact, phone: contact.phone?.replace(/(\d{4})\d{3}(\d{3})/, '$1***$2'), note: undefined };
@@ -74,10 +74,12 @@ export class ApartmentService {
         GeocodingService.resolveCoordinates(data.location.district);
       if (geo) data.location.coordinates = geo.coordinates;
     }
-    return await Apartment.create({
+    const apartment = await Apartment.create({
       ...data,
       managerId: new Types.ObjectId(managerId),
     });
+    LeadMatchingService.runInBackground(apartment); // Story 6.3: báo CTV có khách phù hợp
+    return apartment;
   }
 
   // Cập nhật căn hộ (Chỉ chủ căn hộ hoặc Admin)
@@ -176,7 +178,6 @@ export class ApartmentService {
     const skip = (page - 1) * limit;
 
     const filter: any = {};
-    const isPrivileged = role === 'ADMIN' || role === 'MANAGER';
     const status = queryText(query.status);
     const district = queryText(query.district);
     const furnishing = queryText(query.furnishing);
@@ -184,11 +185,8 @@ export class ApartmentService {
     const maxPrice = Number(queryText(query.maxPrice));
 
     // CTV/khách không bao giờ thấy căn đã cho thuê (kể cả khi tự truyền status=RENTED)
-    if (isPrivileged) {
-      if (status && status !== 'ALL') filter.status = status;
-    } else {
-      filter.status = status && STATUSES_VISIBLE_TO_CTV.includes(status) ? status : { $in: STATUSES_VISIBLE_TO_CTV };
-    }
+    const statusFilter = buildStatusFilter(status, role);
+    if (statusFilter) filter.status = statusFilter;
 
     if (district) filter['location.district'] = { $regex: escapeRegex(district), $options: 'i' };
     if (minPrice || maxPrice) {

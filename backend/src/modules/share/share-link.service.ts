@@ -1,14 +1,13 @@
-import { randomBytes } from 'node:crypto';
 import { Apartment } from '../apartments/apartment.model.js';
 import { User } from '../auth/user.model.js';
 import { ShareLink } from './share-link.model.js';
 import { slugify, toPublicListing } from './public-listing.util.js';
+import { randomCode } from '../../utils/random-code.js';
 
-const CODE_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 export const SHARE_CODE_PATTERN = /^[a-z0-9]{8}$/;
 
 // Mã link 8 ký tự ngẫu nhiên (~2.8 nghìn tỷ tổ hợp) — không đoán được để dò link của CTV khác
-const generateCode = () => Array.from(randomBytes(8), (byte) => CODE_ALPHABET[byte % CODE_ALPHABET.length]).join('');
+const generateCode = () => randomCode(8);
 
 const clientUrl = () => (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/+$/, '');
 

@@ -8,6 +8,8 @@ const router = Router();
 // Routes riêng tư (yêu cầu đăng nhập)
 router.get('/profile', authMiddleware, UserController.getProfile);
 router.put('/profile', authMiddleware, UserController.updateProfile);
+router.post('/telegram-link', authMiddleware, UserController.createTelegramLink);
+router.delete('/telegram-link', authMiddleware, UserController.unlinkTelegram);
 
 // Quản trị tài khoản (chỉ ADMIN): duyệt Quản lý tự đăng ký, khóa/mở khóa tài khoản
 router.get('/', authMiddleware, requireRoles('ADMIN'), UserController.listUsers);

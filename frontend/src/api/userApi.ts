@@ -12,6 +12,16 @@ export const userApi = {
     return res.data;
   },
 
+  // Tạo deep link liên kết Telegram (mã dùng 1 lần, hết hạn 10 phút) — Story 6.2
+  createTelegramLink: async (): Promise<{ deepLink: string; code: string; expiresAt: string }> => {
+    const res = await apiClient.post('/users/telegram-link');
+    return res.data.data;
+  },
+
+  unlinkTelegram: async () => {
+    await apiClient.delete('/users/telegram-link');
+  },
+
   // [ADMIN] Danh sách tài khoản theo trạng thái (mặc định: chờ duyệt)
   listUsers: async (status: User['status'] = 'PENDING'): Promise<User[]> => {
     const res = await apiClient.get('/users', { params: { status } });

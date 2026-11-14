@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatVnd } from '../../utils/format.js';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { StatusBadge } from './StatusBadge.js';
@@ -22,10 +23,6 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({
   onEdit,
   onDelete,
 }) => {
-  // Format tiền tệ VNĐ
-  const formatPrice = (val: number) => {
-    return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
-  };
 
   const thumbnail =
     apartment.images && apartment.images.length > 0
@@ -53,7 +50,7 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({
         {/* Hoa hồng CTV Badge */}
         {apartment.commission && apartment.commission.value > 0 && (
           <span className="absolute top-2.5 left-2.5 bg-emerald-600 text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow-sm">
-            HH: {apartment.commission.type === 'PERCENT' ? `${apartment.commission.value}%` : formatPrice(apartment.commission.value)}
+            HH: {apartment.commission.type === 'PERCENT' ? `${apartment.commission.value}%` : formatVnd(apartment.commission.value)}
           </span>
         )}
 
@@ -78,7 +75,7 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({
               canEdit={isOwnerOrAdmin}
             />
             <div className="text-right">
-              <span className="text-base font-bold text-indigo-600">{formatPrice(apartment.price)}</span>
+              <span className="text-base font-bold text-indigo-600">{formatVnd(apartment.price)}</span>
               <span className="text-[11px] text-slate-400 block font-normal">/tháng</span>
             </div>
           </div>

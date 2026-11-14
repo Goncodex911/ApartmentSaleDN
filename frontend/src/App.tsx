@@ -4,6 +4,7 @@ import { LoginPage } from './pages/LoginPage.js';
 import { ApartmentsPage } from './pages/ApartmentsPage.js';
 import { ProtectedRoute } from './components/layout/ProtectedRoute.js';
 import { PublicListingPage } from './pages/PublicListingPage.js';
+import { LeadsPage } from './pages/LeadsPage.js';
 
 export const App: React.FC = () => {
   return (
@@ -17,6 +18,15 @@ export const App: React.FC = () => {
           element={
             <ProtectedRoute>
               <ApartmentsPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Phễu khách hàng CRM (Story 6.1) */}
+        <Route
+          path="/leads"
+          element={
+            <ProtectedRoute>
+              <LeadsPage />
             </ProtectedRoute>
           }
         />

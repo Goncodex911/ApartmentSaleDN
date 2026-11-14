@@ -3,6 +3,8 @@ import { GeminiService } from '../ingestion/gemini.service.js';
 import { GeminiVisionService } from '../ingestion/gemini-vision.service.js';
 import { fetchImageBuffer } from '../../utils/fetch-image.js';
 import { escapeRegex } from '../../utils/phone-text.js';
+import { removeVietnameseTones } from '../../utils/vietnamese.js';
+import { LeadMatchingService } from '../leads/lead-matching.service.js';
 import { PHashUtil } from './phash.util.js';
 import { IProcessListingInput } from './dedup.types.js';
 
@@ -12,13 +14,8 @@ export class DedupService {
    */
   public static normalizeText(text: string): string {
     if (!text) return '';
-    return text
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    // removeVietnameseTones \u0111\u1ed5i c\u1ea3 "\u0111" \u2192 "d" (NFD kh\u00f4ng t\u00e1ch \u0111\u01b0\u1ee3c "\u0111": tr\u01b0\u1edbc \u0111\u00e2y "\u0110\u1ed1ng \u0110a" th\u00e0nh "ong a")
+    return removeVietnameseTones(text).replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
   /**
@@ -207,6 +204,7 @@ export class DedupService {
       managerId: input.managerId,
     });
 
+    LeadMatchingService.runInBackground(newApartment); // Story 6.3: báo CTV có khách phù hợp
     return {
       isRentalListing: true,
       isDuplicate: false,
