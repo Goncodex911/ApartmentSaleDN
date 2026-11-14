@@ -6,30 +6,9 @@ import sharp from 'sharp';
  */
 export class PHashUtil {
   /**
-   * Tính mã băm 64-bit dHash (16 ký tự Hex) từ Buffer hoặc URL ảnh
+   * Tính mã băm 64-bit dHash (16 ký tự Hex) từ Buffer ảnh (tải ảnh bằng utils/fetch-image.ts)
    */
-  public static async computeDHash(input: Buffer | string): Promise<string> {
-    let buffer: Buffer;
-
-    if (typeof input === 'string') {
-      if (input.startsWith('http://') || input.startsWith('https://')) {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6000);
-        try {
-          const res = await fetch(input, { signal: controller.signal });
-          if (!res.ok) throw new Error(`Không thể tải ảnh từ URL: ${input}`);
-          const arrayBuffer = await res.arrayBuffer();
-          buffer = Buffer.from(arrayBuffer);
-        } finally {
-          clearTimeout(timeout);
-        }
-      } else {
-        buffer = Buffer.from(input, 'base64');
-      }
-    } else {
-      buffer = input;
-    }
-
+  public static async computeDHash(buffer: Buffer): Promise<string> {
     // Chuyển ảnh về ảnh xám (grayscale) và resize kích thước 9x8 pixels
     const raw = await sharp(buffer)
       .grayscale()

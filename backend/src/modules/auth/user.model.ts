@@ -8,7 +8,7 @@ export interface IUser extends Document {
   password: string;
   role: 'ADMIN' | 'MANAGER' | 'COLLABORATOR';
   ctvCode: string;
-  status: 'ACTIVE' | 'BLOCKED';
+  status: 'ACTIVE' | 'PENDING' | 'BLOCKED'; // PENDING: Quản lý tự đăng ký, chờ ADMIN duyệt
   zaloPhone?: string;
   zaloLink?: string;
   avatarUrl?: string;
@@ -30,7 +30,7 @@ const userSchema = new Schema<IUser>(
       default: 'COLLABORATOR',
     },
     ctvCode: { type: String, required: true, unique: true, index: true },
-    status: { type: String, enum: ['ACTIVE', 'BLOCKED'], default: 'ACTIVE' },
+    status: { type: String, enum: ['ACTIVE', 'PENDING', 'BLOCKED'], default: 'ACTIVE', index: true },
     zaloPhone: { type: String, trim: true },
     zaloLink: { type: String, trim: true },
     avatarUrl: { type: String, trim: true },

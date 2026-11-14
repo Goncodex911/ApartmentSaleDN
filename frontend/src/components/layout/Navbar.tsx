@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, authApi } from '../../api/authApi.js';
-import { Building2, UserCircle, LogOut, Copy, Check } from 'lucide-react';
+import { Building2, UserCircle, LogOut, Copy, Check, UserCheck } from 'lucide-react';
+import { PendingUsersModal } from './PendingUsersModal.js';
 
 interface NavbarProps {
   user: User | null;
@@ -10,6 +11,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ user, onOpenProfile, onLogout }) => {
   const [copied, setCopied] = useState(false);
+  const [isApprovalOpen, setIsApprovalOpen] = useState(false);
 
   const handleCopyCode = () => {
     if (user?.ctvCode) {
@@ -71,6 +73,18 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onOpenProfile, onLogout })
                 {user.role === 'ADMIN' ? 'Admin' : user.role === 'MANAGER' ? 'Quản lý' : 'CTV'}
               </span>
 
+              {/* ADMIN: duyệt tài khoản Quản lý tự đăng ký */}
+              {user.role === 'ADMIN' && (
+                <button
+                  onClick={() => setIsApprovalOpen(true)}
+                  title="Duyệt tài khoản Quản lý"
+                  className="flex items-center gap-1 p-1.5 text-sm font-medium text-purple-700 rounded-lg hover:bg-purple-50"
+                >
+                  <UserCheck className="w-5 h-5" />
+                  <span className="hidden md:inline">Duyệt tài khoản</span>
+                </button>
+              )}
+
               {/* Tên & Mở Profile */}
               <button
                 onClick={onOpenProfile}
@@ -92,6 +106,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onOpenProfile, onLogout })
           )}
         </div>
       </div>
+      {isApprovalOpen && <PendingUsersModal onClose={() => setIsApprovalOpen(false)} />}
     </header>
   );
 };

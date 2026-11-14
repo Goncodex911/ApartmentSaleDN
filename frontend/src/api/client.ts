@@ -20,18 +20,47 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Interceptor xử lý lỗi 401 (hết hạn phiên đăng nhập)
+const redirectToLogin = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  if (window.location.pathname !== '/login') window.location.href = '/login';
+};
+
+// Các API mà lỗi 401 nghĩa là sai thông tin/hết phiên thật → không thử refresh
+const NO_REFRESH_URLS = ['/auth/login', '/auth/register', '/auth/refresh'];
+let refreshPromise: Promise<string> | null = null;
+
+// Access Token hết hạn (1h) → tự gọi /auth/refresh (Refresh Token trong HttpOnly Cookie) rồi gửi lại request.
+// Nhiều request cùng lỗi 401 dùng chung 1 lần refresh.
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+  async (error) => {
+    const original = error.config;
+    if (error.response?.status !== 401 || !original) return Promise.reject(error);
+
+    if (NO_REFRESH_URLS.includes(original.url) || original._retried) {
+      if (original.url !== '/auth/login' && original.url !== '/auth/register') redirectToLogin();
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
+
+    try {
+      if (!refreshPromise) {
+        refreshPromise = apiClient
+          .post('/auth/refresh')
+          .then((res) => res.data.data.accessToken as string)
+          .finally(() => {
+            refreshPromise = null;
+          });
+      }
+      const token = await refreshPromise;
+      localStorage.setItem('token', token);
+      original._retried = true;
+      original.headers.Authorization = `Bearer ${token}`;
+      return apiClient(original);
+    } catch {
+      redirectToLogin();
+      return Promise.reject(error);
+    }
   }
 );
 

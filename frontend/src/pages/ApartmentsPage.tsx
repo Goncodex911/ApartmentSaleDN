@@ -217,7 +217,7 @@ export const ApartmentsPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {apartments.map((apt) => (
               <ApartmentCard
-                key={apt._id} apartment={apt} userRole={currentUser?.role} isOwnerOrAdmin={Boolean(isManagerOrAdmin)}
+                key={apt._id} apartment={apt} currentUser={currentUser}isOwnerOrAdmin={Boolean(isManagerOrAdmin)}
                 onViewDetail={(item) => setSelectedApartment(item)}
                 onEdit={(item) => { setEditingApartment(item); setIsModalOpen(true); }}
                 onDelete={handleDeleteApartment}
@@ -239,10 +239,11 @@ export const ApartmentsPage: React.FC = () => {
         )}
       </main>
 
-      <ApartmentDetailModal apartment={selectedApartment} userRole={currentUser?.role} isOwnerOrAdmin={Boolean(isManagerOrAdmin)} onClose={() => setSelectedApartment(null)} onStatusUpdated={() => fetchApartments(pagination.page)} />
-      <ApartmentModal initialData={editingApartment} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={() => fetchApartments(1)} />
-      <QuickPasteModal isOpen={isQuickPasteOpen} onClose={() => setIsQuickPasteOpen(false)} onSuccess={() => fetchApartments(1)} />
-      <ProfileModal isOpen={isProfileOpen} user={currentUser} onClose={() => setIsProfileOpen(false)} onProfileUpdated={(updated) => setCurrentUser(updated)} />
+      <ApartmentDetailModal key={selectedApartment?._id} apartment={selectedApartment}currentUser={currentUser}isOwnerOrAdmin={Boolean(isManagerOrAdmin)} onClose={() => setSelectedApartment(null)} onStatusUpdated={() => fetchApartments(pagination.page)} />
+      {/* Chỉ mount modal khi mở → state form reset mỗi lần mở, tuân thủ Rules of Hooks */}
+      {isModalOpen && <ApartmentModal initialData={editingApartment} onClose={() => setIsModalOpen(false)} onSuccess={() => fetchApartments(1)} />}
+      {isQuickPasteOpen && <QuickPasteModal onClose={() => setIsQuickPasteOpen(false)} onSuccess={() => fetchApartments(1)} />}
+      {isProfileOpen && currentUser && <ProfileModal user={currentUser} onClose={() => setIsProfileOpen(false)} onProfileUpdated={(updated) => setCurrentUser(updated)} />}
     </div>
   );
 };

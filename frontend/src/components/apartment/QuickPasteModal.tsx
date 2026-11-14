@@ -3,14 +3,12 @@ import { X, Sparkles, Loader2, CheckCircle2, AlertCircle, Info } from 'lucide-re
 import { ingestionApi } from '../../api/ingestionApi.js';
 
 interface QuickPasteModalProps {
-  isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export const QuickPasteModal: React.FC<QuickPasteModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  if (!isOpen) return null;
-
+// Trang cha chỉ render modal khi đang mở (Hooks không được gọi sau lệnh return sớm)
+export const QuickPasteModal: React.FC<QuickPasteModalProps> = ({ onClose, onSuccess }) => {
   const [rawText, setRawText] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any | null>(null);

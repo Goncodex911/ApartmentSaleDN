@@ -38,7 +38,7 @@ export interface IParsedResult {
 }
 
 export class GeminiService {
-  private static getApiKey(): string {
+  public static getApiKey(): string {
     const key = process.env.GEMINI_API_KEY;
     if (!key) {
       throw new Error('Chưa cấu hình GEMINI_API_KEY trong biến môi trường');
@@ -46,7 +46,7 @@ export class GeminiService {
     return key;
   }
 
-  private static getModel(): string {
+  public static getModel(): string {
     return process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
   }
 
@@ -81,7 +81,7 @@ ${rawText.trim()}
       },
     };
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
     // Sử dụng AbortController với thời gian chờ tối đa 8 giây
     const controller = new AbortController();
@@ -90,7 +90,8 @@ ${rawText.trim()}
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // API key gửi qua header thay vì query string (?key=) để không bị ghi vào log proxy/server
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify(requestBody),
         signal: controller.signal,
       });

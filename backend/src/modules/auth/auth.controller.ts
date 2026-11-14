@@ -16,8 +16,18 @@ export class AuthController {
   static async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const validatedData = registerSchema.parse(req.body);
-      const { user, accessToken, refreshToken } = await AuthService.register(validatedData);
+      const result = await AuthService.register(validatedData);
 
+      if ('pendingApproval' in result) {
+        res.status(201).json({
+          success: true,
+          message: 'Đăng ký thành công! Tài khoản Quản lý cần ADMIN duyệt trước khi đăng nhập.',
+          data: { user: result.user, pendingApproval: true },
+        });
+        return;
+      }
+
+      const { user, accessToken, refreshToken } = result;
       res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS);
       res.status(201).json({
         success: true,
@@ -42,6 +52,18 @@ export class AuthController {
         data: { user, accessToken },
       });
     } catch (error) {
+      next(error);
+    }
+  }
+
+  // Cấp lại Access Token từ Refresh Token (HttpOnly Cookie) — xoay vòng cấp luôn refresh token mới
+  static async refresh(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { user, accessToken, refreshToken } = await AuthService.refresh(req.cookies?.refreshToken);
+      res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS);
+      res.status(200).json({ success: true, data: { user, accessToken } });
+    } catch (error) {
+      res.clearCookie('refreshToken');
       next(error);
     }
   }

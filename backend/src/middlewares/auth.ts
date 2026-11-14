@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'apartment_default_secret_key_change_me';
+import { JWT_SECRET } from '../config/env.js';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -11,20 +10,27 @@ export interface AuthRequest extends Request {
   };
 }
 
-export function authMiddleware(req: AuthRequest, res: Response, next: NextFunction): void {
+/**
+ * Giải mã Access Token từ header "Bearer ...". Trả về null nếu thiếu/sai/hết hạn.
+ * Từ chối refresh token (type: 'refresh', hạn 7 ngày) — chỉ được dùng ở /auth/refresh.
+ */
+export function readAccessToken(req: Request): AuthRequest['user'] | null {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({ success: false, message: 'Vui lòng đăng nhập để truy cập' });
-    return;
-  }
-
-  const token = authHeader.split(' ')[1];
+  if (!authHeader?.startsWith('Bearer ')) return null;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthRequest['user'];
-    req.user = decoded;
-    next();
-  } catch (_error) {
-    res.status(401).json({ success: false, message: 'Token không hợp lệ hoặc đã hết hạn' });
+    const decoded = jwt.verify(authHeader.slice(7), JWT_SECRET) as AuthRequest['user'] & { type?: string };
+    return decoded.type === 'refresh' ? null : decoded;
+  } catch {
+    return null;
   }
 }
 
+export function authMiddleware(req: AuthRequest, res: Response, next: NextFunction): void {
+  const user = readAccessToken(req);
+  if (!user) {
+    res.status(401).json({ success: false, message: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn' });
+    return;
+  }
+  req.user = user;
+  next();
+}

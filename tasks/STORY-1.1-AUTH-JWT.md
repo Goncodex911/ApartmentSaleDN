@@ -83,3 +83,12 @@ interface IUser {
 - [ ] `refreshToken` được lưu trong HttpOnly Cookie.
 - [ ] Test curl/script thành công cho cả 3 kịch bản: Đăng ký -> Đăng nhập -> Gọi `/me`.
 - [ ] Mã nguồn tuân thủ [WORKING_RULES.md](file:///d:/CODE/AppartmentSaleProject/WORKING_RULES.md) (không tự ý commit git, không hardcode secret).
+
+---
+
+## 6. Cập nhật sau rà soát bảo mật (2026-11-15, đã được Project Owner duyệt)
+* **Đăng ký vai trò `MANAGER` phải chờ ADMIN duyệt:** tài khoản tạo với `status: 'PENDING'`, **không** cấp token. API trả `201` kèm `pendingApproval: true`. Đăng nhập khi đang chờ duyệt → `403`.
+  * Lý do: Quản lý xem được SĐT chủ nhà, nên nếu cho tự đăng ký MANAGER thì CTV có thể vượt qua Data Masking của Story 1.2.
+* **ADMIN duyệt tài khoản:** `GET /api/v1/users?status=PENDING` và `PATCH /api/v1/users/:id/status` với `{ status: 'ACTIVE' | 'BLOCKED' }`. Chỉ ADMIN được gọi. Không đổi được trạng thái tài khoản ADMIN khác.
+* **Tạo ADMIN đầu tiên:** đăng ký tài khoản bình thường, sau đó chạy `npm run promote-admin -- <SĐT>` trong thư mục `backend`.
+* **Refresh token:** dùng qua `POST /api/v1/auth/refresh` (cookie HttpOnly). Token mang `type: 'refresh'` nên không dùng thay access token được. Frontend tự refresh khi gặp lỗi 401.

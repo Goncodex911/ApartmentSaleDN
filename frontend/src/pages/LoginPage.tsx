@@ -15,10 +15,12 @@ export const LoginPage: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setNotice(null);
 
     try {
       setLoading(true);
@@ -31,6 +33,12 @@ export const LoginPage: React.FC = () => {
       } else {
         // Đăng ký
         const res = await authApi.register({ name, phone, password, role });
+        // Tài khoản Quản lý phải chờ ADMIN duyệt → chưa có token, chuyển về tab đăng nhập
+        if (res.data.pendingApproval) {
+          setNotice(res.message);
+          setIsLoginTab(true);
+          return;
+        }
         localStorage.setItem('token', res.data.accessToken);
         localStorage.setItem('user', JSON.stringify(res.data.user));
         navigate('/apartments');
@@ -75,6 +83,12 @@ export const LoginPage: React.FC = () => {
             Đăng ký mới
           </button>
         </div>
+
+        {notice && (
+          <div className="mb-4 p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-medium">
+            {notice}
+          </div>
+        )}
 
         {/* Error alert */}
         {error && (
@@ -175,6 +189,9 @@ export const LoginPage: React.FC = () => {
                   <span className="text-xs">Quản lý kho</span>
                 </label>
               </div>
+              {role === 'MANAGER' && (
+                <p className="text-[11px] text-amber-700">Tài khoản Quản lý cần ADMIN duyệt trước khi đăng nhập.</p>
+              )}
             </div>
           )}
 

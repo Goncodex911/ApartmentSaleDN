@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { apartmentApi } from '../../api/apartmentApi.js';
-import { ChevronDown, Calendar, CheckCircle2, Clock, AlertCircle, Ban } from 'lucide-react';
+import { ChevronDown, CheckCircle2, Clock, AlertCircle, Ban } from 'lucide-react';
 
 interface StatusBadgeProps {
   apartmentId: string;

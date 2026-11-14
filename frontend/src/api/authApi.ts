@@ -6,7 +6,7 @@ export interface User {
   phone: string;
   role: 'ADMIN' | 'MANAGER' | 'COLLABORATOR';
   ctvCode: string;
-  status: 'ACTIVE' | 'BLOCKED';
+  status: 'ACTIVE' | 'PENDING' | 'BLOCKED';
   zaloPhone?: string;
   zaloLink?: string;
   avatarUrl?: string;

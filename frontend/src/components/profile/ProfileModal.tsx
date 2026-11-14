@@ -1,35 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { User } from '../../api/authApi.js';
 import { userApi } from '../../api/userApi.js';
 import { X, UserCircle, Phone, MessageSquare, ExternalLink, Loader2, Check } from 'lucide-react';
 
+// Trang cha chỉ render modal khi đang mở → mỗi lần mở là một lần mount mới, state tự lấy theo user hiện tại
 interface ProfileModalProps {
-  isOpen: boolean;
-  user: User | null;
+  user: User;
   onClose: () => void;
   onProfileUpdated: (updatedUser: User) => void;
 }
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({
-  isOpen,
-  user,
-  onClose,
-  onProfileUpdated,
-}) => {
-  if (!isOpen || !user) return null;
-
+export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onProfileUpdated }) => {
   const [name, setName] = useState(user.name || '');
   const [zaloPhone, setZaloPhone] = useState(user.zaloPhone || '');
   const [greetingMessage, setGreetingMessage] = useState(user.greetingMessage || '');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setName(user.name || '');
-    setZaloPhone(user.zaloPhone || '');
-    setGreetingMessage(user.greetingMessage || '');
-  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,12 +1,7 @@
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { Readable } from 'stream';
-import dotenv from 'dotenv';
-import path from 'path';
 
-// Đảm bảo dotenv được load trước khi đọc config
-dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
-dotenv.config();
-
+// .env đã được nạp từ config/env.ts trước mọi module; đọc cấu hình lúc upload để luôn lấy giá trị mới nhất
 function initCloudinary() {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,

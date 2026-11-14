@@ -1,4 +1,4 @@
-import { User } from '../auth/user.model.js';
+import { User, IUser } from '../auth/user.model.js';
 import { UpdateProfileInput } from './user.validation.js';
 
 export class UserService {
@@ -30,6 +30,21 @@ export class UserService {
     }
 
     return updatedUser;
+  }
+
+  // [ADMIN] Danh sách tài khoản theo trạng thái (mặc định: đang chờ duyệt)
+  static async listByStatus(status: IUser['status']) {
+    return User.find({ status, role: { $ne: 'ADMIN' } }).select('name phone role ctvCode status createdAt').sort({ createdAt: -1 }).lean();
+  }
+
+  // [ADMIN] Duyệt / khóa tài khoản — không cho đổi trạng thái tài khoản ADMIN khác qua API
+  static async updateStatus(userId: string, status: 'ACTIVE' | 'BLOCKED') {
+    const user = await User.findById(userId);
+    if (!user) throw { status: 404, message: 'Không tìm thấy người dùng' };
+    if (user.role === 'ADMIN') throw { status: 403, message: 'Không thể thay đổi trạng thái tài khoản ADMIN' };
+    user.status = status;
+    await user.save();
+    return user;
   }
 
   // Lấy thông tin công khai của CTV thông qua ctvCode (dùng cho Public Landing Page)

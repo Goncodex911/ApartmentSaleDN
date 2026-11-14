@@ -5,19 +5,12 @@ import { PhotoUploader } from './PhotoUploader.js';
 
 interface ApartmentModalProps {
   initialData?: Apartment | null;
-  isOpen: boolean;
   onClose: () => void;
   onSuccess: (savedApartment: Apartment) => void;
 }
 
-export const ApartmentModal: React.FC<ApartmentModalProps> = ({
-  initialData,
-  isOpen,
-  onClose,
-  onSuccess,
-}) => {
-  if (!isOpen) return null;
-
+// Trang cha chỉ render modal khi đang mở → mỗi lần mở là một lần mount mới, form lấy lại initialData
+export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,8 +30,9 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({
   const [address, setAddress] = useState(initialData?.location?.address || '');
   const [district, setDistrict] = useState(initialData?.location?.district || 'Cầu Giấy');
   const [area, setArea] = useState(initialData?.attributes?.area ? String(initialData.attributes.area) : '35');
-  const [bedrooms, setBedrooms] = useState(initialData?.attributes?.bedrooms ? String(initialData.attributes.bedrooms) : '1');
-  const [bathrooms, setBathrooms] = useState(initialData?.attributes?.bathrooms ? String(initialData.attributes.bathrooms) : '1');
+  // Dùng ?? (không dùng ?:) để Studio (0 phòng ngủ) không bị đổi thành 1
+  const [bedrooms, setBedrooms] = useState(String(initialData?.attributes?.bedrooms ?? 1));
+  const [bathrooms, setBathrooms] = useState(String(initialData?.attributes?.bathrooms ?? 1));
   const [furnishing, setFurnishing] = useState<'FULL' | 'BASIC' | 'EMPTY'>(
     initialData?.attributes?.furnishing || 'FULL'
   );
@@ -76,8 +70,8 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({
         location: { address, district, city: 'Hà Nội' },
         attributes: {
           area: Number(area) || undefined,
-          bedrooms: Number(bedrooms) || 1,
-          bathrooms: Number(bathrooms) || 1,
+          bedrooms: Math.max(0, Math.trunc(Number(bedrooms)) || 0),
+          bathrooms: Math.max(0, Math.trunc(Number(bathrooms)) || 0),
           furnishing,
           elevator,
           allowPets,

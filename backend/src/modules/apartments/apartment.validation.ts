@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { vnPhone, toPatchSchema, DeepPartial } from '../../utils/validators.js';
 
-const vnPhoneRegex = /(84|0[35789])([0-9]{8})\b/;
+const statusEnum = z.enum(['AVAILABLE', 'UPCOMING', 'DEPOSITED', 'RENTED']);
 
 export const createApartmentSchema = z.object({
   title: z.string().min(5, 'Tiêu đề phải có ít nhất 5 ký tự'),
@@ -12,7 +13,7 @@ export const createApartmentSchema = z.object({
       type: z.enum(['PERCENT', 'FIXED']).default('PERCENT'),
       value: z.number().min(0, 'Giá trị hoa hồng không được âm').default(0),
     })
-    .default({ type: 'PERCENT', value: 0 }),
+    .prefault({}), // prefault: không gửi commission thì vẫn chạy default của từng trường bên trong
   location: z.object({
     address: z.string().min(2, 'Địa chỉ không được để trống'),
     ward: z.string().optional(),
@@ -34,7 +35,7 @@ export const createApartmentSchema = z.object({
       washingMachine: z.enum(['PRIVATE', 'SHARED', 'NONE']).default('NONE'),
       pcccStandard: z.boolean().default(true),
     })
-    .default({}),
+    .prefault({}),
   fees: z
     .object({
       electricity: z.number().min(0).optional(),
@@ -43,52 +44,52 @@ export const createApartmentSchema = z.object({
       parkingMotor: z.number().min(0).optional(),
     })
     .optional(),
-  images: z.array(z.string().url('Link ảnh không hợp lệ')).default([]),
-  videos: z.array(z.string().url('Link video không hợp lệ')).optional(),
+  images: z.array(z.url('Link ảnh không hợp lệ')).default([]),
+  videos: z.array(z.url('Link video không hợp lệ')).optional(),
   ownerContact: z.object({
     name: z.string().min(2, 'Tên chủ nhà không được để trống'),
-    phone: z.string().regex(vnPhoneRegex, 'Số điện thoại chủ nhà không đúng định dạng VN'),
+    phone: vnPhone('Số điện thoại chủ nhà không đúng định dạng VN'),
     note: z.string().optional(),
   }),
-  status: z.enum(['AVAILABLE', 'UPCOMING', 'DEPOSITED', 'RENTED']).default('AVAILABLE'),
-  availableDate: z.string().datetime().optional().or(z.date().optional()),
+  status: statusEnum.default('AVAILABLE'),
+  availableDate: z.iso.datetime().optional(),
 });
 
-export const updateApartmentSchema = createApartmentSchema.partial();
+export type CreateApartmentInput = z.infer<typeof createApartmentSchema>;
+
+// Cập nhật một phần: chỉ các trường gửi lên mới được sửa, trường lồng nhau cũng được phép gửi một phần
+export const updateApartmentSchema = toPatchSchema(createApartmentSchema) as z.ZodType<DeepPartial<CreateApartmentInput>>;
+export type UpdateApartmentInput = DeepPartial<CreateApartmentInput>;
 
 // Schema cập nhật nhanh 1-Click trạng thái phòng
 export const updateStatusSchema = z
   .object({
-    status: z.enum(['AVAILABLE', 'UPCOMING', 'DEPOSITED', 'RENTED']),
-    availableDate: z.string().datetime().optional().or(z.date().optional()),
+    status: statusEnum,
+    availableDate: z.iso.datetime().optional(),
   })
-  .refine(
-    (data) => (data.status === 'UPCOMING' ? !!data.availableDate : true),
-    { message: 'Vui lòng chọn ngày dự kiến phòng sẽ trống khi chuyển sang trạng thái Sắp trống (UPCOMING)' }
-  );
+  .refine((data) => (data.status === 'UPCOMING' ? !!data.availableDate : true), {
+    message: 'Vui lòng chọn ngày dự kiến phòng sẽ trống khi chuyển sang trạng thái Sắp trống (UPCOMING)',
+  });
 
-export type CreateApartmentInput = z.infer<typeof createApartmentSchema>;
-export type UpdateApartmentInput = z.infer<typeof updateApartmentSchema>;
 export type UpdateStatusInput = z.infer<typeof updateStatusSchema>;
 
 // Schema đính kèm nguồn tham chiếu (Story 2.3)
 export const addSubListingSchema = z.object({
-  sourceType: z.enum(['TELEGRAM', 'ZALO', 'FACEBOOK', 'MANUAL']).default('MANUAL'),
+  sourceType: z.enum(['TELEGRAM', 'WHATSAPP', 'ZALO', 'FACEBOOK', 'MANUAL']).default('MANUAL'),
   sourceName: z.string().optional(),
-  sourceUrl: z.string().url('Link bài đăng không hợp lệ').optional().or(z.literal('')),
+  sourceUrl: z.url('Link bài đăng không hợp lệ').optional().or(z.literal('')),
   price: z.number().positive('Giá phòng phải lớn hơn 0').optional(),
   ownerContact: z
     .object({
       name: z.string().optional(),
-      phone: z.string().regex(vnPhoneRegex, 'SĐT không đúng định dạng VN').optional(),
+      phone: vnPhone('SĐT không đúng định dạng VN').optional(),
       note: z.string().optional(),
     })
     .optional(),
-  images: z.array(z.string().url('Link ảnh không hợp lệ')).default([]),
+  images: z.array(z.url('Link ảnh không hợp lệ')).default([]),
   rawContent: z.string().optional(),
-  postedAt: z.string().datetime().optional().or(z.date().optional()),
+  postedAt: z.iso.datetime().optional(),
   setAsMasterPrice: z.boolean().default(false), // Tùy chọn: Chọn giá này làm giá đại diện cho căn Master
 });
 
 export type AddSubListingInput = z.infer<typeof addSubListingSchema>;
-
