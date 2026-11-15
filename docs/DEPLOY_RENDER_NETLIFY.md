@@ -112,11 +112,14 @@ Làm bước này **trước** khi deploy Render. Nếu không kết nối đư�
 
 ## 6. Deploy Frontend lên Netlify
 
-1. Kiểm tra `frontend/netlify.toml`: dòng `to = "https://...onrender.com/api/:splat"` phải đúng URL Render ở mục 5 (hiện tại là `https://roommaster-api-0keh.onrender.com`). Nếu tạo lại service Render, sửa URL ở đây rồi merge vào `main`.
-2. Netlify → **Add new site** → **Import an existing project** → GitHub → chọn repo.
-3. Điền **Base directory**: `frontend`. Build command và Publish directory tự đọc từ `netlify.toml`, không cần điền.
-4. Bấm **Deploy**, chờ khoảng 2 phút.
-5. **Site configuration → Change site name**: đặt tên dễ nhớ, VD `roommaster` → `https://roommaster.netlify.app`.
+Cấu hình build nằm sẵn trong code, **không cần chỉnh trong giao diện Netlify**:
+- `netlify.toml` ở **gốc repo**: build trong thư mục `frontend` (`base`), publish `frontend/dist`, Node 22.
+- `frontend/public/_redirects`: chuyển tiếp `/api/*` sang Render và cho SPA mở trực tiếp được các trang. Nếu tạo lại service Render, sửa URL trong file này rồi merge vào `main`.
+
+1. Netlify → **Add new site** → **Import an existing project** → GitHub → chọn repo → nhánh `main`.
+2. **Để trống** Base directory, Build command, Publish directory: Netlify tự đọc từ `netlify.toml` ở gốc repo.
+3. Bấm **Deploy**, chờ khoảng 1–2 phút. Build đúng sẽ chỉ tải lên **khoảng 4 file** (`index.html`, `_redirects`, 2 file trong `assets/`). Nếu thấy hơn 100 file, tức là đang đưa cả repo lên: kiểm tra lại `netlify.toml` ở gốc repo.
+4. **Project configuration → General → Change project name**: đặt tên dễ nhớ, VD `roommaster` → `https://roommaster.netlify.app`.
 
 ## 7. Nối Frontend ↔ Backend
 
