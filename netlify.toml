@@ -1,0 +1,17 @@
+# Cấu hình Netlify (gói miễn phí) — đặt ở GỐC repo để Netlify luôn đọc được,
+# không cần chỉnh "Base directory" trong giao diện Netlify.
+# Quy tắc chuyển tiếp /api và SPA nằm ở frontend/public/_redirects (Vite tự copy vào thư mục build).
+
+[build]
+  base = "frontend"        # Build trong thư mục frontend (không đưa cả repo lên web)
+  command = "npm run build"
+  publish = "dist"         # Tính từ base → frontend/dist
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# File build có hash trong tên → cache lâu dài
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
