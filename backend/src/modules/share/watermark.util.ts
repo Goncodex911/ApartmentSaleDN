@@ -1,5 +1,8 @@
 import sharp from 'sharp';
 
+// Mỗi ảnh chỉ xử lý 1 lần → cache của libvips gần như vô ích mà lại giữ RAM (máy chủ nhỏ dễ tràn bộ nhớ)
+sharp.cache(false);
+
 const escapeXml = (text: string) =>
   text.replace(/[<>&"']/g, (char) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[char]!);
 

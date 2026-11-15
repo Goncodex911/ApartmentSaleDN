@@ -13,6 +13,10 @@ import { errorHandler } from './middlewares/error.js';
 
 export const app = express();
 
+// Chạy sau proxy (Netlify → Render = 2 tầng, Nginx = 1 tầng) phải khai báo số tầng proxy tin cậy
+// để req.ip là IP thật của khách — bộ giới hạn tần suất chat/tìm kiếm AI đếm theo IP này
+if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY));
+
 // Middlewares cơ bản
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',

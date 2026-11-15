@@ -1,0 +1,30 @@
+# Cấu hình Netlify (gói miễn phí) cho Frontend
+# Base directory trên Netlify: frontend
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# 1) Chuyển tiếp mọi request /api/* sang Backend trên Render.
+#    Trình duyệt chỉ thấy 1 tên miền (*.netlify.app) → cookie refresh token & API dùng đường dẫn tương đối hoạt động.
+#    ⚠️ THAY "YOUR-RENDER-SERVICE" bằng tên service Render của bạn (xem docs/DEPLOY_RENDER_NETLIFY.md - Bước 3).
+[[redirects]]
+  from = "/api/*"
+  to = "https://YOUR-RENDER-SERVICE.onrender.com/api/:splat"
+  status = 200
+  force = true
+
+# 2) SPA: mọi đường dẫn khác (/apartments, /leads, /p/:slug...) trả về index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Tài sản build có hash trong tên file → cache lâu dài
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

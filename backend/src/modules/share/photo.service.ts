@@ -4,6 +4,8 @@ import { fetchImageBuffer } from '../../utils/fetch-image.js';
 import { createZip } from '../../utils/zip.js';
 import { addTextWatermark } from './watermark.util.js';
 
+const ZIP_BATCH_SIZE = 3;
+
 /** Ảnh được phép gửi khách = images − hiddenImages (ảnh dán SĐT nguồn cũ). */
 export function getVisibleImages(apartment: { images?: string[]; hiddenImages?: string[] }): string[] {
   const hidden = new Set(apartment.hiddenImages || []);
@@ -37,10 +39,13 @@ export class PhotoService {
     const { images, watermarkText } = await loadPhotoContext(apartmentId, userId);
     if (images.length === 0) throw { status: 404, message: 'Căn hộ chưa có ảnh để tải' };
 
-    // Ảnh nào lỗi thì bỏ qua, không làm hỏng cả file ZIP
-    const results = await Promise.allSettled(
-      images.map(async (url) => addTextWatermark(await fetchImageBuffer(url), watermarkText))
-    );
+    // Xử lý từng lô 3 ảnh (không phải tất cả cùng lúc) để vừa RAM máy chủ nhỏ (Render free 512MB).
+    // Ảnh nào lỗi thì bỏ qua, không làm hỏng cả file ZIP.
+    const results: PromiseSettledResult<Buffer>[] = [];
+    for (let i = 0; i < images.length; i += ZIP_BATCH_SIZE) {
+      const batch = images.slice(i, i + ZIP_BATCH_SIZE);
+      results.push(...(await Promise.allSettled(batch.map(async (url) => addTextWatermark(await fetchImageBuffer(url), watermarkText)))));
+    }
     const entries = results.flatMap((result, i) =>
       result.status === 'fulfilled' ? [{ name: `anh-${i + 1}.jpg`, data: result.value }] : []
     );
