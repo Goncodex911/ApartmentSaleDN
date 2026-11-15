@@ -1,0 +1,49 @@
+# Môi trường chạy thử bản production trên máy (giống hệt kiến trúc deploy: Nginx → API → MongoDB)
+# Project "roommaster" TÁCH BIỆT hoàn toàn với các project Docker khác trên máy (container/volume/network riêng).
+#
+#   Khởi động : docker compose up -d --build      → mở http://localhost:8088
+#   Xem log   : docker compose logs -f api
+#   Tạo ADMIN : docker compose exec api node dist/scripts/promote-admin.js 09xxxxxxxx
+#   Dừng      : docker compose stop               (giữ dữ liệu)
+#   Xóa hết   : docker compose down -v            (⚠️ xóa cả dữ liệu MongoDB của môi trường này)
+
+name: roommaster
+
+services:
+  web:
+    build: ./frontend
+    image: roommaster-web:local
+    container_name: roommaster-web
+    ports:
+      - "8088:80" # Tránh các cổng project khác đang dùng (3000, 5433, 6379)
+    depends_on:
+      - api
+    restart: "no" # Không tự chạy khi mở Docker Desktop
+
+  api:
+    build: ./backend
+    image: roommaster-api:local
+    container_name: roommaster-api
+    env_file: .env # Lấy GEMINI/CLOUDINARY/JWT_SECRET... từ .env gốc (không đóng gói vào image)
+    environment:
+      NODE_ENV: production
+      PORT: "10000"
+      TRUST_PROXY: "1" # Nginx → API = 1 tầng proxy
+      CLIENT_URL: http://localhost:8088
+      MONGODB_URI: mongodb://mongo:27017/apartment_sale # DB riêng của môi trường này, không đụng Atlas
+      TELEGRAM_BOT_TOKEN: "" # Tắt bot: tránh tranh nhận tin với máy dev/production (lỗi 409)
+    depends_on:
+      - mongo
+    restart: "no"
+
+  mongo:
+    image: mongo:7
+    container_name: roommaster-mongo
+    ports:
+      - "127.0.0.1:27018:27017" # Chỉ mở cho máy này (để xem bằng MongoDB Compass nếu cần)
+    volumes:
+      - mongo-data:/data/db
+    restart: "no"
+
+volumes:
+  mongo-data:

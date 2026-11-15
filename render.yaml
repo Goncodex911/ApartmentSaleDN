@@ -1,0 +1,47 @@
+# Render Blueprint — khai báo sẵn service Backend (gói miễn phí)
+# Cách dùng: Render Dashboard → New + → Blueprint → chọn repo → điền các biến "sync: false" → Apply
+# Chi tiết: docs/DEPLOY_RENDER_NETLIFY.md (mục 5)
+
+services:
+  - type: web
+    name: roommaster-api # URL: https://roommaster-api.onrender.com (Render thêm hậu tố nếu tên đã có người dùng)
+    runtime: docker
+    plan: free
+    region: singapore # Gần Việt Nam nhất
+    branch: main
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    # Chỉ build lại khi code Backend đổi (sửa Frontend không làm restart bot Telegram)
+    buildFilter:
+      paths:
+        - backend/**
+    envVars:
+      # ---- Giá trị cố định ----
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "2" # Netlify → Render = 2 tầng proxy
+      # ---- Render tự sinh chuỗi ngẫu nhiên an toàn (xem lại trong tab Environment khi cần) ----
+      - key: JWT_SECRET
+        generateValue: true
+      - key: INGESTION_WEBHOOK_SECRET
+        generateValue: true
+      # ---- Bạn điền khi tạo Blueprint (không lưu trong Git) ----
+      - key: CLIENT_URL # URL Netlify, VD https://roommaster.netlify.app (điền tạm rồi sửa ở mục 7)
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_SOURCE_CHAT_IDS
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
