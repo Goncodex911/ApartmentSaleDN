@@ -112,7 +112,7 @@ Làm bước này **trước** khi deploy Render. Nếu không kết nối đư�
 
 ## 6. Deploy Frontend lên Netlify
 
-1. Mở file `frontend/netlify.toml`, thay `YOUR-RENDER-SERVICE` bằng tên service ở Bước 5 (VD `roommaster-api`). Sau đó commit và push lên `main`.
+1. Kiểm tra `frontend/netlify.toml`: dòng `to = "https://...onrender.com/api/:splat"` phải đúng URL Render ở mục 5 (hiện tại là `https://roommaster-api-0keh.onrender.com`). Nếu tạo lại service Render, sửa URL ở đây rồi merge vào `main`.
 2. Netlify → **Add new site** → **Import an existing project** → GitHub → chọn repo.
 3. Điền **Base directory**: `frontend`. Build command và Publish directory tự đọc từ `netlify.toml`, không cần điền.
 4. Bấm **Deploy**, chờ khoảng 2 phút.
