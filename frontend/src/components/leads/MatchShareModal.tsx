@@ -33,7 +33,7 @@ export const MatchShareModal: React.FC<MatchShareModalProps> = ({ apartmentId, l
   const thumbnail = data?.apartment.images.find((url) => !data.apartment.hiddenImages?.includes(url));
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 sm:p-4">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 pb-badge-safe sm:p-4">
       <div className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl p-4 space-y-3 text-sm">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-slate-900 flex items-center gap-2">

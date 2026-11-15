@@ -70,19 +70,19 @@ export const PublicListingPage: React.FC = () => {
     fees.parkingMotor && `Gửi xe ${formatVnd(fees.parkingMotor)}/tháng`,
   ].filter(Boolean);
   const amenities = [
-    attributes.area && `📐 ${attributes.area}m²`,
-    attributes.bedrooms === 0 ? '🛏 Studio' : `🛏 ${attributes.bedrooms} phòng ngủ`,
-    `🛋 ${FURNISHING_LABEL[attributes.furnishing]}`,
-    attributes.washingMachine === 'PRIVATE' && '🧺 Máy giặt riêng',
-    attributes.elevator && '🛗 Thang máy',
-    attributes.carParking && '🚗 Ô tô đỗ cửa',
-    attributes.allowPets && '🐾 Nuôi pet',
-    attributes.balcony && '🌿 Ban công',
-    attributes.pcccStandard && '🛡️ PCCC đạt chuẩn',
+    attributes.area && `${attributes.area}m²`,
+    attributes.bedrooms === 0 ? 'Studio' : `${attributes.bedrooms} phòng ngủ`,
+    FURNISHING_LABEL[attributes.furnishing],
+    attributes.washingMachine === 'PRIVATE' && 'Máy giặt riêng',
+    attributes.elevator && 'Thang máy',
+    attributes.carParking && 'Ô tô đỗ cửa',
+    attributes.allowPets && 'Nuôi thú cưng',
+    attributes.balcony && 'Ban công',
+    attributes.pcccStandard && 'PCCC đạt chuẩn',
   ].filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
+    <div className="min-h-screen bg-slate-50 pb-44">
       <div className="max-w-xl mx-auto bg-white min-h-screen">
         <PhotoSlider images={listing.images} title={listing.title} />
 
@@ -94,7 +94,7 @@ export const PublicListingPage: React.FC = () => {
           )}
           {listing.status === 'UPCOMING' && listing.availableDate && (
             <p className="p-3 rounded-xl bg-sky-50 border border-sky-200 text-sm text-sky-800">
-              🗓 Trống từ ngày {new Date(listing.availableDate).toLocaleDateString('vi-VN')}
+              Trống từ ngày {new Date(listing.availableDate).toLocaleDateString('vi-VN')}
             </p>
           )}
 
@@ -112,12 +112,12 @@ export const PublicListingPage: React.FC = () => {
               <span className="text-sm font-medium text-indigo-500">/tháng</span>
             </p>
             {listing.deposit > 0 && <p className="text-sm text-slate-600 mt-1">Đặt cọc: {formatVnd(listing.deposit)}</p>}
-            {feeItems.length > 0 && <p className="text-xs text-slate-500 mt-2">{feeItems.join(' · ')}</p>}
+            {feeItems.length > 0 && <p className="text-sm text-slate-500 mt-2">{feeItems.join(' · ')}</p>}
           </div>
 
           <div className="flex flex-wrap gap-2">
             {amenities.map((item) => (
-              <span key={String(item)} className="px-3 py-1.5 rounded-full bg-slate-100 text-xs font-medium text-slate-700">
+              <span key={String(item)} className="px-3 py-1.5 rounded-full bg-slate-100 text-sm text-slate-700">
                 {item}
               </span>
             ))}

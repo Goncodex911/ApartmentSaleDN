@@ -17,15 +17,15 @@ export const stageLabel = (stage: LeadStage) => LEAD_STAGES.find((s) => s.key ==
 export const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
 
-/** Tóm tắt nhu cầu khách thành 1 dòng ngắn: "Cầu Giấy · ≤ 7tr · 🐾 · 🚗" */
+/** Tóm tắt nhu cầu khách thành 1 dòng ngắn: "Hải Châu · ≤ 7tr · nuôi pet · ô tô" */
 export function summarizeRequirements(req: LeadRequirements): string {
   return [
     req.districts?.join(', '),
     req.maxBudget && `≤ ${Number((req.maxBudget / 1_000_000).toFixed(1))}tr`,
     req.bedrooms !== undefined && req.bedrooms !== null && (req.bedrooms === 0 ? 'Studio' : `${req.bedrooms}PN`),
     req.moveInDate && `vào ở ${req.moveInDate}`,
-    req.allowPets && '🐾',
-    req.carParking && '🚗',
+    req.allowPets && 'nuôi pet',
+    req.carParking && 'ô tô',
   ]
     .filter(Boolean)
     .join(' · ');

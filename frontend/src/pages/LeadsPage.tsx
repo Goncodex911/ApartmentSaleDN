@@ -9,7 +9,7 @@ import { LeadCard } from '../components/leads/LeadCard.js';
 import { LeadDetailModal } from '../components/leads/LeadDetailModal.js';
 import { LeadFormModal } from '../components/leads/LeadFormModal.js';
 import { LEAD_STAGES, STAGES_NEED_INPUT } from '../components/leads/leadStages.js';
-import { Plus, RefreshCw, Users, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 // Bảng Kanban phễu khách hàng (Story 6.1): cột cuộn ngang trên điện thoại, kéo-thả trên máy tính
 export const LeadsPage: React.FC = () => {
@@ -64,10 +64,9 @@ export const LeadsPage: React.FC = () => {
     }
     if (leads.length === 0) {
       return (
-        <div className="py-16 text-center space-y-2 px-6">
-          <Users className="w-12 h-12 text-slate-300 mx-auto" />
-          <h3 className="font-bold text-slate-700">Chưa có khách hàng nào</h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+        <div className="py-12 text-center space-y-1 px-6">
+          <h3 className="text-base font-semibold text-slate-800">Chưa có khách hàng nào</h3>
+          <p className="text-sm text-slate-500 max-w-sm mx-auto">
             Bấm "Thêm khách" để ghi nhận khách, hoặc gửi link xem phòng — khách chat với trợ lý AI sẽ tự xuất hiện ở đây.
           </p>
         </div>
@@ -104,20 +103,15 @@ export const LeadsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar user={currentUser} onOpenProfile={() => setIsProfileOpen(true)} onLogout={() => { localStorage.clear(); navigate('/login'); }} />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-4">
+      <main className="max-w-7xl mx-auto px-4 pt-4 pb-badge-safe space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Khách hàng của tôi</h1>
-            <p className="text-xs text-slate-500">Chạm vào khách để chuyển giai đoạn và ghi chú</p>
+            <h1 className="text-xl font-bold text-slate-900">Khách hàng</h1>
+            <p className="text-sm text-slate-500">{leads.length} khách</p>
           </div>
-          <div className="flex gap-2">
-            <button onClick={reload} title="Tải lại" className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600">
-              <RefreshCw className="w-4 h-4" />
-            </button>
-            <button onClick={() => setIsFormOpen(true)} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold">
-              <Plus className="w-4 h-4" /> Thêm khách
-            </button>
-          </div>
+          <button onClick={() => setIsFormOpen(true)} className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-sm font-semibold whitespace-nowrap hover:bg-indigo-700">
+            Thêm khách
+          </button>
         </div>
         {dropError && <p className="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs">{dropError}</p>}
         {renderBoard()}

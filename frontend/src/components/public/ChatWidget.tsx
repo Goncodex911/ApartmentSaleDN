@@ -71,7 +71,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ code, ctvName, greeting 
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 right-4 z-40 flex items-center gap-2 pl-3 pr-4 py-3 rounded-full bg-violet-600 text-white text-sm font-bold shadow-lg"
+        className="fixed bottom-36 right-4 z-40 flex items-center gap-2 pl-3 pr-4 py-3 rounded-full bg-violet-600 text-white text-sm font-bold shadow-lg"
       >
         <MessageCircle className="w-5 h-5" /> Hỏi ngay
       </button>
@@ -120,7 +120,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ code, ctvName, greeting 
         <div ref={bottomRef} />
       </div>
 
-      <form onSubmit={handleSend} className="flex gap-2 p-2.5 border-t border-slate-100">
+      <form onSubmit={handleSend} className="flex gap-2 p-2.5 pb-badge-safe sm:pb-2.5 border-t border-slate-100">
         <input
           value={input}
           maxLength={500}

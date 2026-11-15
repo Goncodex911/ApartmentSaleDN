@@ -1,6 +1,6 @@
 import { GeminiService } from '../ingestion/gemini.service.js';
 import { ILeadRequirements } from '../leads/lead.model.js';
-import { vnPhoneRegex } from '../../utils/validators.js';
+import { normalizeVnPhone } from '../../utils/validators.js';
 
 export interface ChatAiResult {
   reply: string;
@@ -60,8 +60,8 @@ function sanitize(raw: any): ChatAiResult | null {
 
   const customer: ChatAiResult['customer'] = {};
   if (typeof raw.customer?.name === 'string' && raw.customer.name.trim()) customer.name = raw.customer.name.trim().slice(0, 60);
-  const phone = typeof raw.customer?.phone === 'string' ? raw.customer.phone.replace(/[\s.-]/g, '') : '';
-  if (vnPhoneRegex.test(phone)) customer.phone = phone;
+  const phone = typeof raw.customer?.phone === 'string' ? normalizeVnPhone(raw.customer.phone) : '';
+  if (/^0[35789]\d{8}$/.test(phone)) customer.phone = phone; // Lưu cùng dạng 0xxxxxxxxx với mọi nơi khác
 
   return { reply, requirements, customer, wantsSuggestions: raw.wantsSuggestions === true };
 }

@@ -71,8 +71,8 @@ export const DownloadPhotosButton: React.FC<DownloadPhotosButtonProps> = ({ apar
 
   if (status === 'ready') {
     return (
-      <button type="button" onClick={handleShare} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">
-        <Share2 className="w-4 h-4" /> Lưu / Gửi {files.length} ảnh
+      <button type="button" onClick={handleShare} className="w-full h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-medium rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">
+        <Share2 className="w-4 h-4" /> Lưu {files.length} ảnh
       </button>
     );
   }
@@ -82,14 +82,14 @@ export const DownloadPhotosButton: React.FC<DownloadPhotosButtonProps> = ({ apar
       type="button"
       onClick={handlePrepare}
       disabled={status === 'loading'}
-      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-60"
+      className="w-full h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-medium rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 disabled:opacity-60"
     >
       {status === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
       {status === 'loading'
-        ? `Đang chuẩn bị ảnh ${preparedCount}/${photoCount}...`
+        ? `${preparedCount}/${photoCount}`
         : status === 'error'
-          ? 'Lỗi tải ảnh — thử lại'
-          : `Tải toàn bộ ảnh (${photoCount})`}
+          ? 'Thử lại'
+          : 'Tải ảnh'}
     </button>
   );
 };

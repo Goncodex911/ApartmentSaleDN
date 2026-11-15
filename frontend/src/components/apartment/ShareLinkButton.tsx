@@ -44,14 +44,14 @@ export const ShareLinkButton: React.FC<ShareLinkButtonProps> = ({ apartmentId, d
         onClick={handleLoadLink}
         disabled={disabled || loading}
         title={disabled ? 'Căn đã cho thuê' : undefined}
-        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-sky-50 text-sky-700 hover:bg-sky-100 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-medium rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-        {link ? 'Cập nhật lượt xem' : 'Tạo link xem phòng'}
+        {link ? 'Lượt xem' : 'Tạo link'}
       </button>
 
       {(link || error) && (
-        <div className="sm:col-span-3 p-3 rounded-xl border border-sky-100 bg-sky-50/60 text-xs space-y-2">
+        <div className="col-span-3 p-3 rounded-xl bg-slate-50 text-sm space-y-2">
           {error && <p className="text-rose-600">{error}</p>}
           {link && (
             <>

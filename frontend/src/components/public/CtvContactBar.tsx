@@ -8,7 +8,7 @@ export const CtvContactBar: React.FC<{ ctv: PublicListing['ctv'] }> = ({ ctv }) 
   const zaloUrl = ctv.zaloLink && /^https?:\/\//i.test(ctv.zaloLink) ? ctv.zaloLink : `https://zalo.me/${ctv.phone}`;
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+    <div className="fixed bottom-0 inset-x-0 z-40 pb-badge-safe bg-white border-t border-slate-200 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
       <div className="max-w-xl mx-auto px-4 py-3 flex items-center gap-3">
         {ctv.avatarUrl ? (
           <img src={ctv.avatarUrl} alt={ctv.name} className="w-11 h-11 rounded-full object-cover border border-slate-200 shrink-0" />

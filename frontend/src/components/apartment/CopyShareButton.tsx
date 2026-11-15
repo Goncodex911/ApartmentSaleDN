@@ -8,15 +8,17 @@ import { Copy, Check, X } from 'lucide-react';
 interface CopyShareButtonProps {
   apartment: Apartment;
   ctv: User | null;
+  compact?: boolean; // Chỉ hiện icon (dùng trong thẻ danh sách)
 }
 
-export const CopyShareButton: React.FC<CopyShareButtonProps> = ({ apartment, ctv }) => {
+export const CopyShareButton: React.FC<CopyShareButtonProps> = ({ apartment, ctv, compact }) => {
   const [copied, setCopied] = useState(false);
   const [manualText, setManualText] = useState('');
   const isRented = apartment.status === 'RENTED';
 
   // Sinh tin đồng bộ ngay trong lần chạm (không gọi API) để iOS giữ quyền ghi Clipboard.
-  const handleCopy = async () => {
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Nằm trong thẻ căn hộ bấm được → không mở chi tiết khi bấm Copy
     if (!ctv) return;
     const text = buildShareText(apartment, ctv);
     if (await copyText(text)) {
@@ -33,18 +35,19 @@ export const CopyShareButton: React.FC<CopyShareButtonProps> = ({ apartment, ctv
         type="button"
         onClick={handleCopy}
         disabled={isRented || !ctv}
-        title={isRented ? 'Căn đã cho thuê' : 'Copy bài tư vấn để gửi khách'}
-        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-          copied ? 'bg-emerald-600 text-white' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-        }`}
+        title={isRented ? 'Căn đã cho thuê' : 'Copy tin gửi khách'}
+        aria-label={copied ? 'Đã copy tin gửi khách' : 'Copy tin gửi khách'}
+        className={`flex items-center justify-center gap-1.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+          compact ? 'w-11 h-11 shrink-0' : 'w-full h-11 px-3'
+        } ${copied ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}
       >
         {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-        {copied ? 'Đã copy' : 'Copy tin gửi khách'}
+        {!compact && (copied ? 'Đã copy' : 'Copy tin')}
       </button>
 
       {/* Fallback cuối: trình duyệt chặn copy tự động → cho CTV nhấn giữ để copy thủ công */}
       {manualText && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60" onClick={(e) => e.stopPropagation()}>
           <div className="w-full max-w-md bg-white rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-800">Nhấn giữ để copy tin gửi khách</p>
