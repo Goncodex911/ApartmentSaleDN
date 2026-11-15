@@ -6,7 +6,20 @@ z.config(z.locales.vi());
 // SĐT Việt Nam: 0xxxxxxxxx hoặc (+)84xxxxxxxxx, đầu số 3/5/7/8/9.
 // Neo ^...$ để không chấp nhận chuỗi có ký tự thừa (VD: "abc0912345678xyz").
 export const vnPhoneRegex = /^(?:\+?84|0)[35789]\d{8}$/;
-export const vnPhone = (message: string) => z.string().trim().regex(vnPhoneRegex, message);
+
+/**
+ * Chuẩn hóa SĐT về 1 dạng duy nhất "0xxxxxxxxx" trước khi lưu/so khớp.
+ * iPhone tự điền từ danh bạ/Keychain thường ra "+84 85 434 69 68" → trước đây đăng nhập báo sai mật khẩu
+ * vì DB lưu "0854346968" (so khớp nguyên chuỗi).
+ */
+export const normalizeVnPhone = (raw: string) =>
+  raw
+    .trim()
+    .replace(/[\s.\-()]/g, '')
+    .replace(/^(?:\+?84)(?=[35789]\d{8}$)/, '0');
+
+export const vnPhone = (message: string) =>
+  z.string().transform(normalizeVnPhone).pipe(z.string().regex(/^0[35789]\d{8}$/, message));
 
 export type DeepPartial<T> = T extends readonly unknown[] | Date
   ? T

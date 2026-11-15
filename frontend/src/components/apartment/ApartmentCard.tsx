@@ -1,183 +1,71 @@
 import React from 'react';
-import { formatVnd } from '../../utils/format.js';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
-import { StatusBadge } from './StatusBadge.js';
+import { formatVnd } from '../../utils/format.js';
 import { CopyShareButton } from './CopyShareButton.js';
-import { MapPin, Image as ImageIcon, Eye, Edit2, Trash2, ShieldCheck, PawPrint, Car, ArrowUpCircle, Navigation } from 'lucide-react';
+
+export const STATUS_DISPLAY: Record<Apartment['status'], { label: string; dot: string }> = {
+  AVAILABLE: { label: 'Trống', dot: 'bg-emerald-500' },
+  UPCOMING: { label: 'Sắp trống', dot: 'bg-amber-500' },
+  DEPOSITED: { label: 'Đã cọc', dot: 'bg-sky-500' },
+  RENTED: { label: 'Đã thuê', dot: 'bg-slate-400' },
+};
 
 interface ApartmentCardProps {
   apartment: Apartment;
   currentUser: User | null;
-  isOwnerOrAdmin: boolean;
-  onViewDetail: (apt: Apartment) => void;
-  onEdit?: (apt: Apartment) => void;
-  onDelete?: (id: string) => void;
+  onOpen: (apartment: Apartment) => void;
 }
 
-export const ApartmentCard: React.FC<ApartmentCardProps> = ({
-  apartment,
-  currentUser,
-  isOwnerOrAdmin,
-  onViewDetail,
-  onEdit,
-  onDelete,
-}) => {
-
-  const thumbnail =
-    apartment.images && apartment.images.length > 0
-      ? apartment.images[0]
-      : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&auto=format&fit=crop&q=80';
+// Thẻ căn hộ dạng danh sách gọn: ảnh nhỏ bên trái, thông tin chính bên phải. Bấm cả thẻ để xem chi tiết.
+export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, currentUser, onOpen }) => {
+  const { attributes, location, commission } = apartment;
+  const thumbnail = apartment.images.find((url) => !apartment.hiddenImages?.includes(url)) || apartment.images[0];
+  const status = STATUS_DISPLAY[apartment.status];
+  const facts = [
+    attributes.bedrooms === 0 ? 'Studio' : `${attributes.bedrooms}PN`,
+    attributes.area && `${attributes.area}m²`,
+    location.district,
+    apartment.distanceKm !== undefined && `cách ${apartment.distanceKm} km`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const commissionText =
+    commission?.value > 0 && (commission.type === 'PERCENT' ? `HH ${commission.value}%` : `HH ${formatVnd(commission.value)}`);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden group">
-      {/* Ảnh Thumbnail & Badges */}
-      <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden cursor-pointer" onClick={() => onViewDetail(apartment)}>
-        <img
-          src={thumbnail}
-          alt={apartment.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          loading="lazy"
-        />
-        {/* Số lượng ảnh */}
-        {apartment.images && apartment.images.length > 0 && (
-          <span className="absolute bottom-2.5 right-2.5 bg-black/60 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1">
-            <ImageIcon className="w-3 h-3" />
-            {apartment.images.length}
-          </span>
-        )}
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(apartment)}
+      onKeyDown={(e) => e.key === 'Enter' && onOpen(apartment)}
+      className="flex gap-3 p-3 bg-white rounded-2xl border border-slate-200 cursor-pointer hover:border-slate-300 active:bg-slate-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+    >
+      {thumbnail ? (
+        <img src={thumbnail} alt={apartment.title} loading="lazy" className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl object-cover shrink-0 bg-slate-100" />
+      ) : (
+        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-slate-100 shrink-0" aria-hidden />
+      )}
 
-        {/* Hoa hồng CTV Badge */}
-        {apartment.commission && apartment.commission.value > 0 && (
-          <span className="absolute top-2.5 left-2.5 bg-emerald-600 text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow-sm">
-            HH: {apartment.commission.type === 'PERCENT' ? `${apartment.commission.value}%` : formatVnd(apartment.commission.value)}
-          </span>
-        )}
+      <div className="flex-1 min-w-0 flex flex-col">
+        <h3 className="text-[15px] font-semibold text-slate-900 leading-snug line-clamp-2">{apartment.title}</h3>
+        <p className="mt-0.5 text-sm text-slate-500 truncate">{facts}</p>
 
-        {/* Khoảng cách đến Điểm mốc (Story 4.2) */}
-        {apartment.distanceKm !== undefined && (
-          <span className="absolute top-2.5 right-2.5 bg-emerald-700/90 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow-md flex items-center gap-1">
-            <Navigation className="w-3 h-3 text-white" />
-            Cách {apartment.nearestLandmark || 'mốc'}: {apartment.distanceKm} km
-          </span>
-        )}
-      </div>
-
-      {/* Nội dung chi tiết */}
-      <div className="p-4 flex-1 flex flex-col justify-between">
-        <div>
-          {/* Trạng thái 1-Click & Giá thuê */}
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <StatusBadge
-              apartmentId={apartment._id}
-              status={apartment.status}
-              availableDate={apartment.availableDate}
-              canEdit={isOwnerOrAdmin}
-            />
-            <div className="text-right">
-              <span className="text-base font-bold text-indigo-600">{formatVnd(apartment.price)}</span>
-              <span className="text-[11px] text-slate-400 block font-normal">/tháng</span>
-            </div>
+        <div className="mt-auto flex items-end justify-between gap-2 pt-1">
+          <div className="min-w-0">
+            <p className="text-base font-bold text-slate-900">
+              {formatVnd(apartment.price)}
+              <span className="text-xs font-normal text-slate-500">/tháng</span>
+            </p>
+            <p className="flex items-center gap-1.5 text-xs text-slate-600">
+              <span className={`w-2 h-2 rounded-full ${status.dot}`} aria-hidden />
+              {status.label}
+              {commissionText && <span className="text-emerald-700 font-medium">· {commissionText}</span>}
+            </p>
           </div>
-
-          {/* Tiêu đề căn hộ */}
-          <h3
-            onClick={() => onViewDetail(apartment)}
-            className="text-sm font-semibold text-slate-800 line-clamp-2 hover:text-indigo-600 transition-colors cursor-pointer mb-2"
-          >
-            {apartment.title}
-          </h3>
-
-          {/* Địa chỉ & Khoảng cách */}
-          <p className="text-xs text-slate-500 flex items-center justify-between gap-1 mb-3">
-            <span className="flex items-center gap-1 truncate">
-              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="truncate">{apartment.location.district}, {apartment.location.address}</span>
-            </span>
-            {apartment.distanceKm !== undefined && (
-              <span className="shrink-0 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded ml-1">
-                📍 {apartment.distanceKm} km
-              </span>
-            )}
-          </p>
-
-          {/* Thuộc tính & Tiện ích nổi bật */}
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            <span className="px-2 py-0.5 text-[11px] font-medium bg-slate-100 text-slate-700 rounded-md">
-              {apartment.attributes.bedrooms} PN
-            </span>
-            {apartment.attributes.area && (
-              <span className="px-2 py-0.5 text-[11px] font-medium bg-slate-100 text-slate-700 rounded-md">
-                {apartment.attributes.area} m²
-              </span>
-            )}
-            {apartment.attributes.elevator && (
-              <span className="px-2 py-0.5 text-[11px] font-medium bg-indigo-50 text-indigo-700 rounded-md flex items-center gap-1">
-                <ArrowUpCircle className="w-3 h-3" /> Thang máy
-              </span>
-            )}
-            {apartment.attributes.allowPets && (
-              <span className="px-2 py-0.5 text-[11px] font-medium bg-amber-50 text-amber-700 rounded-md flex items-center gap-1">
-                <PawPrint className="w-3 h-3" /> Pet
-              </span>
-            )}
-            {apartment.attributes.carParking && (
-              <span className="px-2 py-0.5 text-[11px] font-medium bg-blue-50 text-blue-700 rounded-md flex items-center gap-1">
-                <Car className="w-3 h-3" /> Ô tô
-              </span>
-            )}
-            {apartment.attributes.pcccStandard && (
-              <span className="px-2 py-0.5 text-[11px] font-medium bg-emerald-50 text-emerald-700 rounded-md flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3" /> PCCC
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Chân thẻ & Nút thao tác */}
-        <div className="pt-3 border-t border-slate-100 flex items-center justify-between mt-auto">
-          {/* Thông tin liên hệ (che SĐT nếu là CTV) */}
-          <div className="text-xs">
-            <span className="text-slate-400 block text-[10px]">Chủ nhà / Đầu mối:</span>
-            <span className="font-medium text-slate-700">
-              {currentUser?.role === 'COLLABORATOR' ? apartment.ownerContact.phone : `${apartment.ownerContact.name} (${apartment.ownerContact.phone})`}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => onViewDetail(apartment)}
-              title="Xem chi tiết căn hộ"
-              className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-            >
-              <Eye className="w-4 h-4" />
-            </button>
-            {isOwnerOrAdmin && onEdit && (
-              <button
-                onClick={() => onEdit(apartment)}
-                title="Chỉnh sửa căn hộ"
-                className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
-            )}
-            {isOwnerOrAdmin && onDelete && (
-              <button
-                onClick={() => onDelete(apartment._id)}
-                title="Xóa căn hộ"
-                className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="pt-3">
-          <CopyShareButton apartment={apartment} ctv={currentUser} />
+          <CopyShareButton apartment={apartment} ctv={currentUser} compact />
         </div>
       </div>
-    </div>
+    </article>
   );
 };
-

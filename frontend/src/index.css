@@ -10,6 +10,10 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+  /* Chừa chỗ cho huy hiệu "Powered by Netlify" ở góc dưới (gói miễn phí không ẩn được) — chỉ sửa 1 chỗ này nếu đổi host */
+  .pb-badge-safe {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
 }
 
 @layer base {

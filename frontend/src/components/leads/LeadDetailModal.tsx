@@ -67,7 +67,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, pendingS
   const canConfirm = targetStage === 'VIEWING' ? !!viewingAt : !!lostReason.trim();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 pb-badge-safe sm:p-4">
       <div className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-t-2xl sm:rounded-2xl p-4 space-y-4 text-sm">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
