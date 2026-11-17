@@ -8,16 +8,9 @@ export const createApartmentSchema = z.object({
   title: z.string().min(5, 'Tiêu đề phải có ít nhất 5 ký tự'),
   description: z.string().optional(),
   price: z.number().positive('Giá thuê phải lớn hơn 0'),
-  deposit: z.number().min(0, 'Tiền cọc không được âm').default(0),
   priceUsd: z.number().positive('Giá USD phải lớn hơn 0').optional(),
   minLeaseMonths: z.number().int().min(1, 'Thời gian thuê tối thiểu từ 1 tháng').max(60).optional(),
   includedServices: z.array(z.enum(INCLUDED_SERVICES)).optional(),
-  commission: z
-    .object({
-      type: z.enum(['PERCENT', 'FIXED']).default('PERCENT'),
-      value: z.number().min(0, 'Giá trị hoa hồng không được âm').default(0),
-    })
-    .prefault({}), // prefault: không gửi commission thì vẫn chạy default của từng trường bên trong
   location: z.object({
     address: z.string().min(2, 'Địa chỉ không được để trống'),
     ward: z.string().optional(),

@@ -170,8 +170,6 @@ export class DedupService {
       priceUsd: ext.priceUsd,
       minLeaseMonths: ext.minLeaseMonths,
       includedServices: ext.includedServices,
-      deposit: ext.deposit,
-      commission: { type: 'PERCENT', value: 50 },
       location: {
         address: ext.address,
         ward: ext.ward,

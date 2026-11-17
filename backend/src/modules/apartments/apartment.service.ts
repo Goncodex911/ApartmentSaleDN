@@ -31,6 +31,9 @@ export class ApartmentService {
   static maskApartment(doc: IApartment | any, role?: string): any {
     if (!doc) return null;
     const item = doc.toObject ? doc.toObject() : { ...doc };
+    // Story 8.2: cọc & hoa hồng đã bỏ — căn cũ trong DB vẫn còn 2 trường này (query .lean()) nên lọc ở đây cho mọi vai trò
+    delete item.deposit;
+    delete item.commission;
     if (isPrivilegedRole(role)) return item;
 
     const maskContact = (contact?: { phone?: string; note?: string }) =>
@@ -120,7 +123,7 @@ export class ApartmentService {
     // Quản lý đã mở form và lưu lại → coi như đã kiểm tra tin AI
     apartment.set({ needsReview: false, reviewReason: undefined });
     await apartment.save();
-    return apartment;
+    return this.maskApartment(apartment, user.role);
   }
 
   // Cập nhật nhanh 1-Click trạng thái phòng
@@ -137,7 +140,7 @@ export class ApartmentService {
       apartment.availableDate = undefined;
     }
     await apartment.save();
-    return apartment;
+    return this.maskApartment(apartment, user.role);
   }
 
   // Đính kèm Nguồn tham chiếu vào Căn Master
@@ -153,7 +156,7 @@ export class ApartmentService {
     }
     apartment.subListings.push(subListingData as any);
     await apartment.save();
-    return apartment;
+    return this.maskApartment(apartment, user.role);
   }
 
   // Gỡ bỏ Nguồn tham chiếu khỏi Căn Master
@@ -167,7 +170,7 @@ export class ApartmentService {
       (sub: any) => sub._id.toString() !== subListingId
     );
     await apartment.save();
-    return apartment;
+    return this.maskApartment(apartment, user.role);
   }
 
   // Xóa căn hộ

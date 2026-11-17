@@ -31,7 +31,6 @@ function sanitizeMarketFields(ext: any) {
 export interface IParsedApartmentData {
   title: string;
   price: number;
-  deposit: number;
   address: string;
   ward?: string;
   district: string;
@@ -191,7 +190,6 @@ ${rawText.trim()}
       extracted: {
         title: ext.title || 'Căn hộ cho thuê',
         price,
-        deposit: Number(ext.deposit) || 0,
         address: ext.address || 'Đang cập nhật địa chỉ',
         ...location, // district, ward, city đã chuẩn hóa theo Đà Nẵng
         area: ext.area ? Number(ext.area) : undefined,

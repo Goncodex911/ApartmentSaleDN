@@ -13,11 +13,6 @@ export interface Apartment {
   priceUsd?: number;
   minLeaseMonths?: number;
   includedServices?: IncludedService[];
-  deposit: number;
-  commission: {
-    type: 'PERCENT' | 'FIXED';
-    value: number;
-  };
   location: {
     address: string;
     ward?: string;

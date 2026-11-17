@@ -38,9 +38,6 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
 
   const [title, setTitle] = useState(initialData?.title || '');
   const [price, setPrice] = useState(toText(initialData?.price));
-  const [deposit, setDeposit] = useState(toText(initialData?.deposit || undefined));
-  const [commissionType, setCommissionType] = useState<'PERCENT' | 'FIXED'>(initialData?.commission?.type || 'PERCENT');
-  const [commissionValue, setCommissionValue] = useState(toText(initialData?.commission?.value || undefined));
   const [address, setAddress] = useState(initialData?.location?.address || '');
   const [ward, setWard] = useState(initialData?.location?.ward || '');
   const [district, setDistrict] = useState(initialData?.location?.district || ''); // Không điền sẵn: tránh lưu nhầm quận
@@ -77,8 +74,6 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
       ...marketPayload,
       title,
       price: Number(price),
-      deposit: Number(deposit) || 0,
-      commission: { type: commissionType, value: Number(commissionValue) || 0 },
       location: { address, ward: textOr(ward, empty), district, city: initialData?.location?.city || 'Đà Nẵng' },
       attributes: {
         area: numberOr(area, empty),
@@ -131,23 +126,9 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
             <Field label="Tiêu đề" required>
               <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="VD: Căn 2PN view biển Mỹ An" className={inputClass} />
             </Field>
-            <div className="grid grid-cols-2 gap-3 items-end">
-              <Field label="Giá thuê (đ/tháng)" required>
-                <input type="number" inputMode="numeric" min={0} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="8000000" className={inputClass} />
-              </Field>
-              <Field label="Tiền cọc (đ)">
-                <input type="number" inputMode="numeric" min={0} value={deposit} onChange={(e) => setDeposit(e.target.value)} className={inputClass} />
-              </Field>
-              <Field label="Loại hoa hồng">
-                <select value={commissionType} onChange={(e) => setCommissionType(e.target.value as 'PERCENT' | 'FIXED')} className={inputClass}>
-                  <option value="PERCENT">Phần trăm (%)</option>
-                  <option value="FIXED">Số tiền (đ)</option>
-                </select>
-              </Field>
-              <Field label="Mức hoa hồng">
-                <input type="number" inputMode="numeric" min={0} value={commissionValue} onChange={(e) => setCommissionValue(e.target.value)} className={inputClass} />
-              </Field>
-            </div>
+            <Field label="Giá thuê (đ/tháng)" required>
+              <input type="number" inputMode="numeric" min={0} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="8000000" className={inputClass} />
+            </Field>
           </FormSection>
 
           <FormSection title="Vị trí">

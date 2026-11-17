@@ -42,7 +42,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
   const [shareLang, setShareLangState] = useState<Lang>(getShareLang); // Story 7.3: nhớ lựa chọn cho lần sau
   if (!apartment) return null;
 
-  const { attributes, fees, location, commission, ownerContact } = apartment;
+  const { attributes, fees, location, ownerContact } = apartment;
   const isCtv = currentUser?.role === 'COLLABORATOR';
   const visibleImageCount = apartment.images.filter((url) => !apartment.hiddenImages?.includes(url)).length;
   const hiddenImageCount = apartment.images.length - visibleImageCount;
@@ -125,11 +125,6 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
                   canEdit={isOwnerOrAdmin}
                   onStatusUpdated={onStatusUpdated}
                 />
-                {commission?.value > 0 && (
-                  <span className="text-sm font-medium text-emerald-700">
-                    Hoa hồng {commission.type === 'PERCENT' ? `${commission.value}%` : formatVnd(commission.value)}
-                  </span>
-                )}
               </div>
             </div>
 
@@ -145,7 +140,6 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
                 <span className="text-sm font-normal text-slate-500">/tháng</span>
                 {apartment.priceUsd && <span className="ml-2 text-base font-medium text-slate-500">{usdText(apartment.priceUsd)}</span>}
               </p>
-              <p className="text-sm text-slate-600">Cọc {formatVnd(apartment.deposit)}</p>
               {feeText && <p className="text-sm text-slate-500 mt-1">{feeText}</p>}
             </div>
 

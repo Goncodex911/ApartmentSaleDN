@@ -24,7 +24,7 @@ type PublicCtv = Pick<IUser, 'name' | 'phone' | 'zaloPhone' | 'zaloLink' | 'avat
 
 /**
  * DTO công khai cho khách (Story 5.3 - AC4): chỉ gồm các trường trong danh sách trắng.
- * KHÔNG trả về ownerContact, subListings, commission, description, address, tọa độ gốc.
+ * KHÔNG trả về ownerContact, subListings, description, address, tọa độ gốc.
  */
 export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
   const coordinates = apartment.location.coordinates;
@@ -36,7 +36,6 @@ export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
     priceUsd: apartment.priceUsd,
     minLeaseMonths: apartment.minLeaseMonths,
     includedServices: apartment.includedServices || [],
-    deposit: apartment.deposit,
     fees: {
       electricity: fees?.electricity,
       water: fees?.water,

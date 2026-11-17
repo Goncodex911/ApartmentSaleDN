@@ -15,7 +15,6 @@ export interface PublicListing {
   priceUsd?: number;
   minLeaseMonths?: number;
   includedServices: NonNullable<Apartment['includedServices']>;
-  deposit: number;
   fees: NonNullable<Apartment['fees']>;
   attributes: Omit<Apartment['attributes'], 'livingRooms'>;
   location: { ward?: string; district: string; city: string; approximateCenter: [number, number] | null };

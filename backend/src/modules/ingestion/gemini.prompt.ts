@@ -23,11 +23,6 @@ BƯỚC 2: NẾU LÀ TIN CHO THUÊ, TRÍCH XUẤT CÁC THÔNG SỐ CHUẨN XÁC:
   + "4tr8" -> 4800000.
   + Tin ghi cả USD và VNĐ ("760 USD/month (20 million VND)") -> lấy số VNĐ: 20000000.
   + Nếu không ghi giá hoặc ghi "giá thỏa thuận", "giá ib" -> 0.
-- deposit: Tiền cọc số nguyên VNĐ.
-  + "cọc 1 tháng", "cọc 1", "deposit 1 month" -> bằng mức price.
-  + "cọc 2 tháng" -> bằng price * 2.
-  + "cọc 5tr" -> 5000000.
-  + Mặc định nếu không ghi -> 0.
 - address: Số nhà, kiệt/hẻm, tên đường (VD: "K12 Bà Huyện Thanh Quan").
 - ward: Tên phường nếu có (VD: "Mỹ An", "An Hải Bắc", "Khuê Mỹ"), không có -> null.
 - district: Khu vực (quận cũ) Đà Nẵng, CHỈ chọn một trong: Hải Châu, Thanh Khê, Sơn Trà, Ngũ Hành Sơn, Liên Chiểu, Cẩm Lệ, Hòa Vang, Hội An.
@@ -68,7 +63,6 @@ Hãy trả về DUY NHẤT một chuỗi JSON hợp lệ (không kèm markdown \
   "extracted": {
     "title": "Cho thuê căn 1N1K Hồ Nghinh, An Hải Bắc, Sơn Trà",
     "price": 6500000,
-    "deposit": 6500000,
     "address": "K25 Hồ Nghinh",
     "ward": "An Hải Bắc",
     "district": "Sơn Trà",

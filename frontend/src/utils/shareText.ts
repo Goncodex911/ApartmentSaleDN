@@ -15,13 +15,6 @@ const stripPhoneNumbers = (text: string) =>
     .replace(/\s{2,}/g, ' ')
     .trim();
 
-// Cọc chia hết cho giá → "Cọc N tháng", ngược lại ghi số tiền; cọc = 0 thì bỏ.
-const depositText = (price: number, deposit: number) => {
-  if (!deposit) return '';
-  if (price > 0 && deposit % price === 0) return ` (Cọc ${deposit / price} tháng)`;
-  return ` (Cọc ${formatVnd(deposit)} VNĐ)`;
-};
-
 // Khu vực Đà Nẵng không phải "quận" (Story 7.2)
 const DISTRICT_PREFIX: Record<string, string> = { 'Hòa Vang': 'Huyện Hòa Vang', 'Hội An': 'TP Hội An', 'Chưa rõ': 'Đà Nẵng' };
 
@@ -34,10 +27,10 @@ const FURNISHING_LABEL: Record<Apartment['attributes']['furnishing'], string> = 
 /**
  * Sinh bài tư vấn gửi khách (Story 5.1).
  * Chỉ đọc các trường trong danh sách trắng — KHÔNG dùng ownerContact, subListings,
- * commission, description, location.address để không lộ thông tin chủ nhà/nội bộ.
+ * description, location.address để không lộ thông tin chủ nhà/nội bộ.
  */
 export function buildShareText(apartment: Apartment, ctv: ShareContact): string {
-  const { price, deposit, location, attributes, fees, status, availableDate } = apartment;
+  const { price, location, attributes, fees, status, availableDate } = apartment;
 
   const district = location.district.trim();
   const districtLabel = /^(quận|huyện|thị xã|tp)/i.test(district) ? district : DISTRICT_PREFIX[district] ?? `Quận ${district}`;
@@ -83,7 +76,7 @@ export function buildShareText(apartment: Apartment, ctv: ShareContact): string 
     header,
     `📍 Khu vực: ${[location.ward, district].filter(Boolean).join(', ')}`,
     sizeLine,
-    `💵 Giá thuê: ${formatVnd(price)} VNĐ/tháng${apartment.priceUsd ? ` (${usdText(apartment.priceUsd)})` : ''}${depositText(price, deposit)}`,
+    `💵 Giá thuê: ${formatVnd(price)} VNĐ/tháng${apartment.priceUsd ? ` (${usdText(apartment.priceUsd)})` : ''}`,
     feeParts.length ? `⚡ Phí: ${feeParts.join(' · ')}` : '',
     `🛋 Nội thất: ${furnishing.join(', ')}`,
     amenities ? `🚗 Tiện ích: ${amenities[0].toLocaleUpperCase('vi-VN')}${amenities.slice(1)}` : '',

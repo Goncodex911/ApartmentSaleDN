@@ -20,7 +20,7 @@ interface ApartmentCardProps {
 
 // Thẻ căn hộ dạng danh sách gọn: ảnh nhỏ bên trái, thông tin chính bên phải. Bấm cả thẻ để xem chi tiết.
 export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, currentUser, onOpen }) => {
-  const { attributes, location, commission } = apartment;
+  const { attributes, location } = apartment;
   const thumbnail = apartment.images.find((url) => !apartment.hiddenImages?.includes(url)) || apartment.images[0];
   const status = STATUS_DISPLAY[apartment.status];
   const facts = [
@@ -33,8 +33,6 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
   ]
     .filter(Boolean)
     .join(' · ');
-  const commissionText =
-    commission?.value > 0 && (commission.type === 'PERCENT' ? `HH ${commission.value}%` : `HH ${formatVnd(commission.value)}`);
 
   return (
     <article
@@ -63,7 +61,6 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
             <p className="flex items-center gap-1.5 text-xs text-slate-600">
               <span className={`w-2 h-2 rounded-full ${status.dot}`} aria-hidden />
               {status.label}
-              {commissionText && <span className="text-emerald-700 font-medium">· {commissionText}</span>}
               {apartment.needsReview && <span className="text-amber-700 font-medium">· Cần kiểm tra</span>}
             </p>
           </div>

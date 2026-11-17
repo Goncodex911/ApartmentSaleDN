@@ -52,7 +52,6 @@ function describe(listing: PublicListing, lang: Lang) {
       title: headlineEn(listing),
       place: `${placeEn(listing)}, ${toAscii(location.city)}`,
       price: formatVndEn(listing.price),
-      deposit: listing.deposit > 0 ? formatVndEn(listing.deposit) : '',
       fees: feesEn(listing),
       facts: [
         attributes.area && `${attributes.area}m²`,
@@ -68,7 +67,6 @@ function describe(listing: PublicListing, lang: Lang) {
     title: listing.title,
     place: [location.ward, location.district, location.city].filter(Boolean).join(', '),
     price: formatVnd(listing.price),
-    deposit: listing.deposit > 0 ? formatVnd(listing.deposit) : '',
     fees: [
       fees.electricity && `Điện ${formatVnd(fees.electricity)}/kWh`,
       fees.water && `Nước ${formatVnd(fees.water)}`,
@@ -168,7 +166,6 @@ export const PublicListingPage: React.FC = () => {
               <span className="text-sm font-medium text-indigo-500">{copy.perMonth}</span>
               {listing.priceUsd && <span className="ml-2 text-base font-semibold text-indigo-500">{usdText(listing.priceUsd)}</span>}
             </p>
-            {view.deposit && <p className="text-sm text-slate-600 mt-1">{copy.deposit}: {view.deposit}</p>}
             {view.fees.length > 0 && <p className="text-sm text-slate-500 mt-2">{view.fees.join(' · ')}</p>}
           </div>
 

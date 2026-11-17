@@ -1,7 +1,7 @@
 import { Apartment, IncludedService } from '../api/apartmentApi.js';
 
 // Dữ liệu tối thiểu để mô tả căn bằng tiếng Anh — dùng được cho cả Apartment (CTV) và PublicListing (trang khách)
-export type ListingInfo = Pick<Apartment, 'price' | 'deposit' | 'priceUsd' | 'minLeaseMonths' | 'status' | 'availableDate' | 'fees'> & {
+export type ListingInfo = Pick<Apartment, 'price' | 'priceUsd' | 'minLeaseMonths' | 'status' | 'availableDate' | 'fees'> & {
   includedServices?: IncludedService[];
   attributes: Apartment['attributes'];
   location: { ward?: string; district: string; city: string };
@@ -72,7 +72,3 @@ export function feesEn({ fees }: Pick<ListingInfo, 'fees'>): string[] {
     fees?.parkingMotor && `Parking ${formatVndEn(fees.parkingMotor)}/month`,
   ].filter(Boolean) as string[];
 }
-
-/** Cọc chia hết cho giá → "1 month", ngược lại ghi số tiền; cọc = 0 → rỗng. */
-export const depositEn = (price: number, deposit: number) =>
-  !deposit ? '' : price > 0 && deposit % price === 0 ? minStayEn(deposit / price) : formatVndEn(deposit);

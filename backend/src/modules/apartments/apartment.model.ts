@@ -27,11 +27,6 @@ export interface IApartment extends Document {
   priceUsd?: number; // Giá USD nếu tin ghi (khách nước ngoài) — giá chuẩn vẫn là price (VNĐ)
   minLeaseMonths?: number; // Số tháng thuê tối thiểu
   includedServices?: IncludedService[];
-  deposit: number;
-  commission: {
-    type: 'PERCENT' | 'FIXED';
-    value: number;
-  };
   location: {
     address: string;
     ward?: string;
@@ -107,14 +102,9 @@ const apartmentSchema = new Schema<IApartment>(
     title: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
     price: { type: Number, required: true, min: 0, index: true },
-    deposit: { type: Number, default: 0, min: 0 },
     priceUsd: { type: Number, min: 0 },
     minLeaseMonths: { type: Number, min: 1 },
     includedServices: [{ type: String, enum: INCLUDED_SERVICES }],
-    commission: {
-      type: { type: String, enum: ['PERCENT', 'FIXED'], default: 'PERCENT' },
-      value: { type: Number, default: 0 },
-    },
     location: {
       address: { type: String, required: true, trim: true },
       ward: { type: String, trim: true },
