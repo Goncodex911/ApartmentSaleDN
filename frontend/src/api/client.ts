@@ -36,6 +36,11 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config;
+    // Story 9.1: mất mạng khi lưu / gửi / duyệt → báo rõ thay vì lỗi chung (GET đã có bản lưu offline của Service Worker)
+    if (!error.response && !navigator.onLine && original && original.method !== 'get') {
+      error.response = { status: 0, data: { message: 'Cần kết nối mạng để thực hiện thao tác này' } };
+      return Promise.reject(error);
+    }
     if (error.response?.status !== 401 || !original) return Promise.reject(error);
 
     if (NO_REFRESH_URLS.includes(original.url) || original._retried) {

@@ -1,0 +1,9 @@
+# Quy tắc header của Netlify (Vite copy file này vào dist khi build) — Story 9.1
+# Service Worker, manifest và index.html KHÔNG được lưu cache lâu: nếu không, điện thoại đã cài app có thể kẹt ở bản cũ sau khi deploy.
+# (File JS/CSS có mã hash trong tên → cache lâu thoải mái, Netlify tự xử lý.)
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache

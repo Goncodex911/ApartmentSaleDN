@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, authApi } from '../api/authApi.js';
+import { useCurrentUser } from '../hooks/useCurrentUser.js';
 import { Apartment, apartmentApi } from '../api/apartmentApi.js';
 import { useApartmentSearch, ApartmentFilterValues, AMENITY_KEYS, EMPTY_FILTERS, countActiveFilters } from '../hooks/useApartmentSearch.js';
 import { Navbar } from '../components/layout/Navbar.js';
@@ -34,7 +34,7 @@ function activeChips(f: ApartmentFilterValues) {
 
 export const ApartmentsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user: currentUser, setUser: setCurrentUser } = useCurrentUser(); // Mất mạng vẫn vào được (Story 9.1)
   const { apartments, pagination, status, query, filters, aiSummary, search, applyFilters, setPage, reload, removeApartment } =
     useApartmentSearch();
   const [searchText, setSearchText] = useState('');
@@ -45,9 +45,6 @@ export const ApartmentsPage: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSubmitOpen, setIsSubmitOpen] = useState(false); // CTV đăng tin chờ duyệt (Story 8.6)
 
-  useEffect(() => {
-    authApi.getMe().then((res) => setCurrentUser(res.data)).catch(() => navigate('/login'));
-  }, [navigate]);
 
   const isManager = currentUser?.role === 'MANAGER' || currentUser?.role === 'ADMIN';
   const filterCount = countActiveFilters(filters);

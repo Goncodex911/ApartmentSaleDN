@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api/authApi.js';
+import { clearOfflineData } from '../utils/offlineCache.js';
 import { Building2, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
@@ -30,6 +31,7 @@ export const LoginPage: React.FC = () => {
         const res = await authApi.login({ phone, password });
         localStorage.setItem('token', res.data.accessToken);
         localStorage.setItem('user', JSON.stringify(res.data.user));
+        await clearOfflineData(); // Bỏ dữ liệu offline của tài khoản trước trên máy này (Story 9.1)
         navigate('/apartments');
       } else {
         // Đăng ký
@@ -42,6 +44,7 @@ export const LoginPage: React.FC = () => {
         }
         localStorage.setItem('token', res.data.accessToken);
         localStorage.setItem('user', JSON.stringify(res.data.user));
+        await clearOfflineData(); // Bỏ dữ liệu offline của tài khoản trước trên máy này (Story 9.1)
         navigate('/apartments');
       }
     } catch (err: any) {

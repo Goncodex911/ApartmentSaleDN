@@ -1,6 +1,6 @@
 # TỔNG QUAN USER STORIES & LỘ TRÌNH DỰ ÁN (PROJECT ROADMAP)
 
-Hệ thống quản lý căn hộ cho Quản lý & Cộng tác viên (CTV) được băm nhỏ thành **8 Epics chính** với các User Stories cụ thể, đảm bảo có thể phát triển độc lập, kiểm thử dễ dàng và bàn giao từng phần.
+Hệ thống quản lý căn hộ cho Quản lý & Cộng tác viên (CTV) được băm nhỏ thành **9 Epics chính** với các User Stories cụ thể, đảm bảo có thể phát triển độc lập, kiểm thử dễ dàng và bàn giao từng phần.
 
 ---
 
@@ -16,6 +16,7 @@ Hệ thống quản lý căn hộ cho Quản lý & Cộng tác viên (CTV) đư�
 | **[EPIC-06](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_06_CUSTOMER_CRM_AND_AUTO_CHAT.md)** | Mini-CRM & AI Auto-Chat Giữ chân khách | Quản lý tiến trình khách thuê, Chatbot tự động gợi ý căn khi khách hỏi | P2 (Nâng cao) |
 | **[EPIC-07](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_07_DANANG_MARKET.md)** | Chuyển đổi sang Thị trường Đà Nẵng | Khu vực/điểm mốc Đà Nẵng, AI hiểu tin tiếng Anh, khoảng cách biển, hồ bơi, giá USD | P1 (Đã xong) |
 | **[EPIC-08](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_08_LISTING_UPLOAD_FEEDBACK.md)** | Chuẩn hóa Nhập tin theo Feedback Khách | Bỏ cọc/hoa hồng, link map + tên đường, loại căn, khu vực & 11 tiện ích theo khách, sửa lỗi nhập tin | P0 (Feedback khách) |
+| **[EPIC-09](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_09_PWA_MOBILE_APP.md)** | Ứng dụng Di động PWA & Mobile-First | Cài app ra màn hình chính không qua App Store, chạy ngoại tuyến (Offline), menu đáy 1 tay, Web Share Zalo | P1 (Tối ưu Mobile) |
 
 ---
 

@@ -6,10 +6,12 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute.js';
 import { PublicListingPage } from './pages/PublicListingPage.js';
 import { LeadsPage } from './pages/LeadsPage.js';
 import { SubmissionsPage } from './pages/SubmissionsPage.js';
+import { PwaStatus } from './components/layout/PwaStatus.js';
 
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
+      <PwaStatus />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         {/* Trang xem phòng công khai cho khách — không cần đăng nhập (Story 5.3) */}

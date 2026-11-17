@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, authApi } from '../api/authApi.js';
+import { useCurrentUser } from '../hooks/useCurrentUser.js';
 import { Lead, LeadStage, leadApi } from '../api/leadApi.js';
 import { useLeads } from '../hooks/useLeads.js';
 import { Navbar } from '../components/layout/Navbar.js';
@@ -14,7 +14,7 @@ import { AlertCircle } from 'lucide-react';
 // Bảng Kanban phễu khách hàng (Story 6.1): cột cuộn ngang trên điện thoại, kéo-thả trên máy tính
 export const LeadsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user: currentUser, setUser: setCurrentUser } = useCurrentUser(); // Mất mạng vẫn vào được (Story 9.1)
   const { leads, status, reload, upsert, remove } = useLeads();
   const [openLead, setOpenLead] = useState<{ lead: Lead; pendingStage?: LeadStage } | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -22,9 +22,6 @@ export const LeadsPage: React.FC = () => {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropError, setDropError] = useState('');
 
-  useEffect(() => {
-    authApi.getMe().then((res) => setCurrentUser(res.data)).catch(() => navigate('/login'));
-  }, [navigate]);
 
   // Thả thẻ vào cột: cột cần thêm thông tin (Hẹn xem / Hủy) → mở Modal, còn lại chuyển ngay
   const handleDrop = async (stage: LeadStage) => {

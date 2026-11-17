@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { User, authApi } from '../../api/authApi.js';
 import { copyText } from '../../utils/clipboard.js';
+import { clearOfflineData } from '../../utils/offlineCache.js';
 import { PendingUsersModal } from './PendingUsersModal.js';
 import { NotificationBell } from './NotificationBell.js';
 import { usePendingSubmissionCount } from '../../hooks/useSubmissions.js';
@@ -38,6 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onOpenProfile, onLogout })
 
   const handleLogout = async () => {
     await authApi.logout().catch(() => undefined); // Lỗi mạng khi đăng xuất thì vẫn xóa phiên ở máy
+    await clearOfflineData(); // Không để dữ liệu Bảng hàng (có SĐT chủ nhà) lại trên máy
     onLogout();
   };
 

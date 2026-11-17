@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { formatVnd } from '../../utils/format.js';
+import { imageCors } from '../../utils/offlineCache.js';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { StatusBadge } from './StatusBadge.js';
@@ -89,7 +90,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
         <div className="flex-1 overflow-y-auto">
           {apartment.images.length > 0 && (
             <div className="bg-slate-100">
-              <img src={activeImage || apartment.images[0]} alt={apartment.title} className="w-full aspect-[4/3] object-cover" />
+              <img src={activeImage || apartment.images[0]} alt={apartment.title} crossOrigin={imageCors(activeImage || apartment.images[0])} className="w-full aspect-[4/3] object-cover" />
               {apartment.images.length > 1 && (
                 <div className="flex gap-2 overflow-x-auto scrollbar-none p-2 bg-white">
                   {apartment.images.map((img, idx) => (
@@ -99,7 +100,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
                       aria-label={`Ảnh ${idx + 1}`}
                       className={`w-14 h-14 shrink-0 rounded-lg overflow-hidden ring-2 ${activeImage === img ? 'ring-indigo-600' : 'ring-transparent opacity-70'}`}
                     >
-                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <img src={img} alt="" crossOrigin={imageCors(img)} className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>

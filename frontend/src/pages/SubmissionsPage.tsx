@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
-import { User, authApi } from '../api/authApi.js';
+import { useCurrentUser } from '../hooks/useCurrentUser.js';
 import { ApartmentPayload } from '../api/apartmentApi.js';
 import { DuplicateApartment, ListingSubmission, submissionApi } from '../api/submissionApi.js';
 import { useSubmissions } from '../hooks/useSubmissions.js';
@@ -24,7 +24,7 @@ type FormState = { mode: 'create' } | { mode: 'edit'; submission: ListingSubmiss
  */
 export const SubmissionsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user: currentUser, setUser: setCurrentUser } = useCurrentUser(); // Mất mạng vẫn vào được (Story 9.1)
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [tab, setTab] = useState('PENDING');
   const [form, setForm] = useState<FormState | null>(null);
@@ -33,9 +33,6 @@ export const SubmissionsPage: React.FC = () => {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
-  useEffect(() => {
-    authApi.getMe().then((res) => setCurrentUser(res.data)).catch(() => navigate('/login'));
-  }, [navigate]);
 
   const isManager = currentUser?.role === 'MANAGER' || currentUser?.role === 'ADMIN';
   const { items, state, reload } = useSubmissions(currentUser ? (isManager ? 'review' : 'mine') : null, isManager ? tab : '');

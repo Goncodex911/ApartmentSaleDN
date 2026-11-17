@@ -111,6 +111,11 @@ export function useApartmentSearch() {
   }, []);
 
   const reload = useCallback(() => setReloadKey((key) => key + 1), []);
+  // Có mạng lại → tải danh sách mới nhất (đang xem bản lưu offline) — Story 9.1
+  useEffect(() => {
+    window.addEventListener('online', reload);
+    return () => window.removeEventListener('online', reload);
+  }, [reload]);
   const removeApartment = useCallback((id: string) => setApartments((list) => list.filter((item) => item._id !== id)), []);
 
   return { apartments, pagination, status, query, filters, aiSummary, search, applyFilters, setPage, reload, removeApartment };
