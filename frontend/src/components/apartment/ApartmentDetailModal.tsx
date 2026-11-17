@@ -6,6 +6,8 @@ import { StatusBadge } from './StatusBadge.js';
 import { CopyShareButton } from './CopyShareButton.js';
 import { DownloadPhotosButton } from './DownloadPhotosButton.js';
 import { ShareLinkButton } from './ShareLinkButton.js';
+import { ShareLangToggle } from './ShareLangToggle.js';
+import { Lang, getShareLang, setShareLang } from '../../utils/shareLang.js';
 import { X } from 'lucide-react';
 import { marketLabels, usdText } from '../../utils/apartmentLabels.js';
 
@@ -37,6 +39,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
 }) => {
   // Hook phải gọi trước mọi lệnh return (Rules of Hooks); trang cha đặt key theo _id nên state reset khi đổi căn
   const [activeImage, setActiveImage] = useState(apartment?.images?.[0] || '');
+  const [shareLang, setShareLangState] = useState<Lang>(getShareLang); // Story 7.3: nhớ lựa chọn cho lần sau
   if (!apartment) return null;
 
   const { attributes, fees, location, commission, ownerContact } = apartment;
@@ -188,11 +191,12 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
         </div>
 
         {/* Chia sẻ 1-Click cho CTV (Epic 5) — ghim cuối màn hình để luôn bấm được */}
-        <div key={apartment._id} className="shrink-0 border-t border-slate-100 p-3 pb-badge-safe sm:pb-3 space-y-1.5">
+        <div key={apartment._id} className="shrink-0 border-t border-slate-100 p-3 pb-badge-safe sm:pb-3 space-y-2">
+          <ShareLangToggle value={shareLang} onChange={(lang) => { setShareLang(lang); setShareLangState(lang); }} />
           <div className="grid grid-cols-3 gap-2">
-            <CopyShareButton apartment={apartment} ctv={currentUser} />
+            <CopyShareButton apartment={apartment} ctv={currentUser} lang={shareLang} />
             <DownloadPhotosButton apartmentId={apartment._id} photoCount={visibleImageCount} />
-            <ShareLinkButton apartmentId={apartment._id} disabled={apartment.status === 'RENTED'} />
+            <ShareLinkButton apartmentId={apartment._id} disabled={apartment.status === 'RENTED'} lang={shareLang} />
           </div>
           {hiddenImageCount > 0 && <p className="text-xs text-slate-500">Đã ẩn {hiddenImageCount} ảnh có SĐT nguồn cũ khi gửi khách</p>}
         </div>

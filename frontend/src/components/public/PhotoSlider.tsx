@@ -4,16 +4,18 @@ import { ImageOff } from 'lucide-react';
 interface PhotoSliderProps {
   images: string[];
   title: string;
+  emptyLabel?: string; // Story 7.3: chữ theo ngôn ngữ trang
+  photoLabel?: string;
 }
 
 // Slide ảnh vuốt ngang bằng CSS scroll-snap (native, không cần thư viện)
-export const PhotoSlider: React.FC<PhotoSliderProps> = ({ images, title }) => {
+export const PhotoSlider: React.FC<PhotoSliderProps> = ({ images, title, emptyLabel = 'Chưa có ảnh', photoLabel = 'ảnh' }) => {
   const [activeIndex, setActiveIndex] = useState(0);
 
   if (images.length === 0) {
     return (
       <div className="aspect-[4/3] bg-slate-200 flex flex-col items-center justify-center text-slate-400 text-sm gap-2">
-        <ImageOff className="w-8 h-8" /> Chưa có ảnh
+        <ImageOff className="w-8 h-8" /> {emptyLabel}
       </div>
     );
   }
@@ -28,7 +30,7 @@ export const PhotoSlider: React.FC<PhotoSliderProps> = ({ images, title }) => {
           <img
             key={index}
             src={src}
-            alt={`${title} - ảnh ${index + 1}`}
+            alt={`${title} - ${photoLabel} ${index + 1}`}
             loading={index === 0 ? 'eager' : 'lazy'}
             className="w-full h-full object-cover shrink-0 snap-center"
           />

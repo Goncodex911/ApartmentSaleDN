@@ -1,6 +1,6 @@
 # TỔNG QUAN USER STORIES & LỘ TRÌNH DỰ ÁN (PROJECT ROADMAP)
 
-Hệ thống quản lý căn hộ cho Quản lý & Cộng tác viên (CTV) được băm nhỏ thành **6 Epics chính** với các User Stories cụ thể, đảm bảo có thể phát triển độc lập, kiểm thử dễ dàng và bàn giao từng phần.
+Hệ thống quản lý căn hộ cho Quản lý & Cộng tác viên (CTV) được băm nhỏ thành **8 Epics chính** với các User Stories cụ thể, đảm bảo có thể phát triển độc lập, kiểm thử dễ dàng và bàn giao từng phần.
 
 ---
 
@@ -14,6 +14,8 @@ Hệ thống quản lý căn hộ cho Quản lý & Cộng tác viên (CTV) đư�
 | **[EPIC-04](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_04_SMART_SEARCH_AND_FILTER.md)** | Tìm kiếm Siêu tốc & Bộ lọc Thực tiễn | Tìm kiếm mờ (Fuzzy), hiểu từ lóng môi giới (`ccmn`, `1n1k`), lọc theo bán kính GPS | P0 (Bắt buộc) |
 | **[EPIC-05](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_05_ONE_CLICK_SHARE.md)** | Tính năng 1-Click Share (Không cap màn hình) | Tạo bài viết Zalo mẫu, tải ảnh gắn watermark CTV, tạo link xem phòng ẩn số chủ | P0 (Bắt buộc) |
 | **[EPIC-06](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_06_CUSTOMER_CRM_AND_AUTO_CHAT.md)** | Mini-CRM & AI Auto-Chat Giữ chân khách | Quản lý tiến trình khách thuê, Chatbot tự động gợi ý căn khi khách hỏi | P2 (Nâng cao) |
+| **[EPIC-07](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_07_DANANG_MARKET.md)** | Chuyển đổi sang Thị trường Đà Nẵng | Khu vực/điểm mốc Đà Nẵng, AI hiểu tin tiếng Anh, khoảng cách biển, hồ bơi, giá USD | P1 (Đã xong) |
+| **[EPIC-08](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_08_LISTING_UPLOAD_FEEDBACK.md)** | Chuẩn hóa Nhập tin theo Feedback Khách | Bỏ cọc/hoa hồng, link map + tên đường, loại căn, khu vực & 11 tiện ích theo khách, sửa lỗi nhập tin | P0 (Feedback khách) |
 
 ---
 
