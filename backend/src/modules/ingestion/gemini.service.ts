@@ -3,6 +3,7 @@ import {
   GEMINI_JSON_SCHEMA_INSTRUCTION,
 } from './gemini.prompt.js';
 import { resolveListingLocation, UNKNOWN_DISTRICT } from '../search/district.js';
+import { fetchWithRetry } from '../../utils/fetch-retry.js';
 
 export interface IParsedApartmentData {
   title: string;
@@ -85,18 +86,19 @@ ${rawText.trim()}
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-    // Sử dụng AbortController với thời gian chờ tối đa 8 giây
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        // API key gửi qua header thay vì query string (?key=) để không bị ghi vào log proxy/server
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      });
+      // Mỗi lần gọi chờ tối đa 8 giây; Gemini quá tải (429/503) hoặc timeout → tự thử lại 2 lần (sau 2s, 6s)
+      // để tin Telegram/Zalo không bị mất khi Google quá tải tạm thời
+      const response = await fetchWithRetry(
+        url,
+        {
+          method: 'POST',
+          // API key gửi qua header thay vì query string (?key=) để không bị ghi vào log proxy/server
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify(requestBody),
+        },
+        8000
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -117,8 +119,6 @@ ${rawText.trim()}
         throw new Error('Quá thời gian chờ (Timeout) khi gọi Gemini API');
       }
       throw err;
-    } finally {
-      clearTimeout(timeout);
     }
   }
 
