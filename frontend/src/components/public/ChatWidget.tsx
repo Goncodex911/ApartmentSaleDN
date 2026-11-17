@@ -2,11 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import { formatVnd } from '../../utils/format.js';
 import { ChatMessage, chatApi } from '../../api/chatApi.js';
 import { MessageCircle, X, Send, Bot } from 'lucide-react';
+import { PUBLIC_COPY } from '../../utils/publicCopy.js';
+import { Lang, withLang } from '../../utils/shareLang.js';
+import { formatVndEn, toAscii } from '../../utils/listingEn.js';
 
 interface ChatWidgetProps {
   code: string;
   ctvName: string;
   greeting?: string;
+  lang: Lang; // Story 7.3: chữ cố định của khung chat theo ngôn ngữ trang
 }
 
 const storageKey = (code: string) => `chat-session-${code}`;
@@ -27,7 +31,8 @@ const saveSessionId = (code: string, sessionId: string) => {
 };
 
 // Khung chat trợ lý AI trên trang xem phòng (Story 6.2 - AC1)
-export const ChatWidget: React.FC<ChatWidgetProps> = ({ code, ctvName, greeting }) => {
+export const ChatWidget: React.FC<ChatWidgetProps> = ({ code, ctvName, greeting, lang }) => {
+  const copy = PUBLIC_COPY[lang];
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -60,7 +65,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ code, ctvName, greeting 
       saveSessionId(code, result.sessionId);
       setMessages((list) => [...list, { role: 'assistant', content: result.reply, suggestions: result.suggestions }]);
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Mất kết nối, bạn vui lòng thử lại hoặc gọi trực tiếp tư vấn viên nhé.';
+      const message = (lang === 'vi' && err.response?.data?.message) || copy.connectionError;
       setMessages((list) => [...list, { role: 'assistant', content: message }]);
     } finally {
       setSending(false);
@@ -73,7 +78,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ code, ctvName, greeting 
         onClick={() => setIsOpen(true)}
         className="fixed bottom-36 right-4 z-40 flex items-center gap-2 pl-3 pr-4 py-3 rounded-full bg-violet-600 text-white text-sm font-bold shadow-lg"
       >
-        <MessageCircle className="w-5 h-5" /> Hỏi ngay
+        <MessageCircle className="w-5 h-5" /> {copy.askNow}
       </button>
     );
   }
@@ -83,17 +88,17 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ code, ctvName, greeting 
       <div className="flex items-center gap-2 p-3 border-b border-slate-100 bg-violet-600 text-white sm:rounded-t-2xl">
         <Bot className="w-6 h-6" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold">Trợ lý của {ctvName}</p>
-          <p className="text-[11px] opacity-80">Trả lời ngay, kể cả ngoài giờ</p>
+          <p className="text-sm font-bold">{copy.assistantOf(ctvName)}</p>
+          <p className="text-[11px] opacity-80">{copy.replyFast}</p>
         </div>
-        <button onClick={() => setIsOpen(false)} className="p-1">
+        <button onClick={() => setIsOpen(false)} aria-label={copy.close} className="p-2 -m-1">
           <X className="w-5 h-5" />
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50 text-sm">
         <p className="max-w-[85%] p-2.5 rounded-2xl rounded-tl-sm bg-white border border-slate-200 text-slate-700">
-          {greeting || 'Xin chào! Anh/chị đang tìm phòng khu vực nào, tầm giá bao nhiêu ạ?'}
+          {greeting || copy.greeting}
         </p>
         {messages.map((message, index) => (
           <div key={index} className={message.role === 'user' ? 'flex justify-end' : 'space-y-2'}>
@@ -105,12 +110,12 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ code, ctvName, greeting 
               {message.content}
             </p>
             {message.suggestions?.map((apartment) => (
-              <a key={apartment.apartmentId} href={apartment.url} className="flex gap-2 p-2 max-w-[85%] rounded-xl bg-white border border-violet-200 hover:border-violet-400">
+              <a key={apartment.apartmentId} href={withLang(apartment.url, lang)} className="flex gap-2 p-2 max-w-[85%] rounded-xl bg-white border border-violet-200 hover:border-violet-400">
                 {apartment.image && <img src={apartment.image} alt={apartment.title} className="w-16 h-16 rounded-lg object-cover shrink-0" />}
                 <span className="min-w-0">
                   <span className="block text-xs font-semibold text-slate-800 line-clamp-2">{apartment.title}</span>
-                  <span className="block text-xs font-bold text-violet-700">{formatVnd(apartment.price)}/tháng</span>
-                  <span className="block text-[11px] text-slate-500">{apartment.district} · Xem ảnh →</span>
+                  <span className="block text-xs font-bold text-violet-700">{lang === 'en' ? formatVndEn(apartment.price) : formatVnd(apartment.price)}{copy.perMonth}</span>
+                  <span className="block text-[11px] text-slate-500">{lang === 'en' ? toAscii(apartment.district) : apartment.district} · {copy.viewPhotos}</span>
                 </span>
               </a>
             ))}
@@ -125,10 +130,10 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ code, ctvName, greeting 
           value={input}
           maxLength={500}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Nhập tin nhắn..."
+          placeholder={copy.placeholder}
           className="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
         />
-        <button type="submit" disabled={!input.trim() || sending} className="px-3.5 rounded-xl bg-violet-600 text-white disabled:opacity-50">
+        <button type="submit" disabled={!input.trim() || sending} aria-label={copy.send} className="px-3.5 rounded-xl bg-violet-600 text-white disabled:opacity-50">
           <Send className="w-4 h-4" />
         </button>
       </form>

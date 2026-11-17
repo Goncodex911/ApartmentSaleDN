@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { buildShareText } from '../../utils/shareText.js';
+import { buildShareTextEn } from '../../utils/shareTextEn.js';
+import { Lang, getShareLang } from '../../utils/shareLang.js';
 import { copyText } from '../../utils/clipboard.js';
 import { Copy, Check, X } from 'lucide-react';
 
@@ -9,9 +11,10 @@ interface CopyShareButtonProps {
   apartment: Apartment;
   ctv: User | null;
   compact?: boolean; // Chỉ hiện icon (dùng trong thẻ danh sách)
+  lang?: Lang; // Không truyền → dùng ngôn ngữ CTV đã chọn gần nhất (Story 7.3)
 }
 
-export const CopyShareButton: React.FC<CopyShareButtonProps> = ({ apartment, ctv, compact }) => {
+export const CopyShareButton: React.FC<CopyShareButtonProps> = ({ apartment, ctv, compact, lang }) => {
   const [copied, setCopied] = useState(false);
   const [manualText, setManualText] = useState('');
   const isRented = apartment.status === 'RENTED';
@@ -20,7 +23,7 @@ export const CopyShareButton: React.FC<CopyShareButtonProps> = ({ apartment, ctv
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Nằm trong thẻ căn hộ bấm được → không mở chi tiết khi bấm Copy
     if (!ctv) return;
-    const text = buildShareText(apartment, ctv);
+    const text = (lang || getShareLang()) === 'en' ? buildShareTextEn(apartment, ctv) : buildShareText(apartment, ctv);
     if (await copyText(text)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
