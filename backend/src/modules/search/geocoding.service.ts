@@ -1,4 +1,5 @@
-import { HANOI_LANDMARKS, HANOI_DISTRICT_CENTROIDS } from './landmarks.data.js';
+import { LANDMARKS, DISTRICT_CENTROIDS } from './landmarks.data.js';
+import { toSearchTokens, findPhrase } from './text-tokens.js';
 
 export interface IResolvedLocation {
   name: string;
@@ -36,79 +37,36 @@ export class GeocodingService {
   }
 
   /**
-   * Phân giải tên điểm mốc hoặc chuỗi truy vấn ra tọa độ GPS [lng, lat]
+   * Phân giải tên điểm mốc / tên quận / chuỗi truy vấn ra tọa độ GPS [lng, lat].
+   * `landmarksOnly`: khi TÌM KIẾM chỉ nhận điểm mốc — tên quận đã được lọc theo trường quận,
+   * nếu đổi thành "bán kính 2km quanh tâm quận" sẽ bỏ sót căn ở rìa quận hoặc chưa có tọa độ.
    */
-  public static resolveCoordinates(queryOrName: string): IResolvedLocation | null {
+  public static resolveCoordinates(queryOrName: string, options: { landmarksOnly?: boolean } = {}): IResolvedLocation | null {
     if (!queryOrName || !queryOrName.trim()) return null;
-
     const raw = queryOrName.trim();
 
-    // 1. Kiểm tra nếu truyền thẳng tọa độ dạng "lng,lat" hoặc "lat,lng"
+    // 1. Truyền thẳng tọa độ dạng "lng,lat" hoặc "lat,lng" (Việt Nam: vĩ độ < 30, kinh độ > 100)
     const coordMatch = raw.match(/^(-?\d+(\.\d+)?)\s*,\s*(-?\d+(\.\d+)?)$/);
     if (coordMatch) {
       const v1 = parseFloat(coordMatch[1]);
       const v2 = parseFloat(coordMatch[3]);
-      // Hà Nội có vĩ độ ~20.9-21.2 và kinh độ ~105.6-106.0
-      if (v1 > 100 && v2 < 30) {
-        return { name: 'Tọa độ tùy chỉnh', coordinates: [v1, v2] };
-      } else if (v2 > 100 && v1 < 30) {
-        return { name: 'Tọa độ tùy chỉnh', coordinates: [v2, v1] };
-      }
+      if (v1 > 100 && v2 < 30) return { name: 'Tọa độ tùy chỉnh', coordinates: [v1, v2] };
+      if (v2 > 100 && v1 < 30) return { name: 'Tọa độ tùy chỉnh', coordinates: [v2, v1] };
     }
 
-    const normalized = this.normalizeText(raw);
-
-    // 2. Tra cứu trong bảng điểm mốc Hà Nội đã định nghĩa
-    for (const lm of HANOI_LANDMARKS) {
-      if (lm.id === raw.toLowerCase()) {
-        return {
-          name: lm.shortName,
-          coordinates: lm.coordinates,
-          district: lm.district,
-          category: lm.category,
-        };
-      }
-
-      const matchName = this.normalizeText(lm.name);
-      const matchShort = this.normalizeText(lm.shortName);
-      if (normalized.includes(matchName) || normalized.includes(matchShort)) {
-        return {
-          name: lm.shortName,
-          coordinates: lm.coordinates,
-          district: lm.district,
-          category: lm.category,
-        };
-      }
-
-      // Kiểm tra aliases
-      const aliasMatch = lm.aliases.some((alias) => {
-        const normAlias = this.normalizeText(alias);
-        return normalized.includes(normAlias);
-      });
-
-      if (aliasMatch) {
-        return {
-          name: lm.shortName,
-          coordinates: lm.coordinates,
-          district: lm.district,
-          category: lm.category,
-        };
-      }
+    // 2. Điểm mốc: khớp mã (id) hoặc khớp NGUYÊN CỤM TỪ của tên/tên ngắn/bí danh
+    const tokens = toSearchTokens(raw);
+    const landmark =
+      LANDMARKS.find((lm) => lm.id === raw.toLowerCase()) ||
+      LANDMARKS.find((lm) => [lm.name, lm.shortName, ...lm.aliases].some((phrase) => findPhrase(tokens, phrase)));
+    if (landmark) {
+      return { name: landmark.shortName, coordinates: landmark.coordinates, district: landmark.district, category: landmark.category };
     }
+    if (options.landmarksOnly) return null;
 
-    // 3. Tra cứu theo tâm quận nếu người dùng chỉ nhập tên quận
-    for (const [district, coords] of Object.entries(HANOI_DISTRICT_CENTROIDS)) {
-      if (normalized.includes(this.normalizeText(district))) {
-        return {
-          name: `Quận ${district}`,
-          coordinates: coords,
-          district,
-          category: 'AREA',
-        };
-      }
-    }
-
-    return null;
+    // 3. Tâm quận (dùng khi gắn tọa độ ước lượng cho căn chỉ có tên quận)
+    const district = Object.keys(DISTRICT_CENTROIDS).find((name) => findPhrase(tokens, name));
+    return district ? { name: `Khu vực ${district}`, coordinates: DISTRICT_CENTROIDS[district], district, category: 'AREA' } : null;
   }
 
   /**
@@ -122,7 +80,7 @@ export class GeocodingService {
     coordinates: [number, number];
     category: string;
   }> {
-    return HANOI_LANDMARKS.map((lm) => ({
+    return LANDMARKS.map((lm) => ({
       id: lm.id,
       name: lm.name,
       shortName: lm.shortName,
@@ -130,19 +88,6 @@ export class GeocodingService {
       coordinates: lm.coordinates,
       category: lm.category,
     }));
-  }
-
-  /**
-   * Chuẩn hóa tiếng Việt không dấu, loại bỏ ký tự đặc biệt
-   */
-  private static normalizeText(text: string): string {
-    return text
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9\s]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
   }
 }
 

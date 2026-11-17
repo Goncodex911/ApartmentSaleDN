@@ -1,3 +1,5 @@
+import { DANANG_DISTRICTS } from './landmarks.data.js';
+
 /**
  * Từ điển Tiếng Lóng Bất Động Sản & Quy tắc Mở rộng Đồng nghĩa (Synonyms Mapping)
  */
@@ -8,7 +10,34 @@ export interface ISlangRule {
   attributeFilter?: Record<string, any>;
 }
 
+// Cụm từ không dấu → regex khớp cả có dấu/không dấu (VD "gan bien" khớp "gần biển")
+const textRegex = (phrases: string[]) => new RegExp(phrases.map(buildDiacriticRegex).join('|'), 'i');
+const BEACH_TEXT = textRegex(['gan bien', 'sat bien', 'mat bien', 'view bien', 'ra bien', 'beach']);
+const POOL_TEXT = textRegex(['ho boi', 'be boi', 'pool']);
+
+/**
+ * Gần biển (Story 7.2): có số liệu ≤ 1km, HOẶC căn cũ chưa có số liệu nhưng tiêu đề/mô tả ghi "gần biển"/"beach".
+ * Dùng chung cho chip bộ lọc (FilterBuilder) và câu tìm kiếm (QueryAnalyzer) để 2 cách tìm cho cùng kết quả.
+ */
+export const NEAR_BEACH_CONDITION = {
+  $or: [
+    { 'attributes.distanceToBeachM': { $lte: 1000 } },
+    { 'attributes.distanceToBeachM': { $exists: false }, $or: [{ title: BEACH_TEXT }, { description: BEACH_TEXT }] },
+  ],
+};
+export const POOL_CONDITION = { $or: [{ 'attributes.pool': true }, { title: POOL_TEXT }, { description: POOL_TEXT }] };
+
 export const REAL_ESTATE_SLANG_RULES: ISlangRule[] = [
+  {
+    keywords: ['gan bien', 'sat bien', 'mat bien', 'view bien', 'ra bien', 'beach', 'near beach', 'beachfront'],
+    synonyms: [], // Điều kiện chữ đã nằm trong NEAR_BEACH_CONDITION
+    attributeFilter: NEAR_BEACH_CONDITION,
+  },
+  {
+    keywords: ['ho boi', 'be boi', 'pool', 'swimming pool'],
+    synonyms: [],
+    attributeFilter: POOL_CONDITION,
+  },
   {
     keywords: ['ccmn', 'chung cu mini'],
     synonyms: ['chung cư mini', 'ccmn', 'căn hộ mini', 'khép kín'],
@@ -18,12 +47,12 @@ export const REAL_ESTATE_SLANG_RULES: ISlangRule[] = [
     synonyms: ['căn hộ dịch vụ', 'chdv', 'serviced apartment'],
   },
   {
-    keywords: ['1n1k', '1pn', '1 ngu 1 khach', '1 phong ngu'],
+    keywords: ['1n1k', '1pn', '1 ngu 1 khach', '1 phong ngu', '1br', '1 bedroom'],
     synonyms: ['1n1k', '1 ngủ 1 khách', '1 phòng ngủ', '1pn'],
     attributeFilter: { 'attributes.bedrooms': 1 },
   },
   {
-    keywords: ['2n1k', '2pn', '2 ngu 1 khach', '2 phong ngu'],
+    keywords: ['2n1k', '2pn', '2 ngu 1 khach', '2 phong ngu', '2br', '2 bedrooms', '2 bedroom'],
     synonyms: ['2n1k', '2 ngủ 1 khách', '2 phòng ngủ', '2pn'],
     attributeFilter: { 'attributes.bedrooms': 2 },
   },
@@ -42,7 +71,7 @@ export const REAL_ESTATE_SLANG_RULES: ISlangRule[] = [
     attributeFilter: { 'attributes.furnishing': 'FULL' },
   },
   {
-    keywords: ['co ban', 'noi that co ban'],
+    keywords: ['do co ban', 'noi that co ban'], // Không dùng 'co ban' trơn: 'có ban công' sẽ khớp nhầm
     synonyms: ['cơ bản', 'nội thất cơ bản', 'điều hòa nóng lạnh'],
     attributeFilter: { 'attributes.furnishing': 'BASIC' },
   },
@@ -52,7 +81,7 @@ export const REAL_ESTATE_SLANG_RULES: ISlangRule[] = [
     attributeFilter: { 'attributes.allowPets': true },
   },
   {
-    keywords: ['thang may'],
+    keywords: ['thang may', 'elevator'],
     synonyms: ['thang máy', 'elevator'],
     attributeFilter: { 'attributes.elevator': true },
   },
@@ -60,6 +89,11 @@ export const REAL_ESTATE_SLANG_RULES: ISlangRule[] = [
     keywords: ['oto', 'o to', 'o to do cua', 'oto vao nha'],
     synonyms: ['ô tô', 'oto', 'ô tô đỗ cửa', 'ô tô vào nhà'],
     attributeFilter: { 'attributes.carParking': true },
+  },
+  {
+    keywords: ['ban cong', 'balcony'],
+    synonyms: ['ban công', 'balcony'],
+    attributeFilter: { 'attributes.balcony': true },
   },
   {
     keywords: ['pccc', 'phong chay', 'thoat hiem'],
@@ -92,28 +126,16 @@ export function buildDiacriticRegex(str: string): string {
 }
 
 /**
- * Xử lý lỗi gõ nhầm (Levenshtein 1 lỗi) cho các địa danh Hà Nội phổ biến
+ * Tên khu vực Đà Nẵng + viết tắt hay gõ (so khớp nguyên từ, không dấu, viết liền/rời đều nhận).
+ * Không dùng "st" cho Sơn Trà: trùng chữ viết tắt "Street" trong tin tiếng Anh.
  */
-export const HANOI_DISTRICT_SYNONYMS: Record<string, string> = {
-  caugiay: 'Cầu Giấy',
-  caugay: 'Cầu Giấy',
-  cg: 'Cầu Giấy',
-  dongda: 'Đống Đa',
-  doda: 'Đống Đa',
-  dd: 'Đống Đa',
-  namtuliem: 'Nam Từ Liêm',
-  ntl: 'Nam Từ Liêm',
-  bactuliem: 'Bắc Từ Liêm',
-  btl: 'Bắc Từ Liêm',
-  thanhxuan: 'Thanh Xuân',
-  tx: 'Thanh Xuân',
-  badinh: 'Ba Đình',
-  tayho: 'Tây Hồ',
-  th: 'Tây Hồ',
-  haibatrung: 'Hai Bà Trưng',
-  hbt: 'Hai Bà Trưng',
-  hoangmai: 'Hoàng Mai',
-  hadong: 'Hà Đông',
-  hd: 'Hà Đông',
+export const DISTRICT_SYNONYMS: Record<string, string> = {
+  ...Object.fromEntries(DANANG_DISTRICTS.map((name) => [name, name])),
+  hc: 'Hải Châu',
+  tk: 'Thanh Khê',
+  nhs: 'Ngũ Hành Sơn',
+  lc: 'Liên Chiểu',
+  cl: 'Cẩm Lệ',
+  hv: 'Hòa Vang',
 };
 

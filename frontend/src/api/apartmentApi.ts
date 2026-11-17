@@ -1,10 +1,15 @@
 import { apiClient } from './client.js';
 
+export type IncludedService = 'WIFI' | 'CLEANING' | 'ELECTRICITY' | 'WATER' | 'LAUNDRY';
+
 export interface Apartment {
   _id: string;
   title: string;
   description?: string;
   price: number;
+  priceUsd?: number;
+  minLeaseMonths?: number;
+  includedServices?: IncludedService[];
   deposit: number;
   commission: {
     type: 'PERCENT' | 'FIXED';
@@ -29,6 +34,9 @@ export interface Apartment {
     allowPets: boolean;
     washingMachine: 'PRIVATE' | 'SHARED' | 'NONE';
     pcccStandard: boolean;
+    pool?: boolean;
+    distanceToBeachM?: number; // mét
+    motorbikeParking?: boolean;
   };
   fees?: {
     electricity?: number;
@@ -61,6 +69,8 @@ export interface Apartment {
   }>;
   status: 'AVAILABLE' | 'UPCOMING' | 'DEPOSITED' | 'RENTED';
   availableDate?: string;
+  needsReview?: boolean; // Chỉ Quản lý/Admin nhận được (backend ẩn với CTV)
+  reviewReason?: string;
   distanceKm?: number;
   nearestLandmark?: string;
   managerId: string;

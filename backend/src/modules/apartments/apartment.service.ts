@@ -2,6 +2,7 @@ import { Apartment, IApartment, buildStatusFilter, isPrivilegedRole } from './ap
 import { CreateApartmentInput, UpdateApartmentInput, UpdateStatusInput, AddSubListingInput } from './apartment.validation.js';
 import { uploadBufferToCloudinary } from '../../config/cloudinary.js';
 import { GeocodingService } from '../search/geocoding.service.js';
+import { canonicalDistrict } from '../search/district.js';
 import { Types } from 'mongoose';
 import { maskPhonesInText, escapeRegex } from '../../utils/phone-text.js';
 import { LeadMatchingService } from '../leads/lead-matching.service.js';
@@ -40,6 +41,8 @@ export class ApartmentService {
     item.description = maskText(item.description);
     item.ownerContact = maskContact(item.ownerContact);
     delete item.imageHashes; // Dữ liệu nội bộ của bộ khử trùng, không cần gửi ra ngoài
+    delete item.needsReview; // Cờ kiểm duyệt nội bộ của Quản lý
+    delete item.reviewReason;
     item.subListings = (item.subListings || []).map((sub: any) => ({
       ...sub,
       ownerContact: maskContact(sub.ownerContact),
@@ -68,6 +71,8 @@ export class ApartmentService {
 
   // Thêm mới căn hộ (Tự động Geocoding tọa độ nếu chưa có)
   static async create(data: CreateApartmentInput, managerId: string) {
+    // Chuẩn tên khu vực ("nhs", "Q. Hải Châu" → "Ngũ Hành Sơn", "Hải Châu") để lọc theo quận chính xác
+    data.location.district = canonicalDistrict(data.location.district) || data.location.district;
     if (!data.location.coordinates || data.location.coordinates.length < 2) {
       const geo =
         GeocodingService.resolveCoordinates(data.location.address) ||
@@ -89,6 +94,7 @@ export class ApartmentService {
     if (user.role !== 'ADMIN' && apartment.managerId.toString() !== user.id) {
       throw { status: 403, message: 'Bạn không có quyền chỉnh sửa căn hộ này' };
     }
+    if (data.location?.district) data.location.district = canonicalDistrict(data.location.district) || data.location.district;
     // Chỉ geocode lại khi địa chỉ/quận thực sự đổi — tránh ghi đè tọa độ chính xác bằng tọa độ ước lượng
     const addressChanged =
       (data.location?.address && data.location.address !== apartment.location.address) ||
@@ -109,6 +115,8 @@ export class ApartmentService {
       }
       for (const [subKey, subValue] of Object.entries(value)) apartment.set(`${key}.${subKey}`, subValue);
     }
+    // Quản lý đã mở form và lưu lại → coi như đã kiểm tra tin AI
+    apartment.set({ needsReview: false, reviewReason: undefined });
     await apartment.save();
     return apartment;
   }

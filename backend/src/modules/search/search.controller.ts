@@ -59,6 +59,8 @@ export class SearchController {
       carParking: bool(query.carParking),
       balcony: bool(query.balcony),
       pcccStandard: bool(query.pcccStandard),
+      nearBeach: bool(query.nearBeach),
+      pool: bool(query.pool),
     });
     res.status(200).json({ success: true, data: result.items, pagination: result.pagination, meta: result.meta });
   });
@@ -66,7 +68,7 @@ export class SearchController {
   static searchNatural = asyncHandler(runNaturalSearch);
 
   /**
-   * GET /api/v1/apartments/search/landmarks — Danh sách trường đại học, bệnh viện & tòa nhà văn phòng tại Hà Nội
+   * GET /api/v1/apartments/search/landmarks — Danh sách trường đại học, bãi biển, bệnh viện & trung tâm thương mại tại Đà Nẵng
    */
   static getLandmarks = asyncHandler(async (_req, res) => {
     res.status(200).json({ success: true, data: GeocodingService.getLandmarks() });

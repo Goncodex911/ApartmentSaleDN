@@ -1,5 +1,6 @@
 import { Apartment } from '../api/apartmentApi.js';
 import { User } from '../api/authApi.js';
+import { marketLabels, usdText } from './apartmentLabels.js';
 
 type ShareContact = Pick<User, 'name' | 'phone' | 'zaloPhone'>;
 
@@ -21,6 +22,9 @@ const depositText = (price: number, deposit: number) => {
   return ` (Cọc ${formatVnd(deposit)} VNĐ)`;
 };
 
+// Khu vực Đà Nẵng không phải "quận" (Story 7.2)
+const DISTRICT_PREFIX: Record<string, string> = { 'Hòa Vang': 'Huyện Hòa Vang', 'Hội An': 'TP Hội An', 'Chưa rõ': 'Đà Nẵng' };
+
 const FURNISHING_LABEL: Record<Apartment['attributes']['furnishing'], string> = {
   FULL: 'Full đồ',
   BASIC: 'Đồ cơ bản',
@@ -36,8 +40,9 @@ export function buildShareText(apartment: Apartment, ctv: ShareContact): string 
   const { price, deposit, location, attributes, fees, status, availableDate } = apartment;
 
   const district = location.district.trim();
-  const districtLabel = /^(quận|huyện|thị xã)/i.test(district) ? district : `Quận ${district}`;
-  const title = stripPhoneNumbers(apartment.title);
+  const districtLabel = /^(quận|huyện|thị xã|tp)/i.test(district) ? district : DISTRICT_PREFIX[district] ?? `Quận ${district}`;
+  // Bỏ "Cho thuê" đầu tiêu đề (AI hay đặt vậy) để không thành "CĂN CHO THUÊ CĂN 2PN..."
+  const title = stripPhoneNumbers(apartment.title).replace(/^cho thuê\s+/i, '');
   const titleWithPrefix = /^căn(\s|$)/i.test(title) ? title : `Căn ${title}`;
   const header = `🏢 [${districtLabel}] - ${titleWithPrefix}`.toLocaleUpperCase('vi-VN');
 
@@ -62,6 +67,7 @@ export function buildShareText(apartment: Apartment, ctv: ShareContact): string 
     attributes.allowPets && 'nuôi pet',
     attributes.balcony && 'ban công',
     attributes.pcccStandard && 'PCCC đạt chuẩn',
+    ...marketLabels(apartment).map((label) => label.toLocaleLowerCase('vi-VN')),
   ]
     .filter(Boolean)
     .join(', ');
@@ -77,7 +83,7 @@ export function buildShareText(apartment: Apartment, ctv: ShareContact): string 
     header,
     `📍 Khu vực: ${[location.ward, district].filter(Boolean).join(', ')}`,
     sizeLine,
-    `💵 Giá thuê: ${formatVnd(price)} VNĐ/tháng${depositText(price, deposit)}`,
+    `💵 Giá thuê: ${formatVnd(price)} VNĐ/tháng${apartment.priceUsd ? ` (${usdText(apartment.priceUsd)})` : ''}${depositText(price, deposit)}`,
     feeParts.length ? `⚡ Phí: ${feeParts.join(' · ')}` : '',
     `🛋 Nội thất: ${furnishing.join(', ')}`,
     amenities ? `🚗 Tiện ích: ${amenities[0].toLocaleUpperCase('vi-VN')}${amenities.slice(1)}` : '',

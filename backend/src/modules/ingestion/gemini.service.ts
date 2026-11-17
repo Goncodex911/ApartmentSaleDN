@@ -2,12 +2,38 @@ import {
   GEMINI_REAL_ESTATE_SYSTEM_PROMPT,
   GEMINI_JSON_SCHEMA_INSTRUCTION,
 } from './gemini.prompt.js';
+import { resolveListingLocation, UNKNOWN_DISTRICT } from '../search/district.js';
+import { fetchWithRetry } from '../../utils/fetch-retry.js';
+import { INCLUDED_SERVICES, IncludedService } from '../apartments/apartment.model.js';
+
+// Số nguyên dương trong khoảng cho phép, ngược lại undefined (AI có thể trả chuỗi/số âm/null)
+const positiveInt = (value: unknown, max: number) => {
+  const num = Math.round(Number(value));
+  return Number.isFinite(num) && num > 0 && num <= max ? num : undefined;
+};
+
+// Tỷ giá quy đổi giá USD → VNĐ khi tin chỉ ghi USD (mặc định 25.000, đổi qua biến môi trường USD_VND_RATE)
+const usdToVndRate = () => positiveInt(process.env.USD_VND_RATE, 1000000) || 25000;
+
+/** Trường đặc thù Đà Nẵng (Story 7.2): chỉ nhận đúng kiểu & mã hợp lệ. */
+function sanitizeMarketFields(ext: any) {
+  const services = Array.isArray(ext.includedServices) ? ext.includedServices : [];
+  return {
+    pool: ext.pool === true,
+    distanceToBeachM: ext.distanceToBeachM === 0 ? 0 : positiveInt(ext.distanceToBeachM, 100000),
+    motorbikeParking: ext.motorbikeParking === true,
+    priceUsd: positiveInt(ext.priceUsd, 100000),
+    minLeaseMonths: positiveInt(ext.minLeaseMonths, 60),
+    includedServices: INCLUDED_SERVICES.filter((code) => services.includes(code)),
+  };
+}
 
 export interface IParsedApartmentData {
   title: string;
   price: number;
   deposit: number;
   address: string;
+  ward?: string;
   district: string;
   city: string;
   area?: number;
@@ -18,6 +44,12 @@ export interface IParsedApartmentData {
   allowPets: boolean;
   carParking: boolean;
   pcccStandard: boolean;
+  pool: boolean;
+  distanceToBeachM?: number;
+  motorbikeParking: boolean;
+  priceUsd?: number;
+  minLeaseMonths?: number;
+  includedServices: IncludedService[];
   fees?: {
     electricity?: number;
     water?: number;
@@ -83,18 +115,19 @@ ${rawText.trim()}
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-    // Sử dụng AbortController với thời gian chờ tối đa 8 giây
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        // API key gửi qua header thay vì query string (?key=) để không bị ghi vào log proxy/server
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      });
+      // Mỗi lần gọi chờ tối đa 8 giây; Gemini quá tải (429/503) hoặc timeout → tự thử lại 2 lần (sau 2s, 6s)
+      // để tin Telegram/Zalo không bị mất khi Google quá tải tạm thời
+      const response = await fetchWithRetry(
+        url,
+        {
+          method: 'POST',
+          // API key gửi qua header thay vì query string (?key=) để không bị ghi vào log proxy/server
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify(requestBody),
+        },
+        8000
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -115,8 +148,6 @@ ${rawText.trim()}
         throw new Error('Quá thời gian chờ (Timeout) khi gọi Gemini API');
       }
       throw err;
-    } finally {
-      clearTimeout(timeout);
     }
   }
 
@@ -132,17 +163,27 @@ ${rawText.trim()}
     }
 
     const ext = data.extracted || {};
-    const price = Number(ext.price) || 0;
+    const market = sanitizeMarketFields(ext);
+    // Tin chỉ ghi giá USD → quy đổi ước tính theo tỷ giá cấu hình để căn vẫn lọc được theo giá VNĐ, Quản lý kiểm tra lại
+    const priceFromUsd = !(Number(ext.price) > 0) && market.priceUsd ? Math.round((market.priceUsd * usdToVndRate()) / 100000) * 100000 : 0;
+    const price = Number(ext.price) > 0 ? Number(ext.price) : priceFromUsd;
     const phone = ext.ownerContact?.phone ? String(ext.ownerContact.phone).trim() : '';
 
-    const needsReview = Boolean(ext.needsReview || price === 0 || !phone);
+    const location = resolveListingLocation(ext);
+    const unknownDistrict = location.district === UNKNOWN_DISTRICT;
+
+    const needsReview = Boolean(ext.needsReview || price === 0 || priceFromUsd || !phone || unknownDistrict);
     const reviewReason =
       ext.reviewReason ||
       (price === 0
         ? 'Không tìm thấy mức giá cụ thể'
-        : !phone
-          ? 'Không tìm thấy số điện thoại đầu mối'
-          : null);
+        : priceFromUsd
+          ? `Giá VNĐ quy đổi từ ${market.priceUsd} USD (tỷ giá ${usdToVndRate()})`
+          : !phone
+            ? 'Không tìm thấy số điện thoại đầu mối'
+            : unknownDistrict
+              ? 'Chưa xác định được khu vực (quận)'
+              : null);
 
     return {
       isRentalListing: true,
@@ -152,8 +193,7 @@ ${rawText.trim()}
         price,
         deposit: Number(ext.deposit) || 0,
         address: ext.address || 'Đang cập nhật địa chỉ',
-        district: ext.district || 'Cầu Giấy',
-        city: ext.city || 'Hà Nội',
+        ...location, // district, ward, city đã chuẩn hóa theo Đà Nẵng
         area: ext.area ? Number(ext.area) : undefined,
         bedrooms: Number(ext.bedrooms) || 1,
         bathrooms: Number(ext.bathrooms) || 1,
@@ -162,6 +202,7 @@ ${rawText.trim()}
         allowPets: Boolean(ext.allowPets),
         carParking: Boolean(ext.carParking),
         pcccStandard: Boolean(ext.pcccStandard),
+        ...market,
         fees: {
           electricity: ext.fees?.electricity ? Number(ext.fees.electricity) : undefined,
           water: ext.fees?.water ? Number(ext.fees.water) : undefined,

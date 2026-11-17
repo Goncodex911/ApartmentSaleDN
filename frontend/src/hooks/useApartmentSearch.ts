@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Apartment, apartmentApi, Pagination } from '../api/apartmentApi.js';
 
-export const AMENITY_KEYS = ['elevator', 'allowPets', 'carParking', 'balcony', 'pcccStandard'] as const;
+export const AMENITY_KEYS = ['elevator', 'allowPets', 'carParking', 'balcony', 'pcccStandard', 'nearBeach', 'pool'] as const;
 type AmenityKey = (typeof AMENITY_KEYS)[number];
 
 export type ApartmentFilterValues = {
@@ -25,6 +25,8 @@ export const EMPTY_FILTERS: ApartmentFilterValues = {
   carParking: false,
   balcony: false,
   pcccStandard: false,
+  nearBeach: false,
+  pool: false,
 };
 
 export const countActiveFilters = (f: ApartmentFilterValues) =>
@@ -45,8 +47,8 @@ function toParams(f: ApartmentFilterValues, page: number) {
 
 /**
  * Tải bảng hàng theo ô tìm kiếm + bộ lọc (Epic 4).
- * - Chỉ có câu tìm: dùng tìm kiếm câu tự nhiên (hiểu "studio hải châu dưới 6tr"); nếu AI không bóc được tiêu chí nào
- *   (VD tên đường "hòa xuân") thì tìm theo từ khóa.
+ * - Chỉ có câu tìm: dùng tìm kiếm câu tự nhiên (hiểu "studio hải châu dưới 6tr"); backend tự giữ các từ khóa
+ *   AI không bóc được (VD tên phường "Mỹ An") để lọc thêm. Lỗi (VD quá giới hạn) → tìm theo từ khóa.
  * - Có cả câu tìm và bộ lọc: tìm theo từ khóa kết hợp bộ lọc.
  */
 export function useApartmentSearch() {
@@ -63,14 +65,15 @@ export function useApartmentSearch() {
     let cancelled = false; // Bỏ kết quả của request cũ khi người dùng đổi điều kiện nhanh
     const params = toParams(filters, page);
 
+    const keywordSearch = async () => ({ res: await apartmentApi.searchApartments(query ? { ...params, q: query } : params), summary: '' });
     const load = async () => {
-      if (query && countActiveFilters(filters) === 0) {
+      if (!query || countActiveFilters(filters) > 0) return keywordSearch();
+      try {
         const natural = await apartmentApi.searchNaturalApartments(query, { page, limit: PAGE_SIZE });
-        if (Object.keys(natural.naturalAnalysis?.extracted || {}).length > 0) {
-          return { res: natural, summary: natural.naturalAnalysis.summary as string };
-        }
+        return { res: natural, summary: (natural.naturalAnalysis?.summary as string) || '' };
+      } catch {
+        return keywordSearch(); // VD vượt giới hạn 20 lần/phút của tìm câu tự nhiên
       }
-      return { res: await apartmentApi.searchApartments(query ? { ...params, q: query } : params), summary: '' };
     };
 
     setStatus('loading');

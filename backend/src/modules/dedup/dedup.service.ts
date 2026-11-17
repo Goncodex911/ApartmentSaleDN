@@ -5,6 +5,7 @@ import { fetchImageBuffer } from '../../utils/fetch-image.js';
 import { escapeRegex } from '../../utils/phone-text.js';
 import { removeVietnameseTones } from '../../utils/vietnamese.js';
 import { LeadMatchingService } from '../leads/lead-matching.service.js';
+import { GeocodingService } from '../search/geocoding.service.js';
 import { PHashUtil } from './phash.util.js';
 import { IProcessListingInput } from './dedup.types.js';
 
@@ -159,17 +160,24 @@ export class DedupService {
 
     // Bước 5: Tin hoàn toàn mới -> Gemini Vision đánh dấu ảnh dán SĐT nguồn cũ (Story 5.2) -> Tạo Master
     const phoneImageIndexes = await GeminiVisionService.detectImagesWithPhone(downloadedImages.map((img) => img.buffer));
+    // Gắn tọa độ (điểm mốc trong địa chỉ → tâm khu vực) để tin nhập tự động cũng tìm được theo bán kính
+    const geo = GeocodingService.resolveCoordinates(ext.address) || GeocodingService.resolveCoordinates(ext.district);
 
     const newApartment = await Apartment.create({
       title: ext.title,
       description: input.rawText,
       price: ext.price,
+      priceUsd: ext.priceUsd,
+      minLeaseMonths: ext.minLeaseMonths,
+      includedServices: ext.includedServices,
       deposit: ext.deposit,
       commission: { type: 'PERCENT', value: 50 },
       location: {
         address: ext.address,
+        ward: ext.ward,
         district: ext.district,
-        city: ext.city || 'Hà Nội',
+        city: ext.city,
+        coordinates: geo?.coordinates,
       },
       attributes: {
         area: ext.area,
@@ -180,6 +188,9 @@ export class DedupService {
         allowPets: ext.allowPets,
         carParking: ext.carParking,
         pcccStandard: ext.pcccStandard,
+        pool: ext.pool,
+        distanceToBeachM: ext.distanceToBeachM,
+        motorbikeParking: ext.motorbikeParking,
         balcony: false,
         washingMachine: 'SHARED',
       },
@@ -200,7 +211,10 @@ export class DedupService {
           postedAt: new Date(),
         },
       ],
-      status: ext.needsReview ? 'UPCOMING' : 'AVAILABLE',
+      // Tin cần kiểm tra vẫn là "Trống" — chỉ gắn cờ cho Quản lý (trước đây bị đổi sai thành "Sắp trống")
+      status: 'AVAILABLE',
+      needsReview: ext.needsReview,
+      reviewReason: ext.needsReview ? ext.reviewReason || undefined : undefined,
       managerId: input.managerId,
     });
 

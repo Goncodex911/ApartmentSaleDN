@@ -3,6 +3,7 @@ import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { formatVnd } from '../../utils/format.js';
 import { CopyShareButton } from './CopyShareButton.js';
+import { beachDistanceText } from '../../utils/apartmentLabels.js';
 
 export const STATUS_DISPLAY: Record<Apartment['status'], { label: string; dot: string }> = {
   AVAILABLE: { label: 'Trống', dot: 'bg-emerald-500' },
@@ -26,6 +27,8 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
     attributes.bedrooms === 0 ? 'Studio' : `${attributes.bedrooms}PN`,
     attributes.area && `${attributes.area}m²`,
     location.district,
+    // Gần biển là tiêu chí số 1 của khách Đà Nẵng → hiện ngay trên thẻ khi ≤ 2km
+    attributes.distanceToBeachM != null && attributes.distanceToBeachM <= 2000 && `biển ${beachDistanceText(attributes.distanceToBeachM)}`,
     apartment.distanceKm !== undefined && `cách ${apartment.distanceKm} km`,
   ]
     .filter(Boolean)
@@ -61,6 +64,7 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
               <span className={`w-2 h-2 rounded-full ${status.dot}`} aria-hidden />
               {status.label}
               {commissionText && <span className="text-emerald-700 font-medium">· {commissionText}</span>}
+              {apartment.needsReview && <span className="text-amber-700 font-medium">· Cần kiểm tra</span>}
             </p>
           </div>
           <CopyShareButton apartment={apartment} ctv={currentUser} compact />
