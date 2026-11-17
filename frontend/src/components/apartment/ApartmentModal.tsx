@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Apartment, apartmentApi } from '../../api/apartmentApi.js';
-import { X, Loader2, Sparkles } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import { PhotoUploader } from './PhotoUploader.js';
 import { DANANG_DISTRICTS } from '../../utils/danang.js';
 import { MarketFieldsSection, toMarketForm, fromMarketForm } from './MarketFieldsSection.js';
+import { Field, FormSection, ToggleChip, inputClass, numberOr, textOr } from './formFields.js';
 
 interface ApartmentModalProps {
   initialData?: Apartment | null;
@@ -11,43 +12,52 @@ interface ApartmentModalProps {
   onSuccess: (savedApartment: Apartment) => void;
 }
 
-// Trang cha chỉ render modal khi đang mở → mỗi lần mở là một lần mount mới, form lấy lại initialData
+type Furnishing = Apartment['attributes']['furnishing'];
+const toText = (value?: number) => (value !== undefined && value !== null ? String(value) : '');
+
+// Tiện ích dạng bật/tắt trên form (Story 8.5 sẽ bổ sung thêm)
+const AMENITY_TOGGLES = [
+  { key: 'elevator', label: 'Thang máy' },
+  { key: 'allowPets', label: 'Cho nuôi pet' },
+  { key: 'carParking', label: 'Ô tô đỗ cửa' },
+  { key: 'balcony', label: 'Ban công' },
+  { key: 'pcccStandard', label: 'PCCC đạt chuẩn' },
+] as const;
+type AmenityKey = (typeof AMENITY_TOGGLES)[number]['key'];
+
+/**
+ * Form thêm/sửa căn (Story 8.1): toàn màn hình trên điện thoại, KHÔNG điền sẵn số liệu giả,
+ * xóa trắng ô khi sửa → gửi null để backend xóa giá trị cũ.
+ * Trang cha chỉ render modal khi đang mở → mỗi lần mở là một lần mount mới, form lấy lại initialData.
+ */
 export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onClose, onSuccess }) => {
+  const isEdit = Boolean(initialData?._id);
+  const attrs = initialData?.attributes;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Form states
   const [title, setTitle] = useState(initialData?.title || '');
-  const [description] = useState(initialData?.description || '');
-  const [price, setPrice] = useState(initialData?.price ? String(initialData.price) : '');
-  const [deposit, setDeposit] = useState(initialData?.deposit !== undefined ? String(initialData.deposit) : '');
-  const [commissionType, setCommissionType] = useState<'PERCENT' | 'FIXED'>(
-    initialData?.commission?.type || 'PERCENT'
-  );
-  const [commissionValue, setCommissionValue] = useState(
-    initialData?.commission?.value !== undefined ? String(initialData.commission.value) : '50'
-  );
-
-  // Location & Attributes
+  const [price, setPrice] = useState(toText(initialData?.price));
+  const [deposit, setDeposit] = useState(toText(initialData?.deposit || undefined));
+  const [commissionType, setCommissionType] = useState<'PERCENT' | 'FIXED'>(initialData?.commission?.type || 'PERCENT');
+  const [commissionValue, setCommissionValue] = useState(toText(initialData?.commission?.value || undefined));
   const [address, setAddress] = useState(initialData?.location?.address || '');
   const [ward, setWard] = useState(initialData?.location?.ward || '');
   const [district, setDistrict] = useState(initialData?.location?.district || ''); // Không điền sẵn: tránh lưu nhầm quận
-  const [area, setArea] = useState(initialData?.attributes?.area ? String(initialData.attributes.area) : '35');
-  // Dùng ?? (không dùng ?:) để Studio (0 phòng ngủ) không bị đổi thành 1
-  const [bedrooms, setBedrooms] = useState(String(initialData?.attributes?.bedrooms ?? 1));
-  const [bathrooms, setBathrooms] = useState(String(initialData?.attributes?.bathrooms ?? 1));
-  const [furnishing, setFurnishing] = useState<'FULL' | 'BASIC' | 'EMPTY'>(
-    initialData?.attributes?.furnishing || 'FULL'
-  );
-  const [elevator, setElevator] = useState(initialData?.attributes?.elevator ?? true);
-  const [allowPets, setAllowPets] = useState(initialData?.attributes?.allowPets ?? false);
-  const [carParking, setCarParking] = useState(initialData?.attributes?.carParking ?? false);
-  const [pcccStandard, setPcccStandard] = useState(initialData?.attributes?.pcccStandard ?? true);
-
-  // Fees & Contact & Images
-  const [electricity, setElectricity] = useState(initialData?.fees?.electricity ? String(initialData.fees.electricity) : '3800');
-  const [water, setWater] = useState(initialData?.fees?.water ? String(initialData.fees.water) : '30000');
-  const [serviceFee, setServiceFee] = useState(initialData?.fees?.service ? String(initialData.fees.service) : '150000');
+  const [area, setArea] = useState(toText(attrs?.area));
+  const [bedrooms, setBedrooms] = useState(toText(attrs?.bedrooms));
+  const [bathrooms, setBathrooms] = useState(toText(attrs?.bathrooms));
+  const [furnishing, setFurnishing] = useState<Furnishing | ''>(attrs?.furnishing || '');
+  const [amenities, setAmenities] = useState<Record<AmenityKey, boolean>>({
+    elevator: attrs?.elevator ?? false,
+    allowPets: attrs?.allowPets ?? false,
+    carParking: attrs?.carParking ?? false,
+    balcony: attrs?.balcony ?? false,
+    pcccStandard: attrs?.pcccStandard ?? false,
+  });
+  const [electricity, setElectricity] = useState(toText(initialData?.fees?.electricity));
+  const [water, setWater] = useState(toText(initialData?.fees?.water));
+  const [serviceFee, setServiceFee] = useState(toText(initialData?.fees?.service));
   const [ownerName, setOwnerName] = useState(initialData?.ownerContact?.name || '');
   const [ownerPhone, setOwnerPhone] = useState(initialData?.ownerContact?.phone || '');
   const [ownerNote, setOwnerNote] = useState(initialData?.ownerContact?.note || '');
@@ -56,48 +66,39 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-
-    if (!title || !price || !address || !district || !ownerName || !ownerPhone) {
-      setError('Vui lòng điền đầy đủ các thông tin bắt buộc (*)');
+    if (!title || !price || !address || !district || bedrooms === '' || !furnishing || !ownerName || !ownerPhone) {
+      setError('Vui lòng điền đủ các ô có dấu *');
       return;
     }
+    // Ô trống: tạo mới → bỏ qua; sửa → null để xóa giá trị cũ
+    const empty = isEdit ? null : undefined;
+    const marketPayload = fromMarketForm(market, empty);
+    const payload = {
+      ...marketPayload,
+      title,
+      price: Number(price),
+      deposit: Number(deposit) || 0,
+      commission: { type: commissionType, value: Number(commissionValue) || 0 },
+      location: { address, ward: textOr(ward, empty), district, city: initialData?.location?.city || 'Đà Nẵng' },
+      attributes: {
+        area: numberOr(area, empty),
+        bedrooms: Math.max(0, Math.trunc(Number(bedrooms))),
+        bathrooms: bathrooms.trim() ? Math.max(0, Math.trunc(Number(bathrooms))) : undefined, // Bắt buộc ở DB → không xóa được
+        furnishing,
+        ...amenities,
+        ...marketPayload.attributes,
+      },
+      fees: { electricity: numberOr(electricity, empty), water: numberOr(water, empty), service: numberOr(serviceFee, empty) },
+      images,
+      ownerContact: { name: ownerName, phone: ownerPhone, note: textOr(ownerNote, empty) },
+    };
 
     try {
       setLoading(true);
-      const marketPayload = fromMarketForm(market);
-      const payload: any = {
-        ...marketPayload,
-        title,
-        description,
-        price: Number(price),
-        deposit: Number(deposit) || 0,
-        commission: { type: commissionType, value: Number(commissionValue) || 0 },
-        location: { address, ward: ward.trim() || undefined, district, city: initialData?.location?.city || 'Đà Nẵng' },
-        attributes: {
-          area: Number(area) || undefined,
-          bedrooms: Math.max(0, Math.trunc(Number(bedrooms)) || 0),
-          bathrooms: Math.max(0, Math.trunc(Number(bathrooms)) || 0),
-          furnishing,
-          elevator,
-          allowPets,
-          carParking,
-          pcccStandard,
-          ...marketPayload.attributes,
-        },
-        fees: {
-          electricity: Number(electricity) || undefined,
-          water: Number(water) || undefined,
-          service: Number(serviceFee) || undefined,
-        },
-        images,
-        ownerContact: { name: ownerName, phone: ownerPhone, note: ownerNote },
-      };
-
-      const result = initialData?._id
-        ? await apartmentApi.updateApartment(initialData._id, payload)
+      setError(null);
+      const result = isEdit
+        ? await apartmentApi.updateApartment(initialData!._id, payload)
         : await apartmentApi.createApartment(payload);
-
       onSuccess(result.data);
       onClose();
     } catch (err: any) {
@@ -108,155 +109,136 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6">
-        <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-indigo-600" />
-            {initialData ? 'Chỉnh sửa Căn hộ' : 'Thêm mới Căn hộ vào Kho'}
-          </h2>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg">
+    <div className="fixed inset-0 z-50 sm:flex sm:items-center sm:justify-center sm:p-4 bg-black/50">
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        className="h-full sm:h-auto sm:max-h-[90vh] w-full sm:max-w-2xl flex flex-col bg-white sm:rounded-2xl overflow-hidden"
+      >
+        <div className="flex items-center gap-2 px-2 h-14 border-b border-slate-100 shrink-0">
+          <button type="button" onClick={onClose} aria-label="Đóng" className="p-3 text-slate-500 hover:text-slate-800">
             <X className="w-5 h-5" />
           </button>
+          <h2 className="text-base font-semibold text-slate-900">{isEdit ? 'Sửa căn hộ' : 'Thêm căn hộ'}</h2>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 max-h-[80vh] overflow-y-auto text-xs sm:text-sm">
-          {error && <div className="p-3 text-xs bg-rose-50 text-rose-700 border border-rose-200 rounded-xl">{error}</div>}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          {error && <p role="alert" className="p-3 text-sm bg-rose-50 text-rose-700 rounded-xl">{error}</p>}
 
-          {/* Upload ảnh */}
           <PhotoUploader images={images} onChange={setImages} onError={setError} />
 
-          {/* Tiêu đề & Giá */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-2 space-y-1">
-              <label className="font-semibold text-slate-700">Tiêu đề căn hộ *</label>
-              <input type="text" required placeholder="VD: Căn 1N1K Full đồ Doãn Kế Thiện" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-3 py-2 border rounded-xl border-slate-200" />
+          <FormSection title="Thông tin chính">
+            <Field label="Tiêu đề" required>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="VD: Căn 2PN view biển Mỹ An" className={inputClass} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3 items-end">
+              <Field label="Giá thuê (đ/tháng)" required>
+                <input type="number" inputMode="numeric" min={0} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="8000000" className={inputClass} />
+              </Field>
+              <Field label="Tiền cọc (đ)">
+                <input type="number" inputMode="numeric" min={0} value={deposit} onChange={(e) => setDeposit(e.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Loại hoa hồng">
+                <select value={commissionType} onChange={(e) => setCommissionType(e.target.value as 'PERCENT' | 'FIXED')} className={inputClass}>
+                  <option value="PERCENT">Phần trăm (%)</option>
+                  <option value="FIXED">Số tiền (đ)</option>
+                </select>
+              </Field>
+              <Field label="Mức hoa hồng">
+                <input type="number" inputMode="numeric" min={0} value={commissionValue} onChange={(e) => setCommissionValue(e.target.value)} className={inputClass} />
+              </Field>
             </div>
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700">Giá thuê (đ/tháng) *</label>
-              <input type="number" required min="0" placeholder="6500000" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full px-3 py-2 border rounded-xl border-slate-200" />
-            </div>
-          </div>
+          </FormSection>
 
-          {/* Cọc & Hoa hồng */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700">Tiền cọc (VNĐ)</label>
-              <input type="number" min="0" placeholder="6500000" value={deposit} onChange={(e) => setDeposit(e.target.value)} className="w-full px-3 py-2 border rounded-xl border-slate-200" />
+          <FormSection title="Vị trí">
+            <Field label="Địa chỉ cụ thể" required>
+              <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="K12 Bà Huyện Thanh Quan" className={inputClass} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3 items-end">
+              <Field label="Phường">
+                <input value={ward} onChange={(e) => setWard(e.target.value)} placeholder="Mỹ An" className={inputClass} />
+              </Field>
+              <Field label="Khu vực (quận)" required>
+                {/* Gợi ý danh sách quận Đà Nẵng nhưng vẫn cho gõ tự do */}
+                <input list="danang-districts" value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Chọn hoặc gõ" className={inputClass} />
+                <datalist id="danang-districts">
+                  {DANANG_DISTRICTS.map((name) => <option key={name} value={name} />)}
+                </datalist>
+              </Field>
             </div>
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700">Loại hoa hồng CTV</label>
-              <select value={commissionType} onChange={(e) => setCommissionType(e.target.value as any)} className="w-full px-3 py-2 border rounded-xl border-slate-200 bg-white">
-                <option value="PERCENT">Tỷ lệ % (VD: 50%)</option>
-                <option value="FIXED">Số tiền cứng (VNĐ)</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700">Mức hoa hồng</label>
-              <input type="number" min="0" value={commissionValue} onChange={(e) => setCommissionValue(e.target.value)} className="w-full px-3 py-2 border rounded-xl border-slate-200" />
-            </div>
-          </div>
+          </FormSection>
 
-          {/* Địa chỉ */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700">Địa chỉ cụ thể *</label>
-              <input type="text" required placeholder="K12 Bà Huyện Thanh Quan" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 py-2 border rounded-xl border-slate-200" />
-            </div>
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700">Phường</label>
-              <input type="text" placeholder="Mỹ An, An Hải Bắc..." value={ward} onChange={(e) => setWard(e.target.value)} className="w-full px-3 py-2 border rounded-xl border-slate-200" />
-            </div>
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700">Khu vực (quận) *</label>
-              {/* Gợi ý danh sách quận Đà Nẵng nhưng vẫn cho gõ tự do */}
-              <input type="text" required list="danang-districts" placeholder="Chọn hoặc gõ" value={district} onChange={(e) => setDistrict(e.target.value)} className="w-full px-3 py-2 border rounded-xl border-slate-200" />
-              <datalist id="danang-districts">
-                {DANANG_DISTRICTS.map((name) => <option key={name} value={name} />)}
-              </datalist>
-            </div>
-          </div>
-
-          {/* Thuộc tính & Tiện ích */}
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-            <span className="font-semibold text-slate-700 block text-xs uppercase tracking-wider">Thuộc tính & Tiện ích</span>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <div>
-                <label className="text-[11px] text-slate-500">Diện tích (m²)</label>
-                <input type="number" value={area} onChange={(e) => setArea(e.target.value)} className="w-full px-2 py-1 text-xs border rounded-lg border-slate-200 bg-white" />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-500">Số phòng ngủ</label>
-                <input type="number" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} className="w-full px-2 py-1 text-xs border rounded-lg border-slate-200 bg-white" />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-500">Số phòng tắm</label>
-                <input type="number" value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} className="w-full px-2 py-1 text-xs border rounded-lg border-slate-200 bg-white" />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-500">Nội thất</label>
-                <select value={furnishing} onChange={(e) => setFurnishing(e.target.value as any)} className="w-full px-2 py-1 text-xs border rounded-lg border-slate-200 bg-white">
+          <FormSection title="Căn hộ">
+            <div className="grid grid-cols-2 gap-3 items-end">
+              <Field label="Phòng ngủ" required>
+                <input type="number" inputMode="numeric" min={0} value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} placeholder="0 = studio" className={inputClass} />
+              </Field>
+              <Field label="Phòng tắm">
+                <input type="number" inputMode="numeric" min={0} value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Diện tích (m²)">
+                <input type="number" inputMode="decimal" min={0} value={area} onChange={(e) => setArea(e.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Nội thất" required>
+                <select value={furnishing} onChange={(e) => setFurnishing(e.target.value as Furnishing)} className={inputClass}>
+                  <option value="" disabled>Chọn</option>
                   <option value="FULL">Full nội thất</option>
                   <option value="BASIC">Cơ bản</option>
-                  <option value="EMPTY">Trống</option>
+                  <option value="EMPTY">Nhà trống</option>
                 </select>
-              </div>
+              </Field>
             </div>
-            <div className="flex flex-wrap gap-4 pt-1">
-              <label className="flex items-center gap-1.5 cursor-pointer text-xs"><input type="checkbox" checked={elevator} onChange={(e) => setElevator(e.target.checked)} className="rounded text-indigo-600" /> Thang máy</label>
-              <label className="flex items-center gap-1.5 cursor-pointer text-xs"><input type="checkbox" checked={allowPets} onChange={(e) => setAllowPets(e.target.checked)} className="rounded text-indigo-600" /> Cho nuôi Pet</label>
-              <label className="flex items-center gap-1.5 cursor-pointer text-xs"><input type="checkbox" checked={carParking} onChange={(e) => setCarParking(e.target.checked)} className="rounded text-indigo-600" /> Ô tô đỗ cửa</label>
-              <label className="flex items-center gap-1.5 cursor-pointer text-xs"><input type="checkbox" checked={pcccStandard} onChange={(e) => setPcccStandard(e.target.checked)} className="rounded text-indigo-600" /> PCCC đạt chuẩn</label>
+            <div className="flex flex-wrap gap-2">
+              {AMENITY_TOGGLES.map(({ key, label }) => (
+                <ToggleChip key={key} checked={amenities[key]} onChange={(checked) => setAmenities((prev) => ({ ...prev, [key]: checked }))}>
+                  {label}
+                </ToggleChip>
+              ))}
             </div>
-          </div>
+          </FormSection>
 
           <MarketFieldsSection value={market} onChange={setMarket} />
 
-          {/* Phí dịch vụ */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700">Điện (đ/kWh)</label>
-              <input type="number" placeholder="3800" value={electricity} onChange={(e) => setElectricity(e.target.value)} className="w-full px-3 py-1.5 border rounded-xl border-slate-200" />
+          <FormSection title="Phí hàng tháng">
+            <div className="grid grid-cols-3 gap-3 items-end">
+              <Field label="Điện (đ/kWh)">
+                <input type="number" inputMode="numeric" min={0} value={electricity} onChange={(e) => setElectricity(e.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Nước (đ)">
+                <input type="number" inputMode="numeric" min={0} value={water} onChange={(e) => setWater(e.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Dịch vụ (đ)">
+                <input type="number" inputMode="numeric" min={0} value={serviceFee} onChange={(e) => setServiceFee(e.target.value)} className={inputClass} />
+              </Field>
             </div>
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700">Nước (đ/khối)</label>
-              <input type="number" placeholder="30000" value={water} onChange={(e) => setWater(e.target.value)} className="w-full px-3 py-1.5 border rounded-xl border-slate-200" />
-            </div>
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700">Dịch vụ (đ/tháng)</label>
-              <input type="number" placeholder="150000" value={serviceFee} onChange={(e) => setServiceFee(e.target.value)} className="w-full px-3 py-1.5 border rounded-xl border-slate-200" />
-            </div>
-          </div>
+          </FormSection>
 
-          {/* Thông tin chủ nhà */}
-          <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 space-y-2">
-            <span className="font-semibold text-amber-900 block text-xs uppercase tracking-wider">Thông tin Chủ Nhà / Đầu mối</span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[11px] text-slate-600">Tên chủ nhà *</label>
-                <input type="text" required placeholder="Bác Hùng" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} className="w-full px-3 py-1.5 border rounded-lg border-amber-200 bg-white" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[11px] text-slate-600">SĐT chủ nhà *</label>
-                <input type="text" required placeholder="0912345678" value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} className="w-full px-3 py-1.5 border rounded-lg border-amber-200 bg-white" />
-              </div>
+          <FormSection title="Chủ nhà / đầu mối (CTV không thấy)" tone="private">
+            <div className="grid grid-cols-2 gap-3 items-end">
+              <Field label="Tên" required>
+                <input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} autoComplete="off" className={inputClass} />
+              </Field>
+              <Field label="Số điện thoại" required>
+                <input type="tel" inputMode="tel" value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} autoComplete="off" placeholder="0905123456" className={inputClass} />
+              </Field>
             </div>
-            <div className="space-y-1">
-              <label className="text-[11px] text-slate-600">Ghi chú mật (Chỉ Quản lý thấy)</label>
-              <input type="text" placeholder="Chủ nhà dễ tính..." value={ownerNote} onChange={(e) => setOwnerNote(e.target.value)} className="w-full px-3 py-1.5 border rounded-lg border-amber-200 bg-white" />
-            </div>
-          </div>
+            <Field label="Ghi chú riêng">
+              <input value={ownerNote} onChange={(e) => setOwnerNote(e.target.value)} placeholder="Chủ nhà dễ tính, hẹn xem sau 17h..." className={inputClass} />
+            </Field>
+          </FormSection>
+        </div>
 
-          {/* Nút hành động */}
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-medium">Hủy</button>
-            <button type="submit" disabled={loading} className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold flex items-center gap-2">
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {initialData ? 'Cập nhật căn hộ' : 'Lưu căn hộ mới'}
-            </button>
-          </div>
-        </form>
-      </div>
+        {/* Nút Lưu ghim cuối màn hình, chừa chỗ huy hiệu Netlify */}
+        <div className="shrink-0 flex gap-2 p-3 pb-badge-safe sm:pb-3 border-t border-slate-100">
+          <button type="button" onClick={onClose} className="h-11 px-4 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100">
+            Hủy
+          </button>
+          <button type="submit" disabled={loading} className="flex-1 h-11 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60">
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isEdit ? 'Lưu thay đổi' : 'Lưu căn hộ'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

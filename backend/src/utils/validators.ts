@@ -31,13 +31,18 @@ export type DeepPartial<T> = T extends readonly unknown[] | Date
  * Tạo schema cập nhật một phần (PATCH) từ schema tạo mới: bỏ mọi .default()/.prefault() (kể cả lồng nhau)
  * và cho mọi trường thành optional. Từ zod v4, .partial() vẫn điền giá trị mặc định cho trường không gửi lên
  * → sửa giá thuê cũng làm reset status/images... về mặc định. Hàm này tránh việc ghi đè dữ liệu cũ đó.
+ * Trường KHÔNG bắt buộc trong schema tạo mới (.optional()) còn nhận thêm `null` = "xóa giá trị này" (Story 8.1);
+ * trường bắt buộc (giá, tiêu đề...) vẫn không nhận null.
  */
 export function toPatchSchema(schema: z.ZodType): z.ZodType {
   if (schema instanceof z.ZodDefault || schema instanceof z.ZodPrefault || schema instanceof z.ZodOptional) {
     return toPatchSchema(schema.unwrap() as z.ZodType);
   }
   if (schema instanceof z.ZodObject) {
-    const fields = Object.entries(schema.shape).map(([key, field]) => [key, toPatchSchema(field as z.ZodType).optional()]);
+    const fields = Object.entries(schema.shape).map(([key, field]) => {
+      const patchField = toPatchSchema(field as z.ZodType);
+      return [key, (field instanceof z.ZodOptional ? patchField.nullable() : patchField).optional()];
+    });
     return z.object(Object.fromEntries(fields));
   }
   return schema;

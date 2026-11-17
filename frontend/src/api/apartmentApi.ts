@@ -2,6 +2,9 @@ import { apiClient } from './client.js';
 
 export type IncludedService = 'WIFI' | 'CLEANING' | 'ELECTRICITY' | 'WATER' | 'LAUNDRY';
 
+// Dữ liệu gửi lên khi tạo/sửa căn: khác bản đọc về (VD gửi null để xóa trường khi sửa — Story 8.1)
+export type ApartmentPayload = Record<string, unknown>;
+
 export interface Apartment {
   _id: string;
   title: string;
@@ -120,12 +123,12 @@ export const apartmentApi = {
     return res.data;
   },
 
-  createApartment: async (data: Partial<Apartment>) => {
+  createApartment: async (data: ApartmentPayload) => {
     const res = await apiClient.post('/apartments', data);
     return res.data;
   },
 
-  updateApartment: async (id: string, data: Partial<Apartment>) => {
+  updateApartment: async (id: string, data: ApartmentPayload) => {
     const res = await apiClient.put(`/apartments/${id}`, data);
     return res.data;
   },

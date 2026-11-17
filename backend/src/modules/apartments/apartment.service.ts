@@ -107,13 +107,15 @@ export class ApartmentService {
     }
     // Gán từng trường con (VD: attributes.elevator) thay vì ghi đè cả object (Object.assign)
     // → gửi một phần attributes/location/ownerContact không làm mất các trường còn lại
+    // null = Quản lý xóa trắng ô trên form → gán undefined để Mongoose xóa hẳn trường ($unset) (Story 8.1)
+    const assign = (path: string, value: unknown) => apartment.set(path, value === null ? undefined : value);
     for (const [key, value] of Object.entries(data)) {
       const isNestedObject = value !== null && typeof value === 'object' && !Array.isArray(value);
       if (!isNestedObject) {
-        apartment.set(key, value);
+        assign(key, value);
         continue;
       }
-      for (const [subKey, subValue] of Object.entries(value)) apartment.set(`${key}.${subKey}`, subValue);
+      for (const [subKey, subValue] of Object.entries(value)) assign(`${key}.${subKey}`, subValue);
     }
     // Quản lý đã mở form và lưu lại → coi như đã kiểm tra tin AI
     apartment.set({ needsReview: false, reviewReason: undefined });
