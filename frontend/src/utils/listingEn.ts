@@ -4,7 +4,7 @@ import { Apartment, IncludedService } from '../api/apartmentApi.js';
 export type ListingInfo = Pick<Apartment, 'price' | 'priceUsd' | 'minLeaseMonths' | 'status' | 'availableDate' | 'fees'> & {
   includedServices?: IncludedService[];
   attributes: Apartment['attributes'];
-  location: { ward?: string; district: string; city: string };
+  location: { street?: string; ward?: string; district: string; city: string };
 };
 
 /** Bỏ dấu cho khách nước ngoài dễ đọc: "Ngũ Hành Sơn" → "Ngu Hanh Son". */
@@ -22,6 +22,10 @@ export const placeEn = ({ location }: Pick<ListingInfo, 'location'>) => {
   const places = [location.ward, location.district === 'Chưa rõ' ? '' : location.district].filter(Boolean) as string[];
   return (places.length ? places : [location.city]).map(toAscii).join(', ');
 };
+
+/** Dòng địa chỉ gửi khách: tên đường (không số nhà — Story 8.3) + phường, quận, thành phố. */
+export const addressEn = (listing: Pick<ListingInfo, 'location'>) =>
+  [listing.location.street && toAscii(listing.location.street), placeEn(listing), toAscii(listing.location.city)].filter(Boolean).join(', ');
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 export const bedroomsEn = (bedrooms: number) => (bedrooms === 0 ? 'Studio' : plural(bedrooms, 'bedroom'));

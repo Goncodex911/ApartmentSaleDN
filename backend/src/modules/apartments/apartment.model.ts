@@ -28,7 +28,10 @@ export interface IApartment extends Document {
   minLeaseMonths?: number; // Số tháng thuê tối thiểu
   includedServices?: IncludedService[];
   location: {
-    address: string;
+    address: string; // Địa chỉ đầy đủ nội bộ = số nhà/kiệt + tên đường (dùng khử trùng lặp, ước lượng tọa độ)
+    street?: string; // Tên đường gửi khách (Story 8.3)
+    houseNumber?: string; // Số nhà / kiệt — nội bộ
+    mapUrl?: string; // Link Google Maps — nội bộ
     ward?: string;
     district: string;
     city: string;
@@ -107,6 +110,9 @@ const apartmentSchema = new Schema<IApartment>(
     includedServices: [{ type: String, enum: INCLUDED_SERVICES }],
     location: {
       address: { type: String, required: true, trim: true },
+      street: { type: String, trim: true },
+      houseNumber: { type: String, trim: true },
+      mapUrl: { type: String, trim: true },
       ward: { type: String, trim: true },
       district: { type: String, required: true, trim: true, index: true },
       city: { type: String, required: true, default: 'Đà Nẵng', trim: true },

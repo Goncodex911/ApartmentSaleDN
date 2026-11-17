@@ -8,7 +8,7 @@ import { DownloadPhotosButton } from './DownloadPhotosButton.js';
 import { ShareLinkButton } from './ShareLinkButton.js';
 import { ShareLangToggle } from './ShareLangToggle.js';
 import { Lang, getShareLang, setShareLang } from '../../utils/shareLang.js';
-import { X } from 'lucide-react';
+import { X, MapPin } from 'lucide-react';
 import { marketLabels, usdText } from '../../utils/apartmentLabels.js';
 
 interface ApartmentDetailModalProps {
@@ -117,6 +117,18 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
               <p className="text-sm text-slate-500">
                 {[location.address, location.ward, location.district, location.city].filter(Boolean).join(', ')}
               </p>
+              {/* Link map nội bộ (Story 8.3): mở app Google Maps để dẫn khách xem phòng */}
+              {location.mapUrl && (
+                <a
+                  href={location.mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
+                >
+                  <MapPin className="w-4 h-4" aria-hidden />
+                  Mở bản đồ
+                </a>
+              )}
               <div className="flex items-center gap-2 pt-1">
                 <StatusBadge
                   apartmentId={apartment._id}

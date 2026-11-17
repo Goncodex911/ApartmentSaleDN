@@ -15,6 +15,9 @@ export interface Apartment {
   includedServices?: IncludedService[];
   location: {
     address: string;
+    street?: string; // Tên đường gửi khách (Story 8.3)
+    houseNumber?: string; // Nội bộ
+    mapUrl?: string; // Nội bộ
     ward?: string;
     district: string;
     city: string;

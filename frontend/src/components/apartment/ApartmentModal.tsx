@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Apartment, apartmentApi } from '../../api/apartmentApi.js';
 import { X, Loader2 } from 'lucide-react';
 import { PhotoUploader } from './PhotoUploader.js';
-import { DANANG_DISTRICTS } from '../../utils/danang.js';
+import { LocationSection, toLocationForm, fromLocationForm, isLocationComplete } from './LocationSection.js';
 import { MarketFieldsSection, toMarketForm, fromMarketForm } from './MarketFieldsSection.js';
 import { Field, FormSection, ToggleChip, inputClass, numberOr, textOr } from './formFields.js';
 
@@ -38,9 +38,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
 
   const [title, setTitle] = useState(initialData?.title || '');
   const [price, setPrice] = useState(toText(initialData?.price));
-  const [address, setAddress] = useState(initialData?.location?.address || '');
-  const [ward, setWard] = useState(initialData?.location?.ward || '');
-  const [district, setDistrict] = useState(initialData?.location?.district || ''); // Không điền sẵn: tránh lưu nhầm quận
+  const [location, setLocation] = useState(() => toLocationForm(initialData));
   const [area, setArea] = useState(toText(attrs?.area));
   const [bedrooms, setBedrooms] = useState(toText(attrs?.bedrooms));
   const [bathrooms, setBathrooms] = useState(toText(attrs?.bathrooms));
@@ -63,7 +61,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !price || !address || !district || bedrooms === '' || !furnishing || !ownerName || !ownerPhone) {
+    if (!title || !price || !isLocationComplete(location) || bedrooms === '' || !furnishing || !ownerName || !ownerPhone) {
       setError('Vui lòng điền đủ các ô có dấu *');
       return;
     }
@@ -74,7 +72,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
       ...marketPayload,
       title,
       price: Number(price),
-      location: { address, ward: textOr(ward, empty), district, city: initialData?.location?.city || 'Đà Nẵng' },
+      location: fromLocationForm(location, empty, initialData?.location?.city),
       attributes: {
         area: numberOr(area, empty),
         bedrooms: Math.max(0, Math.trunc(Number(bedrooms))),
@@ -131,23 +129,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
             </Field>
           </FormSection>
 
-          <FormSection title="Vị trí">
-            <Field label="Địa chỉ cụ thể" required>
-              <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="K12 Bà Huyện Thanh Quan" className={inputClass} />
-            </Field>
-            <div className="grid grid-cols-2 gap-3 items-end">
-              <Field label="Phường">
-                <input value={ward} onChange={(e) => setWard(e.target.value)} placeholder="Mỹ An" className={inputClass} />
-              </Field>
-              <Field label="Khu vực (quận)" required>
-                {/* Gợi ý danh sách quận Đà Nẵng nhưng vẫn cho gõ tự do */}
-                <input list="danang-districts" value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Chọn hoặc gõ" className={inputClass} />
-                <datalist id="danang-districts">
-                  {DANANG_DISTRICTS.map((name) => <option key={name} value={name} />)}
-                </datalist>
-              </Field>
-            </div>
-          </FormSection>
+          <LocationSection value={location} onChange={setLocation} />
 
           <FormSection title="Căn hộ">
             <div className="grid grid-cols-2 gap-3 items-end">

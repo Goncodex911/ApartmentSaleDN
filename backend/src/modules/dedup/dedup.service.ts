@@ -172,6 +172,8 @@ export class DedupService {
       includedServices: ext.includedServices,
       location: {
         address: ext.address,
+        street: ext.street,
+        houseNumber: ext.houseNumber,
         ward: ext.ward,
         district: ext.district,
         city: ext.city,

@@ -2,6 +2,7 @@ import { IApartment } from '../apartments/apartment.model.js';
 import { IUser } from '../auth/user.model.js';
 import { getVisibleImages } from './photo.service.js';
 import { stripPhoneNumbers } from '../../utils/phone-text.js';
+import { withStreet } from '../apartments/apartment-location.js';
 
 /** Slug dễ đọc từ tiêu đề: bỏ dấu tiếng Việt, tối đa 6 từ, không chứa SĐT. */
 export function slugify(title: string): string {
@@ -24,7 +25,7 @@ type PublicCtv = Pick<IUser, 'name' | 'phone' | 'zaloPhone' | 'zaloLink' | 'avat
 
 /**
  * DTO công khai cho khách (Story 5.3 - AC4): chỉ gồm các trường trong danh sách trắng.
- * KHÔNG trả về ownerContact, subListings, description, address, tọa độ gốc.
+ * KHÔNG trả về ownerContact, subListings, description, address, houseNumber, mapUrl, tọa độ gốc.
  */
 export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
   const coordinates = apartment.location.coordinates;
@@ -58,6 +59,7 @@ export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
       motorbikeParking: attributes.motorbikeParking,
     },
     location: {
+      street: withStreet(apartment.location).street, // Chỉ tên đường — KHÔNG số nhà, link map (Story 8.3)
       ward: apartment.location.ward,
       district: apartment.location.district,
       city: apartment.location.city,

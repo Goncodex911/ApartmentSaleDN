@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { vnPhone, toPatchSchema, DeepPartial } from '../../utils/validators.js';
 import { INCLUDED_SERVICES } from './apartment.model.js';
+import { isGoogleMapsUrl } from '../../utils/google-maps.js';
 
 const statusEnum = z.enum(['AVAILABLE', 'UPCOMING', 'DEPOSITED', 'RENTED']);
 
@@ -12,7 +13,11 @@ export const createApartmentSchema = z.object({
   minLeaseMonths: z.number().int().min(1, 'Thời gian thuê tối thiểu từ 1 tháng').max(60).optional(),
   includedServices: z.array(z.enum(INCLUDED_SERVICES)).optional(),
   location: z.object({
-    address: z.string().min(2, 'Địa chỉ không được để trống'),
+    // Story 8.3: form gửi tên đường + số nhà, service tự ghép address; client cũ (extension) vẫn gửi address được
+    street: z.string().trim().min(2, 'Tên đường không được để trống').max(120).optional(),
+    houseNumber: z.string().trim().max(60).optional(),
+    mapUrl: z.string().trim().max(500).refine(isGoogleMapsUrl, 'Link Google Maps không hợp lệ (chỉ nhận link https của Google Maps)').optional(),
+    address: z.string().trim().min(2, 'Địa chỉ không được để trống').optional(),
     ward: z.string().optional(),
     district: z.string().min(2, 'Quận/Huyện không được để trống'),
     city: z.string().default('Đà Nẵng'),

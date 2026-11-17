@@ -4,6 +4,7 @@ import {
 } from './gemini.prompt.js';
 import { resolveListingLocation, UNKNOWN_DISTRICT } from '../search/district.js';
 import { fetchWithRetry } from '../../utils/fetch-retry.js';
+import { splitAddress, ADDRESS_PLACEHOLDER } from '../../utils/street.js';
 import { INCLUDED_SERVICES, IncludedService } from '../apartments/apartment.model.js';
 
 // Số nguyên dương trong khoảng cho phép, ngược lại undefined (AI có thể trả chuỗi/số âm/null)
@@ -32,6 +33,8 @@ export interface IParsedApartmentData {
   title: string;
   price: number;
   address: string;
+  street?: string; // Tên đường gửi khách (Story 8.3)
+  houseNumber?: string;
   ward?: string;
   district: string;
   city: string;
@@ -169,6 +172,7 @@ ${rawText.trim()}
     const phone = ext.ownerContact?.phone ? String(ext.ownerContact.phone).trim() : '';
 
     const location = resolveListingLocation(ext);
+    const address = typeof ext.address === 'string' && ext.address.trim() ? ext.address.trim() : ADDRESS_PLACEHOLDER;
     const unknownDistrict = location.district === UNKNOWN_DISTRICT;
 
     const needsReview = Boolean(ext.needsReview || price === 0 || priceFromUsd || !phone || unknownDistrict);
@@ -190,7 +194,10 @@ ${rawText.trim()}
       extracted: {
         title: ext.title || 'Căn hộ cho thuê',
         price,
-        address: ext.address || 'Đang cập nhật địa chỉ',
+        address,
+        houseNumber: splitAddress(address).houseNumber,
+        // AI hay để trống hoặc ghi cả số nhà vào street → tách lại bằng code
+        street: splitAddress(typeof ext.street === 'string' ? ext.street : '').street || splitAddress(address).street,
         ...location, // district, ward, city đã chuẩn hóa theo Đà Nẵng
         area: ext.area ? Number(ext.area) : undefined,
         bedrooms: Number(ext.bedrooms) || 1,

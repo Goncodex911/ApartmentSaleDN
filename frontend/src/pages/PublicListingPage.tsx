@@ -10,7 +10,7 @@ import { marketLabels, usdText } from '../utils/apartmentLabels.js';
 import { usePublicLang } from '../hooks/usePublicLang.js';
 import { PUBLIC_COPY } from '../utils/publicCopy.js';
 import { Lang } from '../utils/shareLang.js';
-import { headlineEn, placeEn, toAscii, formatVndEn, feesEn, amenitiesEn, bedroomsEn, FURNISHING_EN, minStayEn, dateEn } from '../utils/listingEn.js';
+import { headlineEn, addressEn, toAscii, formatVndEn, feesEn, amenitiesEn, bedroomsEn, FURNISHING_EN, minStayEn, dateEn } from '../utils/listingEn.js';
 
 const FURNISHING_LABEL = { FULL: 'Full đồ', BASIC: 'Đồ cơ bản', EMPTY: 'Nhà trống' } as const;
 
@@ -50,7 +50,7 @@ function describe(listing: PublicListing, lang: Lang) {
   if (lang === 'en') {
     return {
       title: headlineEn(listing),
-      place: `${placeEn(listing)}, ${toAscii(location.city)}`,
+      place: addressEn(listing),
       price: formatVndEn(listing.price),
       fees: feesEn(listing),
       facts: [
@@ -65,7 +65,7 @@ function describe(listing: PublicListing, lang: Lang) {
   }
   return {
     title: listing.title,
-    place: [location.ward, location.district, location.city].filter(Boolean).join(', '),
+    place: [location.street, location.ward, location.district, location.city].filter(Boolean).join(', '),
     price: formatVnd(listing.price),
     fees: [
       fees.electricity && `Điện ${formatVnd(fees.electricity)}/kWh`,

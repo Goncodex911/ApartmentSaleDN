@@ -1,8 +1,7 @@
 import { Apartment, IApartment, buildStatusFilter, isPrivilegedRole } from './apartment.model.js';
 import { CreateApartmentInput, UpdateApartmentInput, UpdateStatusInput, AddSubListingInput } from './apartment.validation.js';
 import { uploadBufferToCloudinary } from '../../config/cloudinary.js';
-import { GeocodingService } from '../search/geocoding.service.js';
-import { canonicalDistrict } from '../search/district.js';
+import { prepareLocation, withStreet } from './apartment-location.js';
 import { Types } from 'mongoose';
 import { maskPhonesInText, escapeRegex } from '../../utils/phone-text.js';
 import { LeadMatchingService } from '../leads/lead-matching.service.js';
@@ -34,6 +33,7 @@ export class ApartmentService {
     // Story 8.2: cọc & hoa hồng đã bỏ — căn cũ trong DB vẫn còn 2 trường này (query .lean()) nên lọc ở đây cho mọi vai trò
     delete item.deposit;
     delete item.commission;
+    item.location = withStreet(item.location);
     if (isPrivilegedRole(role)) return item;
 
     const maskContact = (contact?: { phone?: string; note?: string }) =>
@@ -72,16 +72,9 @@ export class ApartmentService {
     }));
   }
 
-  // Thêm mới căn hộ (Tự động Geocoding tọa độ nếu chưa có)
+  // Thêm mới căn hộ (chuẩn hóa vị trí, lấy tọa độ từ link map hoặc ước lượng)
   static async create(data: CreateApartmentInput, managerId: string) {
-    // Chuẩn tên khu vực ("nhs", "Q. Hải Châu" → "Ngũ Hành Sơn", "Hải Châu") để lọc theo quận chính xác
-    data.location.district = canonicalDistrict(data.location.district) || data.location.district;
-    if (!data.location.coordinates || data.location.coordinates.length < 2) {
-      const geo =
-        GeocodingService.resolveCoordinates(data.location.address) ||
-        GeocodingService.resolveCoordinates(data.location.district);
-      if (geo) data.location.coordinates = geo.coordinates;
-    }
+    await prepareLocation(data.location);
     const apartment = await Apartment.create({
       ...data,
       managerId: new Types.ObjectId(managerId),
@@ -97,17 +90,7 @@ export class ApartmentService {
     if (user.role !== 'ADMIN' && apartment.managerId.toString() !== user.id) {
       throw { status: 403, message: 'Bạn không có quyền chỉnh sửa căn hộ này' };
     }
-    if (data.location?.district) data.location.district = canonicalDistrict(data.location.district) || data.location.district;
-    // Chỉ geocode lại khi địa chỉ/quận thực sự đổi — tránh ghi đè tọa độ chính xác bằng tọa độ ước lượng
-    const addressChanged =
-      (data.location?.address && data.location.address !== apartment.location.address) ||
-      (data.location?.district && data.location.district !== apartment.location.district);
-    if (data.location && addressChanged && !data.location.coordinates) {
-      const geo =
-        GeocodingService.resolveCoordinates(data.location.address || apartment.location.address) ||
-        GeocodingService.resolveCoordinates(data.location.district || apartment.location.district);
-      if (geo) data.location.coordinates = geo.coordinates;
-    }
+    if (data.location) await prepareLocation(data.location, apartment.location);
     // Gán từng trường con (VD: attributes.elevator) thay vì ghi đè cả object (Object.assign)
     // → gửi một phần attributes/location/ownerContact không làm mất các trường còn lại
     // null = Quản lý xóa trắng ô trên form → gán undefined để Mongoose xóa hẳn trường ($unset) (Story 8.1)

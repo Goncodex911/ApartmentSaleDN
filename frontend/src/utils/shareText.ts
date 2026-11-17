@@ -74,7 +74,7 @@ export function buildShareText(apartment: Apartment, ctv: ShareContact): string 
 
   return [
     header,
-    `📍 Khu vực: ${[location.ward, district].filter(Boolean).join(', ')}`,
+    `📍 Vị trí: ${[location.street, location.ward, district].filter(Boolean).join(', ')}`, // Chỉ tên đường, không số nhà (Story 8.3)
     sizeLine,
     `💵 Giá thuê: ${formatVnd(price)} VNĐ/tháng${apartment.priceUsd ? ` (${usdText(apartment.priceUsd)})` : ''}`,
     feeParts.length ? `⚡ Phí: ${feeParts.join(' · ')}` : '',

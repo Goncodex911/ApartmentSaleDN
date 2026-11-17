@@ -17,7 +17,7 @@ export interface PublicListing {
   includedServices: NonNullable<Apartment['includedServices']>;
   fees: NonNullable<Apartment['fees']>;
   attributes: Omit<Apartment['attributes'], 'livingRooms'>;
-  location: { ward?: string; district: string; city: string; approximateCenter: [number, number] | null };
+  location: { street?: string; ward?: string; district: string; city: string; approximateCenter: [number, number] | null };
   images: string[];
   status: Apartment['status'];
   availableDate?: string;

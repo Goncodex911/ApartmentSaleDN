@@ -1,7 +1,7 @@
 import { Apartment } from '../api/apartmentApi.js';
 import { User } from '../api/authApi.js';
 import { usdText } from './apartmentLabels.js';
-import { toAscii, headlineEn, placeEn, bedroomsEn, formatVndEn, feesEn, FURNISHING_EN, amenitiesEn, minStayEn, dateEn, intlPhone } from './listingEn.js';
+import { toAscii, headlineEn, addressEn, bedroomsEn, formatVndEn, feesEn, FURNISHING_EN, amenitiesEn, minStayEn, dateEn, intlPhone } from './listingEn.js';
 
 type ShareContact = Pick<User, 'name' | 'phone' | 'zaloPhone'>;
 
@@ -20,7 +20,7 @@ export function buildShareTextEn(apartment: Apartment, ctv: ShareContact): strin
 
   return [
     `🏢 ${headlineEn(apartment).toUpperCase()}`,
-    `📍 Area: ${placeEn(apartment)}, ${toAscii(apartment.location.city)}`,
+    `📍 Location: ${addressEn(apartment)}`,
     `📐 Size: ${size}`,
     `💵 Price: ${formatVndEn(price)}/month${apartment.priceUsd ? ` (${usdText(apartment.priceUsd)})` : ''}`,
     fees.length ? `⚡ Fees: ${fees.join(' · ')}` : '',
