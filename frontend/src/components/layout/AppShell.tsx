@@ -11,6 +11,7 @@ import { BottomNav } from './BottomNav.js';
 import { AccountMenu } from './AccountMenu.js';
 import { BottomSheet } from './BottomSheet.js';
 import { PendingUsersModal } from './PendingUsersModal.js';
+import { InstallPrompt } from './InstallPrompt.js';
 import { ProfileModal } from '../profile/ProfileModal.js';
 import { QuickPasteModal } from '../apartment/QuickPasteModal.js';
 import { ApartmentModal } from '../apartment/ApartmentModal.js';
@@ -57,6 +58,7 @@ export const AppShell: React.FC = () => {
       <div className="min-h-screen bg-slate-50">
         <Navbar user={user} pendingCount={pendingCount} accountMenu={accountMenu} />
         <Outlet />
+        {user && !panel && <InstallPrompt />}
         {user && (
           <BottomNav
             isManager={isManager}
