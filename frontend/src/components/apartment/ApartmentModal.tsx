@@ -3,6 +3,7 @@ import { Apartment, apartmentApi } from '../../api/apartmentApi.js';
 import { X, Loader2, Sparkles } from 'lucide-react';
 import { PhotoUploader } from './PhotoUploader.js';
 import { DANANG_DISTRICTS } from '../../utils/danang.js';
+import { MarketFieldsSection, toMarketForm, fromMarketForm } from './MarketFieldsSection.js';
 
 interface ApartmentModalProps {
   initialData?: Apartment | null;
@@ -51,6 +52,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
   const [ownerPhone, setOwnerPhone] = useState(initialData?.ownerContact?.phone || '');
   const [ownerNote, setOwnerNote] = useState(initialData?.ownerContact?.note || '');
   const [images, setImages] = useState<string[]>(initialData?.images || []);
+  const [market, setMarket] = useState(() => toMarketForm(initialData)); // Thông tin Đà Nẵng (Story 7.2)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +65,9 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
 
     try {
       setLoading(true);
+      const marketPayload = fromMarketForm(market);
       const payload: any = {
+        ...marketPayload,
         title,
         description,
         price: Number(price),
@@ -79,6 +83,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
           allowPets,
           carParking,
           pcccStandard,
+          ...marketPayload.attributes,
         },
         fees: {
           electricity: Number(electricity) || undefined,
@@ -204,6 +209,8 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
               <label className="flex items-center gap-1.5 cursor-pointer text-xs"><input type="checkbox" checked={pcccStandard} onChange={(e) => setPcccStandard(e.target.checked)} className="rounded text-indigo-600" /> PCCC đạt chuẩn</label>
             </div>
           </div>
+
+          <MarketFieldsSection value={market} onChange={setMarket} />
 
           {/* Phí dịch vụ */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

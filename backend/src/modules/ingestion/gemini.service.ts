@@ -4,6 +4,29 @@ import {
 } from './gemini.prompt.js';
 import { resolveListingLocation, UNKNOWN_DISTRICT } from '../search/district.js';
 import { fetchWithRetry } from '../../utils/fetch-retry.js';
+import { INCLUDED_SERVICES, IncludedService } from '../apartments/apartment.model.js';
+
+// Số nguyên dương trong khoảng cho phép, ngược lại undefined (AI có thể trả chuỗi/số âm/null)
+const positiveInt = (value: unknown, max: number) => {
+  const num = Math.round(Number(value));
+  return Number.isFinite(num) && num > 0 && num <= max ? num : undefined;
+};
+
+// Tỷ giá quy đổi giá USD → VNĐ khi tin chỉ ghi USD (mặc định 25.000, đổi qua biến môi trường USD_VND_RATE)
+const usdToVndRate = () => positiveInt(process.env.USD_VND_RATE, 1000000) || 25000;
+
+/** Trường đặc thù Đà Nẵng (Story 7.2): chỉ nhận đúng kiểu & mã hợp lệ. */
+function sanitizeMarketFields(ext: any) {
+  const services = Array.isArray(ext.includedServices) ? ext.includedServices : [];
+  return {
+    pool: ext.pool === true,
+    distanceToBeachM: ext.distanceToBeachM === 0 ? 0 : positiveInt(ext.distanceToBeachM, 100000),
+    motorbikeParking: ext.motorbikeParking === true,
+    priceUsd: positiveInt(ext.priceUsd, 100000),
+    minLeaseMonths: positiveInt(ext.minLeaseMonths, 60),
+    includedServices: INCLUDED_SERVICES.filter((code) => services.includes(code)),
+  };
+}
 
 export interface IParsedApartmentData {
   title: string;
@@ -21,6 +44,12 @@ export interface IParsedApartmentData {
   allowPets: boolean;
   carParking: boolean;
   pcccStandard: boolean;
+  pool: boolean;
+  distanceToBeachM?: number;
+  motorbikeParking: boolean;
+  priceUsd?: number;
+  minLeaseMonths?: number;
+  includedServices: IncludedService[];
   fees?: {
     electricity?: number;
     water?: number;
@@ -134,22 +163,27 @@ ${rawText.trim()}
     }
 
     const ext = data.extracted || {};
-    const price = Number(ext.price) || 0;
+    const market = sanitizeMarketFields(ext);
+    // Tin chỉ ghi giá USD → quy đổi ước tính theo tỷ giá cấu hình để căn vẫn lọc được theo giá VNĐ, Quản lý kiểm tra lại
+    const priceFromUsd = !(Number(ext.price) > 0) && market.priceUsd ? Math.round((market.priceUsd * usdToVndRate()) / 100000) * 100000 : 0;
+    const price = Number(ext.price) > 0 ? Number(ext.price) : priceFromUsd;
     const phone = ext.ownerContact?.phone ? String(ext.ownerContact.phone).trim() : '';
 
     const location = resolveListingLocation(ext);
     const unknownDistrict = location.district === UNKNOWN_DISTRICT;
 
-    const needsReview = Boolean(ext.needsReview || price === 0 || !phone || unknownDistrict);
+    const needsReview = Boolean(ext.needsReview || price === 0 || priceFromUsd || !phone || unknownDistrict);
     const reviewReason =
       ext.reviewReason ||
       (price === 0
         ? 'Không tìm thấy mức giá cụ thể'
-        : !phone
-          ? 'Không tìm thấy số điện thoại đầu mối'
-          : unknownDistrict
-            ? 'Chưa xác định được khu vực (quận)'
-            : null);
+        : priceFromUsd
+          ? `Giá VNĐ quy đổi từ ${market.priceUsd} USD (tỷ giá ${usdToVndRate()})`
+          : !phone
+            ? 'Không tìm thấy số điện thoại đầu mối'
+            : unknownDistrict
+              ? 'Chưa xác định được khu vực (quận)'
+              : null);
 
     return {
       isRentalListing: true,
@@ -168,6 +202,7 @@ ${rawText.trim()}
         allowPets: Boolean(ext.allowPets),
         carParking: Boolean(ext.carParking),
         pcccStandard: Boolean(ext.pcccStandard),
+        ...market,
         fees: {
           electricity: ext.fees?.electricity ? Number(ext.fees.electricity) : undefined,
           water: ext.fees?.water ? Number(ext.fees.water) : undefined,

@@ -22,6 +22,8 @@ export const AMENITIES = [
   { key: 'carParking', label: 'Ô tô đỗ cửa' },
   { key: 'balcony', label: 'Ban công' },
   { key: 'pcccStandard', label: 'PCCC đạt chuẩn' },
+  { key: 'nearBeach', label: 'Gần biển (<1km)' },
+  { key: 'pool', label: 'Hồ bơi' },
 ] as const;
 export const STATUSES = [
   { id: 'AVAILABLE', label: 'Trống' },

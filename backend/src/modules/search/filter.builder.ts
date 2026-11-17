@@ -1,6 +1,6 @@
 import { ISearchOptions } from './search.service.js';
 import { IResolvedLocation } from './geocoding.service.js';
-import { buildDiacriticRegex } from './slang.dictionary.js';
+import { buildDiacriticRegex, NEAR_BEACH_CONDITION, POOL_CONDITION } from './slang.dictionary.js';
 import { removeVietnameseTones } from '../../utils/vietnamese.js';
 import { buildStatusFilter } from '../apartments/apartment.model.js';
 
@@ -85,6 +85,13 @@ export class FilterBuilder {
     if (options.carParking !== undefined) filter['attributes.carParking'] = Boolean(options.carParking);
     if (options.balcony !== undefined) filter['attributes.balcony'] = Boolean(options.balcony);
     if (options.pcccStandard !== undefined) filter['attributes.pcccStandard'] = Boolean(options.pcccStandard);
+
+    // Tiện ích Đà Nẵng (Story 7.2): tính cả căn cũ chỉ ghi bằng chữ trong mô tả
+    const marketConditions = [options.nearBeach && NEAR_BEACH_CONDITION, options.pool && POOL_CONDITION].filter(Boolean);
+    if (marketConditions.length > 0) {
+      filter.$and = filter.$and || [];
+      filter.$and.push(...marketConditions);
+    }
 
     // 6. Gộp các điều kiện mở rộng từ tiếng lóng BĐS
     if (expandedConditions.length > 0) {

@@ -41,6 +41,14 @@ BƯỚC 2: NẾU LÀ TIN CHO THUÊ, TRÍCH XUẤT CÁC THÔNG SỐ CHUẨN XÁC:
 - allowPets: boolean (cho nuôi pet, chó, mèo, pets allowed = true).
 - carParking: boolean (CHỈ true khi ghi rõ ô tô/car đỗ được; "parking" chung chung hoặc chỗ để xe máy = false).
 - pcccStandard: boolean (PCCC đạt chuẩn, thang thoát hiểm, cửa chống cháy = true).
+- pool: boolean (hồ bơi, bể bơi, pool, swimming pool = true).
+- distanceToBeachM: Khoảng cách tới biển, số nguyên MÉT ("less than 600m to the sea" -> 600, "cách biển 1,2km" -> 1200,
+  "5 phút đi bộ ra biển" -> 400, "mặt biển/beachfront" -> 50). Không nhắc biển -> null.
+- motorbikeParking: boolean (chỗ để xe máy, hầm xe; "parking" chung chung = true).
+- priceUsd: Giá thuê USD/tháng nếu tin ghi ("760 USD/month" -> 760, "$500" -> 500), không có -> null.
+- minLeaseMonths: Số tháng thuê tối thiểu ("Minimum rental period: 1 months" -> 1, "thuê tối thiểu 6 tháng" -> 6, "hợp đồng 1 năm" -> 12), không có -> null.
+- includedServices: Mảng dịch vụ ĐÃ BAO trong giá, chỉ dùng các mã: "WIFI" (free wifi, bao mạng), "CLEANING" (dọn phòng, clean 1 a week),
+  "ELECTRICITY" (bao điện), "WATER" (bao nước), "LAUNDRY" (giặt là). Không có -> [].
 - fees:
   + electricity: Số tiền điện đ/kWh (VD: "3.8k/số" -> 3800).
   + water: Số tiền nước đ/khối hoặc người (VD: "30k/khối" -> 30000, "100k/người" -> 100000).
@@ -73,6 +81,12 @@ Hãy trả về DUY NHẤT một chuỗi JSON hợp lệ (không kèm markdown \
     "allowPets": true,
     "carParking": false,
     "pcccStandard": true,
+    "pool": false,
+    "distanceToBeachM": 300,
+    "motorbikeParking": true,
+    "priceUsd": null,
+    "minLeaseMonths": 6,
+    "includedServices": ["WIFI"],
     "fees": {
       "electricity": 3800,
       "water": 30000,

@@ -1,5 +1,9 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
+// Dịch vụ đã bao trong giá thuê (Story 7.2)
+export const INCLUDED_SERVICES = ['WIFI', 'CLEANING', 'ELECTRICITY', 'WATER', 'LAUNDRY'] as const;
+export type IncludedService = (typeof INCLUDED_SERVICES)[number];
+
 export interface ISubListing {
   _id?: Types.ObjectId;
   sourceType: 'TELEGRAM' | 'WHATSAPP' | 'ZALO' | 'FACEBOOK' | 'MANUAL';
@@ -20,6 +24,9 @@ export interface IApartment extends Document {
   title: string;
   description?: string;
   price: number;
+  priceUsd?: number; // Giá USD nếu tin ghi (khách nước ngoài) — giá chuẩn vẫn là price (VNĐ)
+  minLeaseMonths?: number; // Số tháng thuê tối thiểu
+  includedServices?: IncludedService[];
   deposit: number;
   commission: {
     type: 'PERCENT' | 'FIXED';
@@ -44,6 +51,9 @@ export interface IApartment extends Document {
     allowPets: boolean;
     washingMachine: 'PRIVATE' | 'SHARED' | 'NONE';
     pcccStandard: boolean;
+    pool?: boolean;
+    distanceToBeachM?: number; // Khoảng cách tới biển (mét)
+    motorbikeParking?: boolean; // Chỗ để xe máy (ô tô dùng carParking)
   };
   fees: {
     electricity?: number;
@@ -98,6 +108,9 @@ const apartmentSchema = new Schema<IApartment>(
     description: { type: String, trim: true },
     price: { type: Number, required: true, min: 0, index: true },
     deposit: { type: Number, default: 0, min: 0 },
+    priceUsd: { type: Number, min: 0 },
+    minLeaseMonths: { type: Number, min: 1 },
+    includedServices: [{ type: String, enum: INCLUDED_SERVICES }],
     commission: {
       type: { type: String, enum: ['PERCENT', 'FIXED'], default: 'PERCENT' },
       value: { type: Number, default: 0 },
@@ -121,6 +134,9 @@ const apartmentSchema = new Schema<IApartment>(
       allowPets: { type: Boolean, default: false },
       washingMachine: { type: String, enum: ['PRIVATE', 'SHARED', 'NONE'], default: 'NONE' },
       pcccStandard: { type: Boolean, default: true },
+      pool: { type: Boolean, default: false },
+      distanceToBeachM: { type: Number, min: 0 },
+      motorbikeParking: { type: Boolean, default: false },
     },
     fees: {
       electricity: { type: Number },

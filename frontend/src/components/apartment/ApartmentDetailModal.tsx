@@ -7,6 +7,7 @@ import { CopyShareButton } from './CopyShareButton.js';
 import { DownloadPhotosButton } from './DownloadPhotosButton.js';
 import { ShareLinkButton } from './ShareLinkButton.js';
 import { X } from 'lucide-react';
+import { marketLabels, usdText } from '../../utils/apartmentLabels.js';
 
 interface ApartmentDetailModalProps {
   apartment: Apartment | null;
@@ -54,6 +55,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
     attributes.balcony && 'Ban công',
     attributes.pcccStandard && 'PCCC đạt chuẩn',
     attributes.washingMachine === 'PRIVATE' && 'Máy giặt riêng',
+    ...marketLabels(apartment),
   ].filter(Boolean) as string[];
   const feeText = [
     fees?.electricity && `Điện ${formatVnd(fees.electricity)}/kWh`,
@@ -138,6 +140,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
               <p className="text-2xl font-bold text-slate-900">
                 {formatVnd(apartment.price)}
                 <span className="text-sm font-normal text-slate-500">/tháng</span>
+                {apartment.priceUsd && <span className="ml-2 text-base font-medium text-slate-500">{usdText(apartment.priceUsd)}</span>}
               </p>
               <p className="text-sm text-slate-600">Cọc {formatVnd(apartment.deposit)}</p>
               {feeText && <p className="text-sm text-slate-500 mt-1">{feeText}</p>}

@@ -16,6 +16,8 @@ export interface INaturalExtracted {
   carParking?: boolean;
   balcony?: boolean;
   pcccStandard?: boolean;
+  nearBeach?: boolean;
+  pool?: boolean;
 }
 
 export interface INaturalAnalysisResult {
@@ -28,7 +30,7 @@ export interface INaturalAnalysisResult {
 
 const ROOM_TYPES = ['studio', '1pn', '2pn', 'duplex'];
 const FURNISHING_VALUES = ['FULL', 'BASIC', 'EMPTY'];
-const AMENITY_KEYS = ['elevator', 'allowPets', 'carParking', 'balcony', 'pcccStandard'] as const;
+const AMENITY_KEYS = ['elevator', 'allowPets', 'carParking', 'balcony', 'pcccStandard', 'nearBeach', 'pool'] as const;
 
 /**
  * Kết quả AI có thể bị khách chèn lệnh (prompt injection, VD bắt AI trả thêm "userRole":"ADMIN")
@@ -133,6 +135,8 @@ export class NaturalSearchService {
     if (has('ban cong', 'balcony')) result.balcony = true;
     if (has('full do', 'full noi that', 'day du noi that', 'du do', 'fully furnished')) result.furnishing = 'FULL';
     if (has('pccc')) result.pcccStandard = true;
+    if (has('gan bien', 'sat bien', 'mat bien', 'view bien', 'ra bien', 'beach', 'beachfront')) result.nearBeach = true;
+    if (has('ho boi', 'be boi', 'pool')) result.pool = true;
 
     return result;
   }
@@ -178,6 +182,8 @@ Chỉ điền trường được nhắc rõ, KHÔNG đoán. Trả về DUY NHẤ
   "allowPets": boolean nếu yêu cầu nuôi pet/chó mèo,
   "carParking": boolean nếu yêu cầu ô tô đỗ cửa,
   "balcony": boolean nếu yêu cầu ban công,
+  "nearBeach": boolean nếu yêu cầu gần biển (gần biển, sát biển, near the beach),
+  "pool": boolean nếu yêu cầu hồ bơi/bể bơi/pool,
   "furnishing": "FULL nếu yêu cầu đầy đủ nội thất"
 }`;
 
@@ -233,6 +239,8 @@ Chỉ điền trường được nhắc rõ, KHÔNG đoán. Trả về DUY NHẤ
     if (data.carParking) badges.push({ label: 'Ô tô đỗ cửa', type: 'amenity' });
     if (data.balcony) badges.push({ label: 'Ban công', type: 'amenity' });
     if (data.furnishing === 'FULL') badges.push({ label: 'Full đồ', type: 'amenity' });
+    if (data.nearBeach) badges.push({ label: 'Gần biển', type: 'amenity' });
+    if (data.pool) badges.push({ label: 'Hồ bơi', type: 'amenity' });
 
     return badges;
   }

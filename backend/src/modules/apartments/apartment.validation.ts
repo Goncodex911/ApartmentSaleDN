@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { vnPhone, toPatchSchema, DeepPartial } from '../../utils/validators.js';
+import { INCLUDED_SERVICES } from './apartment.model.js';
 
 const statusEnum = z.enum(['AVAILABLE', 'UPCOMING', 'DEPOSITED', 'RENTED']);
 
@@ -8,6 +9,9 @@ export const createApartmentSchema = z.object({
   description: z.string().optional(),
   price: z.number().positive('Giá thuê phải lớn hơn 0'),
   deposit: z.number().min(0, 'Tiền cọc không được âm').default(0),
+  priceUsd: z.number().positive('Giá USD phải lớn hơn 0').optional(),
+  minLeaseMonths: z.number().int().min(1, 'Thời gian thuê tối thiểu từ 1 tháng').max(60).optional(),
+  includedServices: z.array(z.enum(INCLUDED_SERVICES)).optional(),
   commission: z
     .object({
       type: z.enum(['PERCENT', 'FIXED']).default('PERCENT'),
@@ -34,6 +38,9 @@ export const createApartmentSchema = z.object({
       allowPets: z.boolean().default(false),
       washingMachine: z.enum(['PRIVATE', 'SHARED', 'NONE']).default('NONE'),
       pcccStandard: z.boolean().default(true),
+      pool: z.boolean().default(false),
+      distanceToBeachM: z.number().int().min(0).max(100000).optional(),
+      motorbikeParking: z.boolean().default(false),
     })
     .prefault({}),
   fees: z

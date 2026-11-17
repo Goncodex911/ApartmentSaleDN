@@ -10,7 +10,34 @@ export interface ISlangRule {
   attributeFilter?: Record<string, any>;
 }
 
+// Cụm từ không dấu → regex khớp cả có dấu/không dấu (VD "gan bien" khớp "gần biển")
+const textRegex = (phrases: string[]) => new RegExp(phrases.map(buildDiacriticRegex).join('|'), 'i');
+const BEACH_TEXT = textRegex(['gan bien', 'sat bien', 'mat bien', 'view bien', 'ra bien', 'beach']);
+const POOL_TEXT = textRegex(['ho boi', 'be boi', 'pool']);
+
+/**
+ * Gần biển (Story 7.2): có số liệu ≤ 1km, HOẶC căn cũ chưa có số liệu nhưng tiêu đề/mô tả ghi "gần biển"/"beach".
+ * Dùng chung cho chip bộ lọc (FilterBuilder) và câu tìm kiếm (QueryAnalyzer) để 2 cách tìm cho cùng kết quả.
+ */
+export const NEAR_BEACH_CONDITION = {
+  $or: [
+    { 'attributes.distanceToBeachM': { $lte: 1000 } },
+    { 'attributes.distanceToBeachM': { $exists: false }, $or: [{ title: BEACH_TEXT }, { description: BEACH_TEXT }] },
+  ],
+};
+export const POOL_CONDITION = { $or: [{ 'attributes.pool': true }, { title: POOL_TEXT }, { description: POOL_TEXT }] };
+
 export const REAL_ESTATE_SLANG_RULES: ISlangRule[] = [
+  {
+    keywords: ['gan bien', 'sat bien', 'mat bien', 'view bien', 'ra bien', 'beach', 'near beach', 'beachfront'],
+    synonyms: [], // Điều kiện chữ đã nằm trong NEAR_BEACH_CONDITION
+    attributeFilter: NEAR_BEACH_CONDITION,
+  },
+  {
+    keywords: ['ho boi', 'be boi', 'pool', 'swimming pool'],
+    synonyms: [],
+    attributeFilter: POOL_CONDITION,
+  },
   {
     keywords: ['ccmn', 'chung cu mini'],
     synonyms: ['chung cư mini', 'ccmn', 'căn hộ mini', 'khép kín'],

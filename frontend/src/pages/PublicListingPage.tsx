@@ -6,6 +6,7 @@ import { PhotoSlider } from '../components/public/PhotoSlider.js';
 import { CtvContactBar } from '../components/public/CtvContactBar.js';
 import { ChatWidget } from '../components/public/ChatWidget.js';
 import { MapPin, LinkIcon } from 'lucide-react';
+import { marketLabels, usdText } from '../utils/apartmentLabels.js';
 
 const FURNISHING_LABEL = { FULL: 'Full đồ', BASIC: 'Đồ cơ bản', EMPTY: 'Nhà trống' } as const;
 
@@ -79,6 +80,7 @@ export const PublicListingPage: React.FC = () => {
     attributes.allowPets && 'Nuôi thú cưng',
     attributes.balcony && 'Ban công',
     attributes.pcccStandard && 'PCCC đạt chuẩn',
+    ...marketLabels(listing),
   ].filter(Boolean);
 
   return (
@@ -110,6 +112,7 @@ export const PublicListingPage: React.FC = () => {
             <p className="text-2xl font-extrabold text-indigo-700">
               {formatVnd(listing.price)}
               <span className="text-sm font-medium text-indigo-500">/tháng</span>
+              {listing.priceUsd && <span className="ml-2 text-base font-semibold text-indigo-500">{usdText(listing.priceUsd)}</span>}
             </p>
             {listing.deposit > 0 && <p className="text-sm text-slate-600 mt-1">Đặt cọc: {formatVnd(listing.deposit)}</p>}
             {feeItems.length > 0 && <p className="text-sm text-slate-500 mt-2">{feeItems.join(' · ')}</p>}

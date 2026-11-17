@@ -33,6 +33,9 @@ export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
   return {
     title: stripPhoneNumbers(apartment.title),
     price: apartment.price,
+    priceUsd: apartment.priceUsd,
+    minLeaseMonths: apartment.minLeaseMonths,
+    includedServices: apartment.includedServices || [],
     deposit: apartment.deposit,
     fees: {
       electricity: fees?.electricity,
@@ -51,6 +54,9 @@ export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
       allowPets: attributes.allowPets,
       washingMachine: attributes.washingMachine,
       pcccStandard: attributes.pcccStandard,
+      pool: attributes.pool,
+      distanceToBeachM: attributes.distanceToBeachM,
+      motorbikeParking: attributes.motorbikeParking,
     },
     location: {
       ward: apartment.location.ward,

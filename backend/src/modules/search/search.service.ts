@@ -28,6 +28,8 @@ export interface ISearchOptions {
   carParking?: boolean;
   balcony?: boolean;
   pcccStandard?: boolean;
+  nearBeach?: boolean; // Story 7.2: cách biển ≤ 1km
+  pool?: boolean;
 }
 
 export class SearchService {
