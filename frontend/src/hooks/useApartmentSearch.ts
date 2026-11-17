@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Apartment, apartmentApi, Pagination } from '../api/apartmentApi.js';
 
-export const AMENITY_KEYS = ['elevator', 'allowPets', 'carParking', 'balcony', 'pcccStandard', 'nearBeach', 'pool'] as const;
+export const AMENITY_KEYS = ['nearBeach', 'pool', 'gym', 'seaView', 'riverView', 'elevator', 'allowPets', 'carParking', 'balcony', 'pcccStandard'] as const;
 type AmenityKey = (typeof AMENITY_KEYS)[number];
 
 export type ApartmentFilterValues = {
@@ -11,6 +11,8 @@ export type ApartmentFilterValues = {
   landmark: string;
   landmarkName: string; // Chỉ để hiển thị chip, không gửi lên API
   radiusKm: string;
+  zones: string[]; // Story 8.4: chọn nhiều
+  propertyTypes: string[];
 } & Record<AmenityKey, boolean>;
 
 export const EMPTY_FILTERS: ApartmentFilterValues = {
@@ -20,6 +22,8 @@ export const EMPTY_FILTERS: ApartmentFilterValues = {
   landmark: '',
   landmarkName: '',
   radiusKm: '2',
+  zones: [],
+  propertyTypes: [],
   elevator: false,
   allowPets: false,
   carParking: false,
@@ -27,10 +31,13 @@ export const EMPTY_FILTERS: ApartmentFilterValues = {
   pcccStandard: false,
   nearBeach: false,
   pool: false,
+  gym: false,
+  seaView: false,
+  riverView: false,
 };
 
 export const countActiveFilters = (f: ApartmentFilterValues) =>
-  [f.priceRange, f.roomType, f.status, f.landmark].filter(Boolean).length + AMENITY_KEYS.filter((key) => f[key]).length;
+  [f.priceRange, f.roomType, f.status, f.landmark].filter(Boolean).length + f.zones.length + f.propertyTypes.length + AMENITY_KEYS.filter((key) => f[key]).length;
 
 const PAGE_SIZE = 12;
 const EMPTY_PAGINATION: Pagination = { total: 0, page: 1, limit: PAGE_SIZE, totalPages: 1 };
@@ -40,6 +47,8 @@ function toParams(f: ApartmentFilterValues, page: number) {
   if (f.priceRange) params.priceRange = f.priceRange;
   if (f.roomType) params.roomType = f.roomType;
   if (f.status) params.status = f.status;
+  if (f.zones.length) params.zones = f.zones.join(',');
+  if (f.propertyTypes.length) params.propertyTypes = f.propertyTypes.join(',');
   if (f.landmark) Object.assign(params, { landmark: f.landmark, radiusKm: Number(f.radiusKm) || 2 });
   AMENITY_KEYS.forEach((key) => f[key] && (params[key] = true));
   return params;

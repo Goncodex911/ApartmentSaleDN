@@ -1,8 +1,7 @@
 import { Apartment, IApartment, buildStatusFilter, isPrivilegedRole } from './apartment.model.js';
 import { CreateApartmentInput, UpdateApartmentInput, UpdateStatusInput, AddSubListingInput } from './apartment.validation.js';
 import { uploadBufferToCloudinary } from '../../config/cloudinary.js';
-import { GeocodingService } from '../search/geocoding.service.js';
-import { canonicalDistrict } from '../search/district.js';
+import { prepareLocation, withStreet } from './apartment-location.js';
 import { Types } from 'mongoose';
 import { maskPhonesInText, escapeRegex } from '../../utils/phone-text.js';
 import { LeadMatchingService } from '../leads/lead-matching.service.js';
@@ -31,6 +30,10 @@ export class ApartmentService {
   static maskApartment(doc: IApartment | any, role?: string): any {
     if (!doc) return null;
     const item = doc.toObject ? doc.toObject() : { ...doc };
+    // Story 8.2: cọc & hoa hồng đã bỏ — căn cũ trong DB vẫn còn 2 trường này (query .lean()) nên lọc ở đây cho mọi vai trò
+    delete item.deposit;
+    delete item.commission;
+    item.location = withStreet(item.location);
     if (isPrivilegedRole(role)) return item;
 
     const maskContact = (contact?: { phone?: string; note?: string }) =>
@@ -42,6 +45,7 @@ export class ApartmentService {
     item.ownerContact = maskContact(item.ownerContact);
     delete item.imageHashes; // Dữ liệu nội bộ của bộ khử trùng, không cần gửi ra ngoài
     delete item.needsReview; // Cờ kiểm duyệt nội bộ của Quản lý
+    delete item.submittedBy;
     delete item.reviewReason;
     item.subListings = (item.subListings || []).map((sub: any) => ({
       ...sub,
@@ -52,13 +56,14 @@ export class ApartmentService {
   }
 
   // Tải nhiều ảnh/video lên Cloudinary
-  static async uploadMedia(files: Express.Multer.File[]) {
+  // folder: ảnh CTV đăng tin để riêng (Story 8.6) → dọn ảnh tin bị từ chối / rút mà không đụng ảnh căn trong kho
+  static async uploadMedia(files: Express.Multer.File[], folder = 'apartment_sale/apartments') {
     if (!files || files.length === 0) {
       throw { status: 400, message: 'Vui lòng chọn ít nhất một file ảnh hoặc video' };
     }
     const uploadPromises = files.map((file) => {
       const resourceType = file.mimetype.startsWith('video/') ? 'video' : 'image';
-      return uploadBufferToCloudinary(file.buffer, 'apartment_sale/apartments', resourceType);
+      return uploadBufferToCloudinary(file.buffer, folder, resourceType);
     });
     const results = await Promise.all(uploadPromises);
     return results.map((r) => ({
@@ -69,18 +74,13 @@ export class ApartmentService {
     }));
   }
 
-  // Thêm mới căn hộ (Tự động Geocoding tọa độ nếu chưa có)
-  static async create(data: CreateApartmentInput, managerId: string) {
-    // Chuẩn tên khu vực ("nhs", "Q. Hải Châu" → "Ngũ Hành Sơn", "Hải Châu") để lọc theo quận chính xác
-    data.location.district = canonicalDistrict(data.location.district) || data.location.district;
-    if (!data.location.coordinates || data.location.coordinates.length < 2) {
-      const geo =
-        GeocodingService.resolveCoordinates(data.location.address) ||
-        GeocodingService.resolveCoordinates(data.location.district);
-      if (geo) data.location.coordinates = geo.coordinates;
-    }
+  // Thêm mới căn hộ (chuẩn hóa vị trí, lấy tọa độ từ link map hoặc ước lượng)
+  // extra: dữ liệu nội bộ khi duyệt tin CTV (Story 8.6) — không nhận từ request
+  static async create(data: CreateApartmentInput, managerId: string, extra: { submittedBy?: string; imageHashes?: string[] } = {}) {
+    await prepareLocation(data.location);
     const apartment = await Apartment.create({
       ...data,
+      ...extra,
       managerId: new Types.ObjectId(managerId),
     });
     LeadMatchingService.runInBackground(apartment); // Story 6.3: báo CTV có khách phù hợp
@@ -94,31 +94,23 @@ export class ApartmentService {
     if (user.role !== 'ADMIN' && apartment.managerId.toString() !== user.id) {
       throw { status: 403, message: 'Bạn không có quyền chỉnh sửa căn hộ này' };
     }
-    if (data.location?.district) data.location.district = canonicalDistrict(data.location.district) || data.location.district;
-    // Chỉ geocode lại khi địa chỉ/quận thực sự đổi — tránh ghi đè tọa độ chính xác bằng tọa độ ước lượng
-    const addressChanged =
-      (data.location?.address && data.location.address !== apartment.location.address) ||
-      (data.location?.district && data.location.district !== apartment.location.district);
-    if (data.location && addressChanged && !data.location.coordinates) {
-      const geo =
-        GeocodingService.resolveCoordinates(data.location.address || apartment.location.address) ||
-        GeocodingService.resolveCoordinates(data.location.district || apartment.location.district);
-      if (geo) data.location.coordinates = geo.coordinates;
-    }
+    if (data.location) await prepareLocation(data.location, apartment.location);
     // Gán từng trường con (VD: attributes.elevator) thay vì ghi đè cả object (Object.assign)
     // → gửi một phần attributes/location/ownerContact không làm mất các trường còn lại
+    // null = Quản lý xóa trắng ô trên form → gán undefined để Mongoose xóa hẳn trường ($unset) (Story 8.1)
+    const assign = (path: string, value: unknown) => apartment.set(path, value === null ? undefined : value);
     for (const [key, value] of Object.entries(data)) {
       const isNestedObject = value !== null && typeof value === 'object' && !Array.isArray(value);
       if (!isNestedObject) {
-        apartment.set(key, value);
+        assign(key, value);
         continue;
       }
-      for (const [subKey, subValue] of Object.entries(value)) apartment.set(`${key}.${subKey}`, subValue);
+      for (const [subKey, subValue] of Object.entries(value)) assign(`${key}.${subKey}`, subValue);
     }
     // Quản lý đã mở form và lưu lại → coi như đã kiểm tra tin AI
     apartment.set({ needsReview: false, reviewReason: undefined });
     await apartment.save();
-    return apartment;
+    return this.maskApartment(apartment, user.role);
   }
 
   // Cập nhật nhanh 1-Click trạng thái phòng
@@ -135,7 +127,7 @@ export class ApartmentService {
       apartment.availableDate = undefined;
     }
     await apartment.save();
-    return apartment;
+    return this.maskApartment(apartment, user.role);
   }
 
   // Đính kèm Nguồn tham chiếu vào Căn Master
@@ -151,7 +143,7 @@ export class ApartmentService {
     }
     apartment.subListings.push(subListingData as any);
     await apartment.save();
-    return apartment;
+    return this.maskApartment(apartment, user.role);
   }
 
   // Gỡ bỏ Nguồn tham chiếu khỏi Căn Master
@@ -165,7 +157,7 @@ export class ApartmentService {
       (sub: any) => sub._id.toString() !== subListingId
     );
     await apartment.save();
-    return apartment;
+    return this.maskApartment(apartment, user.role);
   }
 
   // Xóa căn hộ

@@ -23,17 +23,15 @@ BƯỚC 2: NẾU LÀ TIN CHO THUÊ, TRÍCH XUẤT CÁC THÔNG SỐ CHUẨN XÁC:
   + "4tr8" -> 4800000.
   + Tin ghi cả USD và VNĐ ("760 USD/month (20 million VND)") -> lấy số VNĐ: 20000000.
   + Nếu không ghi giá hoặc ghi "giá thỏa thuận", "giá ib" -> 0.
-- deposit: Tiền cọc số nguyên VNĐ.
-  + "cọc 1 tháng", "cọc 1", "deposit 1 month" -> bằng mức price.
-  + "cọc 2 tháng" -> bằng price * 2.
-  + "cọc 5tr" -> 5000000.
-  + Mặc định nếu không ghi -> 0.
 - address: Số nhà, kiệt/hẻm, tên đường (VD: "K12 Bà Huyện Thanh Quan").
+- street: CHỈ tên đường, bỏ số nhà/kiệt/hẻm (VD: "K12/3 Bà Huyện Thanh Quan" -> "Bà Huyện Thanh Quan"), không có -> null.
 - ward: Tên phường nếu có (VD: "Mỹ An", "An Hải Bắc", "Khuê Mỹ"), không có -> null.
 - district: Khu vực (quận cũ) Đà Nẵng, CHỈ chọn một trong: Hải Châu, Thanh Khê, Sơn Trà, Ngũ Hành Sơn, Liên Chiểu, Cẩm Lệ, Hòa Vang, Hội An.
   Suy ra từ phường nếu tin chỉ ghi phường (Mỹ An, Khuê Mỹ, An Thượng -> Ngũ Hành Sơn; An Hải, Phước Mỹ -> Sơn Trà). Không xác định được -> null.
 - city: "Đà Nẵng" (hoặc tên tỉnh/thành phố khác nếu tin ghi rõ).
 - area: Số m2 (số nguyên, VD: 35).
+- propertyType: Loại căn, một trong: "APARTMENT" (căn hộ chung cư, căn hộ dịch vụ, phòng trong tòa nhà), "STUDIO", "DUPLEX" (có gác xép/gác lửng 2 tầng),
+  "PENTHOUSE", "HOUSE" (nhà nguyên căn, nhà riêng), "VILLA" (biệt thự). Không rõ -> "APARTMENT".
 - bedrooms: Số phòng ngủ (Studio = 1, 1N1K = 1, 1BR = 1, 2N1K = 2, 2BR = 2, Duplex = 1 hoặc 2, mặc định = 1).
 - bathrooms: Số phòng tắm (mặc định = 1).
 - furnishing: "FULL" (đầy đủ nội thất, full đồ, fully furnished) | "BASIC" (cơ bản: điều hòa, nóng lạnh; HOẶC tin không nhắc nội thất) | "EMPTY" (phòng trống).
@@ -42,11 +40,12 @@ BƯỚC 2: NẾU LÀ TIN CHO THUÊ, TRÍCH XUẤT CÁC THÔNG SỐ CHUẨN XÁC:
 - carParking: boolean (CHỈ true khi ghi rõ ô tô/car đỗ được; "parking" chung chung hoặc chỗ để xe máy = false).
 - pcccStandard: boolean (PCCC đạt chuẩn, thang thoát hiểm, cửa chống cháy = true).
 - pool: boolean (hồ bơi, bể bơi, pool, swimming pool = true).
+- gym, bathtub, riverView, seaView, sauna: boolean — có phòng gym / bồn tắm / view sông (sông Hàn) / view biển (nhìn ra biển, KHÁC gần biển) / xông hơi.
 - distanceToBeachM: Khoảng cách tới biển, số nguyên MÉT ("less than 600m to the sea" -> 600, "cách biển 1,2km" -> 1200,
   "5 phút đi bộ ra biển" -> 400, "mặt biển/beachfront" -> 50). Không nhắc biển -> null.
 - motorbikeParking: boolean (chỗ để xe máy, hầm xe; "parking" chung chung = true).
 - priceUsd: Giá thuê USD/tháng nếu tin ghi ("760 USD/month" -> 760, "$500" -> 500), không có -> null.
-- minLeaseMonths: Số tháng thuê tối thiểu ("Minimum rental period: 1 months" -> 1, "thuê tối thiểu 6 tháng" -> 6, "hợp đồng 1 năm" -> 12), không có -> null.
+- minLeaseMonths: Số tháng thuê tối thiểu ("Minimum rental period: 1 months" -> 1, "thuê tối thiểu 6 tháng" -> 6, "hợp đồng 1 năm" -> 12, "2 năm" -> 24), không có -> null.
 - includedServices: Mảng dịch vụ ĐÃ BAO trong giá, chỉ dùng các mã: "WIFI" (free wifi, bao mạng), "CLEANING" (dọn phòng, clean 1 a week),
   "ELECTRICITY" (bao điện), "WATER" (bao nước), "LAUNDRY" (giặt là). Không có -> [].
 - fees:
@@ -68,12 +67,13 @@ Hãy trả về DUY NHẤT một chuỗi JSON hợp lệ (không kèm markdown \
   "extracted": {
     "title": "Cho thuê căn 1N1K Hồ Nghinh, An Hải Bắc, Sơn Trà",
     "price": 6500000,
-    "deposit": 6500000,
     "address": "K25 Hồ Nghinh",
+    "street": "Hồ Nghinh",
     "ward": "An Hải Bắc",
     "district": "Sơn Trà",
     "city": "Đà Nẵng",
     "area": 35,
+    "propertyType": "APARTMENT",
     "bedrooms": 1,
     "bathrooms": 1,
     "furnishing": "FULL",

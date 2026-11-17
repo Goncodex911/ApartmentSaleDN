@@ -6,11 +6,12 @@ import { PhotoSlider } from '../components/public/PhotoSlider.js';
 import { CtvContactBar } from '../components/public/CtvContactBar.js';
 import { ChatWidget } from '../components/public/ChatWidget.js';
 import { MapPin, LinkIcon } from 'lucide-react';
-import { marketLabels, usdText } from '../utils/apartmentLabels.js';
+import { marketLabels, roomParts, usdText, zoneText } from '../utils/apartmentLabels.js';
+import { amenityLabels } from '../utils/amenities.js';
 import { usePublicLang } from '../hooks/usePublicLang.js';
 import { PUBLIC_COPY } from '../utils/publicCopy.js';
 import { Lang } from '../utils/shareLang.js';
-import { headlineEn, placeEn, toAscii, formatVndEn, feesEn, amenitiesEn, bedroomsEn, FURNISHING_EN, minStayEn, dateEn } from '../utils/listingEn.js';
+import { headlineEn, addressEn, formatVndEn, feesEn, amenitiesEn, bedroomsEn, FURNISHING_EN, minStayEn, dateEn } from '../utils/listingEn.js';
 
 const FURNISHING_LABEL = { FULL: 'Full đồ', BASIC: 'Đồ cơ bản', EMPTY: 'Nhà trống' } as const;
 
@@ -50,9 +51,8 @@ function describe(listing: PublicListing, lang: Lang) {
   if (lang === 'en') {
     return {
       title: headlineEn(listing),
-      place: `${placeEn(listing)}, ${toAscii(location.city)}`,
+      place: addressEn(listing),
       price: formatVndEn(listing.price),
-      deposit: listing.deposit > 0 ? formatVndEn(listing.deposit) : '',
       fees: feesEn(listing),
       facts: [
         attributes.area && `${attributes.area}m²`,
@@ -66,9 +66,8 @@ function describe(listing: PublicListing, lang: Lang) {
   }
   return {
     title: listing.title,
-    place: [location.ward, location.district, location.city].filter(Boolean).join(', '),
+    place: [location.street, zoneText(location), location.city].filter(Boolean).join(', '),
     price: formatVnd(listing.price),
-    deposit: listing.deposit > 0 ? formatVnd(listing.deposit) : '',
     fees: [
       fees.electricity && `Điện ${formatVnd(fees.electricity)}/kWh`,
       fees.water && `Nước ${formatVnd(fees.water)}`,
@@ -77,14 +76,9 @@ function describe(listing: PublicListing, lang: Lang) {
     ].filter(Boolean) as string[],
     facts: [
       attributes.area && `${attributes.area}m²`,
-      attributes.bedrooms === 0 ? 'Studio' : `${attributes.bedrooms} phòng ngủ`,
+      ...roomParts(attributes),
       FURNISHING_LABEL[attributes.furnishing],
-      attributes.washingMachine === 'PRIVATE' && 'Máy giặt riêng',
-      attributes.elevator && 'Thang máy',
-      attributes.carParking && 'Ô tô đỗ cửa',
-      attributes.allowPets && 'Nuôi thú cưng',
-      attributes.balcony && 'Ban công',
-      attributes.pcccStandard && 'PCCC đạt chuẩn',
+      ...amenityLabels(listing), // Story 8.5: tên tiếng Anh từ danh mục chung
       ...marketLabels(listing),
     ].filter(Boolean) as string[],
     date: (iso: string) => new Date(iso).toLocaleDateString('vi-VN'),
@@ -168,7 +162,6 @@ export const PublicListingPage: React.FC = () => {
               <span className="text-sm font-medium text-indigo-500">{copy.perMonth}</span>
               {listing.priceUsd && <span className="ml-2 text-base font-semibold text-indigo-500">{usdText(listing.priceUsd)}</span>}
             </p>
-            {view.deposit && <p className="text-sm text-slate-600 mt-1">{copy.deposit}: {view.deposit}</p>}
             {view.fees.length > 0 && <p className="text-sm text-slate-500 mt-2">{view.fees.join(' · ')}</p>}
           </div>
 

@@ -1,10 +1,12 @@
 import { Apartment, IncludedService } from '../api/apartmentApi.js';
+import { OTHER_ZONE, propertyTypeLabel } from './danang.js';
+import { amenityLabels } from './amenities.js';
 
 // Dữ liệu tối thiểu để mô tả căn bằng tiếng Anh — dùng được cho cả Apartment (CTV) và PublicListing (trang khách)
-export type ListingInfo = Pick<Apartment, 'price' | 'deposit' | 'priceUsd' | 'minLeaseMonths' | 'status' | 'availableDate' | 'fees'> & {
+export type ListingInfo = Pick<Apartment, 'price' | 'priceUsd' | 'minLeaseMonths' | 'status' | 'availableDate' | 'fees'> & {
   includedServices?: IncludedService[];
   attributes: Apartment['attributes'];
-  location: { ward?: string; district: string; city: string };
+  location: { street?: string; zone?: string; ward?: string; district: string; city: string };
 };
 
 /** Bỏ dấu cho khách nước ngoài dễ đọc: "Ngũ Hành Sơn" → "Ngu Hanh Son". */
@@ -19,9 +21,15 @@ export const intlPhone = (phone: string) => {
 };
 
 export const placeEn = ({ location }: Pick<ListingInfo, 'location'>) => {
+  // Story 8.4: khu vực theo cách gọi của khách; căn cũ / khu "Khác" → phường, quận
+  if (location.zone && location.zone !== OTHER_ZONE) return toAscii(location.zone);
   const places = [location.ward, location.district === 'Chưa rõ' ? '' : location.district].filter(Boolean) as string[];
   return (places.length ? places : [location.city]).map(toAscii).join(', ');
 };
+
+/** Dòng địa chỉ gửi khách: tên đường (không số nhà — Story 8.3) + phường, quận, thành phố. */
+export const addressEn = (listing: Pick<ListingInfo, 'location'>) =>
+  [listing.location.street && toAscii(listing.location.street), placeEn(listing), toAscii(listing.location.city)].filter(Boolean).join(', ');
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 export const bedroomsEn = (bedrooms: number) => (bedrooms === 0 ? 'Studio' : plural(bedrooms, 'bedroom'));
@@ -29,8 +37,11 @@ export const minStayEn = (months: number) => plural(months, 'month');
 export const dateEn = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
 /** Tiêu đề tiếng Anh tự sinh (tiêu đề gốc do AI viết tiếng Việt): "2BR Apartment for rent – My An, Ngu Hanh Son". */
-export const headlineEn = (listing: Pick<ListingInfo, 'attributes' | 'location'>) =>
-  `${listing.attributes.bedrooms === 0 ? 'Studio' : `${listing.attributes.bedrooms}BR Apartment`} for rent – ${placeEn(listing)}`;
+export const headlineEn = ({ attributes, ...listing }: Pick<ListingInfo, 'attributes' | 'location'>) => {
+  const type = propertyTypeLabel(attributes.propertyType, 'en') || 'Apartment';
+  const isStudio = attributes.propertyType === 'STUDIO' || attributes.bedrooms === 0;
+  return `${isStudio ? 'Studio' : `${attributes.bedrooms}BR ${type}`} for rent – ${placeEn(listing)}`;
+};
 
 export const FURNISHING_EN: Record<Apartment['attributes']['furnishing'], string> = {
   FULL: 'Fully furnished',
@@ -38,30 +49,12 @@ export const FURNISHING_EN: Record<Apartment['attributes']['furnishing'], string
   EMPTY: 'Unfurnished',
 };
 
-const SERVICE_EN: Record<IncludedService, string> = {
-  WIFI: 'Free wifi',
-  CLEANING: 'Cleaning',
-  ELECTRICITY: 'Electricity included',
-  WATER: 'Water included',
-  LAUNDRY: 'Laundry',
-};
-
 const beachEn = (meters: number) => (meters < 1000 ? `${meters}m` : `${(meters / 1000).toFixed(1).replace('.0', '')}km`);
 
-/** Tiện ích tiếng Anh — ưu tiên những thứ khách nước ngoài hỏi nhiều (biển, hồ bơi) lên đầu. */
-export function amenitiesEn({ attributes: a, includedServices }: Pick<ListingInfo, 'attributes' | 'includedServices'>): string[] {
-  return [
-    a.distanceToBeachM != null && `${beachEn(a.distanceToBeachM)} to the beach`,
-    a.pool && 'Pool',
-    a.elevator && 'Elevator',
-    a.allowPets && 'Pet friendly',
-    a.carParking && 'Car parking',
-    a.motorbikeParking && 'Motorbike parking',
-    a.balcony && 'Balcony',
-    a.washingMachine === 'PRIVATE' && 'Private washing machine',
-    a.pcccStandard && 'Fire safety',
-    ...(includedServices || []).map((code) => SERVICE_EN[code]),
-  ].filter(Boolean) as string[];
+/** Tiện ích tiếng Anh: khoảng cách biển (khách hỏi đầu tiên) + danh mục tiện ích chung (Story 8.5). */
+export function amenitiesEn(listing: Pick<ListingInfo, 'attributes' | 'includedServices'>): string[] {
+  const beach = listing.attributes.distanceToBeachM;
+  return [...(beach != null ? [`${beachEn(beach)} to the beach`] : []), ...amenityLabels(listing)];
 }
 
 export function feesEn({ fees }: Pick<ListingInfo, 'fees'>): string[] {
@@ -72,7 +65,3 @@ export function feesEn({ fees }: Pick<ListingInfo, 'fees'>): string[] {
     fees?.parkingMotor && `Parking ${formatVndEn(fees.parkingMotor)}/month`,
   ].filter(Boolean) as string[];
 }
-
-/** Cọc chia hết cho giá → "1 month", ngược lại ghi số tiền; cọc = 0 → rỗng. */
-export const depositEn = (price: number, deposit: number) =>
-  !deposit ? '' : price > 0 && deposit % price === 0 ? minStayEn(deposit / price) : formatVndEn(deposit);

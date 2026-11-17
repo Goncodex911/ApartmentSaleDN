@@ -1,6 +1,10 @@
 import { apiClient } from './client.js';
+import type { PropertyType, Zone } from '../utils/danang.js';
 
 export type IncludedService = 'WIFI' | 'CLEANING' | 'ELECTRICITY' | 'WATER' | 'LAUNDRY';
+
+// Dữ liệu gửi lên khi tạo/sửa căn: khác bản đọc về (VD gửi null để xóa trường khi sửa — Story 8.1)
+export type ApartmentPayload = Record<string, unknown>;
 
 export interface Apartment {
   _id: string;
@@ -10,19 +14,19 @@ export interface Apartment {
   priceUsd?: number;
   minLeaseMonths?: number;
   includedServices?: IncludedService[];
-  deposit: number;
-  commission: {
-    type: 'PERCENT' | 'FIXED';
-    value: number;
-  };
   location: {
     address: string;
+    street?: string; // Tên đường gửi khách (Story 8.3)
+    houseNumber?: string; // Nội bộ
+    mapUrl?: string; // Nội bộ
+    zone?: Zone; // Khu vực theo cách gọi của khách (Story 8.4)
     ward?: string;
     district: string;
     city: string;
     coordinates?: [number, number];
   };
   attributes: {
+    propertyType?: PropertyType;
     area?: number;
     bedrooms: number;
     livingRooms?: number;
@@ -37,6 +41,11 @@ export interface Apartment {
     pool?: boolean;
     distanceToBeachM?: number; // mét
     motorbikeParking?: boolean;
+    gym?: boolean; // Story 8.5 — căn cũ chưa có (undefined)
+    bathtub?: boolean;
+    riverView?: boolean;
+    seaView?: boolean;
+    sauna?: boolean;
   };
   fees?: {
     electricity?: number;
@@ -120,12 +129,12 @@ export const apartmentApi = {
     return res.data;
   },
 
-  createApartment: async (data: Partial<Apartment>) => {
+  createApartment: async (data: ApartmentPayload) => {
     const res = await apiClient.post('/apartments', data);
     return res.data;
   },
 
-  updateApartment: async (id: string, data: Partial<Apartment>) => {
+  updateApartment: async (id: string, data: ApartmentPayload) => {
     const res = await apiClient.put(`/apartments/${id}`, data);
     return res.data;
   },

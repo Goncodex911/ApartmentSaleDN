@@ -40,4 +40,11 @@ export function uploadBufferToCloudinary(
   });
 }
 
+/** Xóa file trên Cloudinary theo public_id (dọn ảnh tin CTV bị từ chối / rút — Story 8.6). */
+export async function deleteCloudinaryMedia(publicIds: string[], resourceType: 'image' | 'video') {
+  if (publicIds.length === 0) return;
+  initCloudinary();
+  await cloudinary.api.delete_resources(publicIds, { resource_type: resourceType });
+}
+
 export { cloudinary };

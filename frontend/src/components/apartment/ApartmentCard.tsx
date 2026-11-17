@@ -3,7 +3,7 @@ import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { formatVnd } from '../../utils/format.js';
 import { CopyShareButton } from './CopyShareButton.js';
-import { beachDistanceText } from '../../utils/apartmentLabels.js';
+import { beachDistanceText, roomParts, zoneText } from '../../utils/apartmentLabels.js';
 
 export const STATUS_DISPLAY: Record<Apartment['status'], { label: string; dot: string }> = {
   AVAILABLE: { label: 'Trống', dot: 'bg-emerald-500' },
@@ -20,21 +20,20 @@ interface ApartmentCardProps {
 
 // Thẻ căn hộ dạng danh sách gọn: ảnh nhỏ bên trái, thông tin chính bên phải. Bấm cả thẻ để xem chi tiết.
 export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, currentUser, onOpen }) => {
-  const { attributes, location, commission } = apartment;
+  const { attributes, location } = apartment;
   const thumbnail = apartment.images.find((url) => !apartment.hiddenImages?.includes(url)) || apartment.images[0];
   const status = STATUS_DISPLAY[apartment.status];
   const facts = [
-    attributes.bedrooms === 0 ? 'Studio' : `${attributes.bedrooms}PN`,
+    ...roomParts(attributes).map((part) => part.replace(' phòng ngủ', 'PN')),
     attributes.area && `${attributes.area}m²`,
-    location.district,
+    zoneText({ ...location, ward: undefined }), // Thẻ gọn: khu vực hoặc quận, không kèm phường
+    apartment.minLeaseMonths && `tối thiểu ${apartment.minLeaseMonths} th`,
     // Gần biển là tiêu chí số 1 của khách Đà Nẵng → hiện ngay trên thẻ khi ≤ 2km
     attributes.distanceToBeachM != null && attributes.distanceToBeachM <= 2000 && `biển ${beachDistanceText(attributes.distanceToBeachM)}`,
     apartment.distanceKm !== undefined && `cách ${apartment.distanceKm} km`,
   ]
     .filter(Boolean)
     .join(' · ');
-  const commissionText =
-    commission?.value > 0 && (commission.type === 'PERCENT' ? `HH ${commission.value}%` : `HH ${formatVnd(commission.value)}`);
 
   return (
     <article
@@ -63,7 +62,6 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
             <p className="flex items-center gap-1.5 text-xs text-slate-600">
               <span className={`w-2 h-2 rounded-full ${status.dot}`} aria-hidden />
               {status.label}
-              {commissionText && <span className="text-emerald-700 font-medium">· {commissionText}</span>}
               {apartment.needsReview && <span className="text-amber-700 font-medium">· Cần kiểm tra</span>}
             </p>
           </div>

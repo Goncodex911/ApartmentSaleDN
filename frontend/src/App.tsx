@@ -5,6 +5,7 @@ import { ApartmentsPage } from './pages/ApartmentsPage.js';
 import { ProtectedRoute } from './components/layout/ProtectedRoute.js';
 import { PublicListingPage } from './pages/PublicListingPage.js';
 import { LeadsPage } from './pages/LeadsPage.js';
+import { SubmissionsPage } from './pages/SubmissionsPage.js';
 
 export const App: React.FC = () => {
   return (
@@ -27,6 +28,15 @@ export const App: React.FC = () => {
           element={
             <ProtectedRoute>
               <LeadsPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Tin CTV đăng chờ Quản lý duyệt (Story 8.6) */}
+        <Route
+          path="/submissions"
+          element={
+            <ProtectedRoute>
+              <SubmissionsPage />
             </ProtectedRoute>
           }
         />

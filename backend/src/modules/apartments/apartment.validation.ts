@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { vnPhone, toPatchSchema, DeepPartial } from '../../utils/validators.js';
 import { INCLUDED_SERVICES } from './apartment.model.js';
+import { isGoogleMapsUrl } from '../../utils/google-maps.js';
+import { LEASE_STEPS, PROPERTY_TYPES, ZONES } from './listing-taxonomy.js';
 
 const statusEnum = z.enum(['AVAILABLE', 'UPCOMING', 'DEPOSITED', 'RENTED']);
 
@@ -8,25 +10,28 @@ export const createApartmentSchema = z.object({
   title: z.string().min(5, 'Tiêu đề phải có ít nhất 5 ký tự'),
   description: z.string().optional(),
   price: z.number().positive('Giá thuê phải lớn hơn 0'),
-  deposit: z.number().min(0, 'Tiền cọc không được âm').default(0),
   priceUsd: z.number().positive('Giá USD phải lớn hơn 0').optional(),
-  minLeaseMonths: z.number().int().min(1, 'Thời gian thuê tối thiểu từ 1 tháng').max(60).optional(),
+  minLeaseMonths: z
+    .number()
+    .refine((months) => (LEASE_STEPS as readonly number[]).includes(months), 'Thuê tối thiểu chỉ nhận 1, 3, 6 hoặc 12 tháng')
+    .optional(),
   includedServices: z.array(z.enum(INCLUDED_SERVICES)).optional(),
-  commission: z
-    .object({
-      type: z.enum(['PERCENT', 'FIXED']).default('PERCENT'),
-      value: z.number().min(0, 'Giá trị hoa hồng không được âm').default(0),
-    })
-    .prefault({}), // prefault: không gửi commission thì vẫn chạy default của từng trường bên trong
   location: z.object({
-    address: z.string().min(2, 'Địa chỉ không được để trống'),
+    // Story 8.3: form gửi tên đường + số nhà, service tự ghép address; client cũ (extension) vẫn gửi address được
+    street: z.string().trim().min(2, 'Tên đường không được để trống').max(120).optional(),
+    houseNumber: z.string().trim().max(60).optional(),
+    mapUrl: z.string().trim().max(500).refine(isGoogleMapsUrl, 'Link Google Maps không hợp lệ (chỉ nhận link https của Google Maps)').optional(),
+    address: z.string().trim().min(2, 'Địa chỉ không được để trống').optional(),
     ward: z.string().optional(),
-    district: z.string().min(2, 'Quận/Huyện không được để trống'),
+    // Story 8.4: chọn khu vực → quận tự suy ra; chỉ khu vực "Khác" mới cần gửi quận
+    zone: z.enum(ZONES, 'Vui lòng chọn khu vực'),
+    district: z.string().min(2, 'Quận/Huyện không được để trống').optional(),
     city: z.string().default('Đà Nẵng'),
     coordinates: z.tuple([z.number(), z.number()]).optional(),
   }),
   attributes: z
     .object({
+      propertyType: z.enum(PROPERTY_TYPES, 'Vui lòng chọn loại căn'),
       area: z.number().positive().optional(),
       bedrooms: z.number().int().min(0).default(1),
       livingRooms: z.number().int().min(0).default(0),
@@ -41,8 +46,12 @@ export const createApartmentSchema = z.object({
       pool: z.boolean().default(false),
       distanceToBeachM: z.number().int().min(0).max(100000).optional(),
       motorbikeParking: z.boolean().default(false),
-    })
-    .prefault({}),
+      gym: z.boolean().optional(), // Story 8.5
+      bathtub: z.boolean().optional(),
+      riverView: z.boolean().optional(),
+      seaView: z.boolean().optional(),
+      sauna: z.boolean().optional(),
+    }), // Bắt buộc gửi: có loại căn (Story 8.4)
   fees: z
     .object({
       electricity: z.number().min(0).optional(),

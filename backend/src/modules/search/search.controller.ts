@@ -3,10 +3,17 @@ import { SearchService } from './search.service.js';
 import { GeocodingService } from './geocoding.service.js';
 import { AuthRequest } from '../../middlewares/auth.js';
 import { asyncHandler } from '../../utils/async-handler.js';
+import { PROPERTY_TYPES, ZONES } from '../apartments/listing-taxonomy.js';
+import { NEW_AMENITY_KEYS } from './slang.dictionary.js';
 
 // Ép kiểu tham số query: qs có thể tạo object/mảng (?x[$ne]=1) → chỉ nhận chuỗi
 const text = (value: unknown) => (typeof value === 'string' && value ? value : undefined);
 const num = (value: unknown) => (text(value) !== undefined && Number.isFinite(Number(value)) ? Number(value) : undefined);
+// Danh sách cách nhau bởi dấu phẩy, chỉ giữ giá trị có trong danh mục (Story 8.4)
+const list = (value: unknown, allowed: readonly string[]) => {
+  const items = (text(value) || '').split(',').filter((item) => allowed.includes(item));
+  return items.length ? items : undefined;
+};
 const bool = (value: unknown) => (value === 'true' ? true : value === 'false' ? false : undefined);
 
 /**
@@ -45,6 +52,8 @@ export class SearchController {
       status: text(query.status),
       bedrooms: num(query.bedrooms),
       furnishing: text(query.furnishing),
+      zones: list(query.zones, ZONES),
+      propertyTypes: list(query.propertyTypes, PROPERTY_TYPES),
       page: num(query.page) ?? 1,
       limit: num(query.limit) ?? 12,
       userRole: req.user?.role,
@@ -61,6 +70,7 @@ export class SearchController {
       pcccStandard: bool(query.pcccStandard),
       nearBeach: bool(query.nearBeach),
       pool: bool(query.pool),
+      ...Object.fromEntries(NEW_AMENITY_KEYS.map((key) => [key, bool(query[key])])), // Story 8.5: gym, seaView, riverView...
     });
     res.status(200).json({ success: true, data: result.items, pagination: result.pagination, meta: result.meta });
   });

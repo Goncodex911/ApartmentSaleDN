@@ -4,6 +4,7 @@ import { User, authApi } from '../../api/authApi.js';
 import { copyText } from '../../utils/clipboard.js';
 import { PendingUsersModal } from './PendingUsersModal.js';
 import { NotificationBell } from './NotificationBell.js';
+import { usePendingSubmissionCount } from '../../hooks/useSubmissions.js';
 
 interface NavbarProps {
   user: User | null;
@@ -15,6 +16,7 @@ const ROLE_LABEL: Record<User['role'], string> = { ADMIN: 'Admin', MANAGER: 'Qu�
 const NAV_ITEMS = [
   { to: '/apartments', label: 'Bảng hàng' },
   { to: '/leads', label: 'Khách hàng' },
+  { to: '/submissions', label: 'Tin đăng' }, // Story 8.6: Quản lý thấy là "Duyệt tin" kèm số tin chờ
 ];
 
 // Thanh trên tối giản: logo + 2 tab + chuông + avatar (Hồ sơ, Duyệt tài khoản, Đăng xuất nằm trong menu avatar)
@@ -23,6 +25,8 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onOpenProfile, onLogout })
   const [isApprovalOpen, setIsApprovalOpen] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const isManager = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const pendingCount = usePendingSubmissionCount(isManager);
 
   // Đóng menu khi chạm ra ngoài
   useEffect(() => {
@@ -57,10 +61,15 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onOpenProfile, onLogout })
                 key={to}
                 to={to}
                 className={({ isActive }) =>
-                  `h-9 px-3 flex items-center rounded-lg text-sm font-medium whitespace-nowrap ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-800'}`
+                  `h-9 px-2 sm:px-3 flex items-center gap-1 rounded-lg text-sm font-medium whitespace-nowrap ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-800'}`
                 }
               >
-                {label}
+                {to === '/submissions' && isManager ? 'Duyệt tin' : label}
+                {to === '/submissions' && pendingCount > 0 && (
+                  <span className="min-w-[20px] h-5 px-1 rounded-full bg-rose-600 text-white text-[11px] font-bold flex items-center justify-center" aria-label={`${pendingCount} tin chờ duyệt`}>
+                    {pendingCount > 99 ? '99+' : pendingCount}
+                  </span>
+                )}
               </NavLink>
             ))}
         </div>

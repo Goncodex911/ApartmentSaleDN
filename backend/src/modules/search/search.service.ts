@@ -13,6 +13,8 @@ export interface ISearchOptions {
   status?: string;
   bedrooms?: number;
   furnishing?: string;
+  zones?: string[]; // Story 8.4
+  propertyTypes?: string[];
   page?: number;
   limit?: number;
   userRole?: string;
@@ -30,6 +32,11 @@ export interface ISearchOptions {
   pcccStandard?: boolean;
   nearBeach?: boolean; // Story 7.2: cách biển ≤ 1km
   pool?: boolean;
+  gym?: boolean; // Story 8.5
+  bathtub?: boolean;
+  riverView?: boolean;
+  seaView?: boolean;
+  sauna?: boolean;
 }
 
 export class SearchService {

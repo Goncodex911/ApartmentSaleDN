@@ -8,8 +8,9 @@ import { DownloadPhotosButton } from './DownloadPhotosButton.js';
 import { ShareLinkButton } from './ShareLinkButton.js';
 import { ShareLangToggle } from './ShareLangToggle.js';
 import { Lang, getShareLang, setShareLang } from '../../utils/shareLang.js';
-import { X } from 'lucide-react';
-import { marketLabels, usdText } from '../../utils/apartmentLabels.js';
+import { X, MapPin } from 'lucide-react';
+import { marketLabels, roomParts, usdText, zoneText } from '../../utils/apartmentLabels.js';
+import { amenityLabels } from '../../utils/amenities.js';
 
 interface ApartmentDetailModalProps {
   apartment: Apartment | null;
@@ -42,22 +43,17 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
   const [shareLang, setShareLangState] = useState<Lang>(getShareLang); // Story 7.3: nhớ lựa chọn cho lần sau
   if (!apartment) return null;
 
-  const { attributes, fees, location, commission, ownerContact } = apartment;
+  const { attributes, fees, location, ownerContact } = apartment;
   const isCtv = currentUser?.role === 'COLLABORATOR';
   const visibleImageCount = apartment.images.filter((url) => !apartment.hiddenImages?.includes(url)).length;
   const hiddenImageCount = apartment.images.length - visibleImageCount;
 
   const facts = [
-    attributes.bedrooms === 0 ? 'Studio' : `${attributes.bedrooms} phòng ngủ`,
+    ...roomParts(attributes),
     `${attributes.bathrooms} WC`,
     attributes.area && `${attributes.area}m²`,
     FURNISHING_LABEL[attributes.furnishing],
-    attributes.elevator && 'Thang máy',
-    attributes.allowPets && 'Nuôi thú cưng',
-    attributes.carParking && 'Ô tô đỗ cửa',
-    attributes.balcony && 'Ban công',
-    attributes.pcccStandard && 'PCCC đạt chuẩn',
-    attributes.washingMachine === 'PRIVATE' && 'Máy giặt riêng',
+    ...amenityLabels(apartment), // Story 8.5: tên tiếng Anh từ danh mục chung
     ...marketLabels(apartment),
   ].filter(Boolean) as string[];
   const feeText = [
@@ -115,8 +111,21 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
             <div className="space-y-1.5">
               <h2 className="text-lg font-bold text-slate-900 leading-snug">{apartment.title}</h2>
               <p className="text-sm text-slate-500">
-                {[location.address, location.ward, location.district, location.city].filter(Boolean).join(', ')}
+                {/* Nội bộ: địa chỉ đủ số nhà; Set bỏ tên trùng (khu vực "Ngũ Hành Sơn" = quận Ngũ Hành Sơn) */}
+                {[...new Set([location.address, zoneText(location), location.district, location.city].filter(Boolean))].join(', ')}
               </p>
+              {/* Link map nội bộ (Story 8.3): mở app Google Maps để dẫn khách xem phòng */}
+              {location.mapUrl && (
+                <a
+                  href={location.mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
+                >
+                  <MapPin className="w-4 h-4" aria-hidden />
+                  Mở bản đồ
+                </a>
+              )}
               <div className="flex items-center gap-2 pt-1">
                 <StatusBadge
                   apartmentId={apartment._id}
@@ -125,11 +134,6 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
                   canEdit={isOwnerOrAdmin}
                   onStatusUpdated={onStatusUpdated}
                 />
-                {commission?.value > 0 && (
-                  <span className="text-sm font-medium text-emerald-700">
-                    Hoa hồng {commission.type === 'PERCENT' ? `${commission.value}%` : formatVnd(commission.value)}
-                  </span>
-                )}
               </div>
             </div>
 
@@ -145,7 +149,6 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
                 <span className="text-sm font-normal text-slate-500">/tháng</span>
                 {apartment.priceUsd && <span className="ml-2 text-base font-medium text-slate-500">{usdText(apartment.priceUsd)}</span>}
               </p>
-              <p className="text-sm text-slate-600">Cọc {formatVnd(apartment.deposit)}</p>
               {feeText && <p className="text-sm text-slate-500 mt-1">{feeText}</p>}
             </div>
 

@@ -7,13 +7,16 @@ import {
 } from './apartment.validation.js';
 import { AuthRequest } from '../../middlewares/auth.js';
 import { asyncHandler } from '../../utils/async-handler.js';
+import { isPrivilegedRole } from './apartment.model.js';
+import { SUBMISSION_MEDIA_FOLDER } from '../submissions/submission.model.js';
 
 const apartmentId = (req: AuthRequest) => String(req.params.id);
 
 export class ApartmentController {
   // Upload nhiều hình ảnh/video lên Cloudinary
   static uploadMedia = asyncHandler(async (req, res) => {
-    const data = await ApartmentService.uploadMedia(req.files as Express.Multer.File[]);
+    const folder = isPrivilegedRole(req.user?.role) ? undefined : SUBMISSION_MEDIA_FOLDER;
+    const data = await ApartmentService.uploadMedia(req.files as Express.Multer.File[], folder);
     res.status(200).json({ success: true, message: 'Tải media lên Cloudinary thành công', data });
   });
 

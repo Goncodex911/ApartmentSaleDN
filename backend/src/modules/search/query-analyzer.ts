@@ -10,6 +10,7 @@ export interface IAnalyzedQuery {
 }
 
 // Các trường văn bản dùng để khớp từ khóa tự do
+const WARD_LIKE_ZONES = ['Mỹ An', 'Khuê Mỹ', 'An Hải', 'Hòa Xuân'];
 const KEYWORD_FIELDS = ['title', 'description', 'location.address', 'location.ward', 'location.district'];
 const WORD_START = `(?:^|[\\s,.;:!?()/'"-])`;
 const WORD_END = `(?=$|[\\s,.;:!?()/'"-])`;
@@ -23,8 +24,15 @@ export class QueryAnalyzer {
     if (!query) return { expandedConditions: [], cleanedQuery: '' };
 
     const tokens = toSearchTokens(query);
-    const recognizedDistrict = consumeDistrict(tokens);
     const conditions: any[] = [];
+    // Story 8.4: tên khu vực khách hay dùng mà không phải quận ("mỹ an", "an hải") → lọc theo khu vực;
+    // căn chưa gán khu vực vẫn khớp theo chữ trong địa chỉ/phường. Phải bóc TRƯỚC quận vì "an hải" ≠ quận nào.
+    const zone = consumePhrase(tokens, WARD_LIKE_ZONES);
+    if (zone) {
+      const rx = new RegExp(buildDiacriticRegex(zone), 'i');
+      conditions.push({ $or: [{ 'location.zone': zone }, ...KEYWORD_FIELDS.map((field) => ({ [field]: rx }))] });
+    }
+    const recognizedDistrict = consumeDistrict(tokens);
 
     // Tiếng lóng BĐS: mỗi quy tắc khớp → 1 điều kiện (thuộc tính HOẶC từ đồng nghĩa trong tiêu đề/mô tả)
     for (const rule of REAL_ESTATE_SLANG_RULES) {
@@ -50,6 +58,7 @@ export class QueryAnalyzer {
       conditions.push({ $or: KEYWORD_FIELDS.map((field) => ({ [field]: rx })) });
     }
 
-    return { expandedConditions: conditions, recognizedDistrict, cleanedQuery: words.join(' ') };
+    // Giữ tên khu vực trong cleanedQuery: tìm câu tự nhiên phân tích lại cleanedQuery lần nữa
+    return { expandedConditions: conditions, recognizedDistrict, cleanedQuery: [zone, ...words].filter(Boolean).join(' ') };
   }
 }

@@ -3,6 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { apartmentRoutes } from './modules/apartments/apartment.routes.js';
+import { submissionRoutes } from './modules/submissions/submission.routes.js';
 import { userRoutes } from './modules/users/user.routes.js';
 import { ingestionRoutes } from './modules/ingestion/ingestion.routes.js';
 import { shareRoutes } from './modules/share/share.routes.js';
@@ -39,6 +40,7 @@ app.use('/api/v1/share', shareRoutes);
 app.use('/api/v1/leads', leadRoutes);
 app.use('/api/v1/chat', chatRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/submissions', submissionRoutes);
 
 // Xử lý lỗi tập trung
 app.use(errorHandler);

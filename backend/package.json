@@ -8,7 +8,8 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "promote-admin": "tsx src/scripts/promote-admin.ts"
+    "promote-admin": "tsx src/scripts/promote-admin.ts",
+    "backfill-zone-type": "tsx src/scripts/backfill-zone-type.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

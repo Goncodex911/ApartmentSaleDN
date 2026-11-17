@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Landmark, apartmentApi } from '../../api/apartmentApi.js';
-import { ApartmentFilterValues, EMPTY_FILTERS, countActiveFilters } from '../../hooks/useApartmentSearch.js';
+import { AMENITY_KEYS, ApartmentFilterValues, EMPTY_FILTERS, countActiveFilters } from '../../hooks/useApartmentSearch.js';
+import { amenityLabel } from '../../utils/amenities.js';
 import { X } from 'lucide-react';
+import { PROPERTY_TYPES, ZONES } from '../../utils/danang.js';
 
 export const PRICE_RANGES = [
   { id: 'under_5m', label: 'Dưới 5 triệu' },
@@ -10,21 +12,13 @@ export const PRICE_RANGES = [
   { id: '12m_20m', label: '12 – 20 triệu' },
   { id: 'above_20m', label: 'Trên 20 triệu' },
 ];
+// Studio / Duplex nằm ở nhóm Loại căn (Story 8.4)
 export const ROOM_TYPES = [
-  { id: 'studio', label: 'Studio' },
   { id: '1pn', label: '1 phòng ngủ' },
   { id: '2pn', label: '2 phòng ngủ' },
-  { id: 'duplex', label: 'Duplex / gác xép' },
 ];
-export const AMENITIES = [
-  { key: 'elevator', label: 'Thang máy' },
-  { key: 'allowPets', label: 'Nuôi thú cưng' },
-  { key: 'carParking', label: 'Ô tô đỗ cửa' },
-  { key: 'balcony', label: 'Ban công' },
-  { key: 'pcccStandard', label: 'PCCC đạt chuẩn' },
-  { key: 'nearBeach', label: 'Gần biển (<1km)' },
-  { key: 'pool', label: 'Hồ bơi' },
-] as const;
+// Tên tiện ích tiếng Anh lấy từ danh mục chung (Story 8.5); "Gần biển" là điều kiện khoảng cách, khác "Sea view"
+export const AMENITIES = AMENITY_KEYS.map((key) => ({ key, label: key === 'nearBeach' ? 'Gần biển (<1km)' : amenityLabel(key) }));
 export const STATUSES = [
   { id: 'AVAILABLE', label: 'Trống' },
   { id: 'UPCOMING', label: 'Sắp trống' },
@@ -73,6 +67,10 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({ initial, isManager, on
   const pick = (field: 'priceRange' | 'roomType' | 'status', value: string) =>
     setDraft((d) => ({ ...d, [field]: d[field] === value ? '' : value }));
 
+  // Chip chọn nhiều
+  const toggleIn = (field: 'zones' | 'propertyTypes', value: string) =>
+    setDraft((d) => ({ ...d, [field]: d[field].includes(value) ? d[field].filter((v) => v !== value) : [...d[field], value] }));
+
   const selectLandmark = (id: string) =>
     setDraft((d) => ({ ...d, landmark: id, landmarkName: landmarks.find((l) => l.id === id)?.name || '' }));
 
@@ -95,7 +93,17 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({ initial, isManager, on
               <Chip key={p.id} active={draft.priceRange === p.id} onClick={() => pick('priceRange', p.id)}>{p.label}</Chip>
             ))}
           </Section>
-          <Section title="Loại phòng">
+          <Section title="Khu vực">
+            {ZONES.map((zone) => (
+              <Chip key={zone} active={draft.zones.includes(zone)} onClick={() => toggleIn('zones', zone)}>{zone}</Chip>
+            ))}
+          </Section>
+          <Section title="Loại căn">
+            {PROPERTY_TYPES.map((type) => (
+              <Chip key={type.id} active={draft.propertyTypes.includes(type.id)} onClick={() => toggleIn('propertyTypes', type.id)}>{type.vi}</Chip>
+            ))}
+          </Section>
+          <Section title="Phòng ngủ">
             {ROOM_TYPES.map((r) => (
               <Chip key={r.id} active={draft.roomType === r.id} onClick={() => pick('roomType', r.id)}>{r.label}</Chip>
             ))}

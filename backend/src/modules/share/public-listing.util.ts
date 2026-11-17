@@ -2,6 +2,7 @@ import { IApartment } from '../apartments/apartment.model.js';
 import { IUser } from '../auth/user.model.js';
 import { getVisibleImages } from './photo.service.js';
 import { stripPhoneNumbers } from '../../utils/phone-text.js';
+import { withStreet } from '../apartments/apartment-location.js';
 
 /** Slug dễ đọc từ tiêu đề: bỏ dấu tiếng Việt, tối đa 6 từ, không chứa SĐT. */
 export function slugify(title: string): string {
@@ -24,7 +25,7 @@ type PublicCtv = Pick<IUser, 'name' | 'phone' | 'zaloPhone' | 'zaloLink' | 'avat
 
 /**
  * DTO công khai cho khách (Story 5.3 - AC4): chỉ gồm các trường trong danh sách trắng.
- * KHÔNG trả về ownerContact, subListings, commission, description, address, tọa độ gốc.
+ * KHÔNG trả về ownerContact, subListings, description, address, houseNumber, mapUrl, tọa độ gốc.
  */
 export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
   const coordinates = apartment.location.coordinates;
@@ -36,7 +37,6 @@ export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
     priceUsd: apartment.priceUsd,
     minLeaseMonths: apartment.minLeaseMonths,
     includedServices: apartment.includedServices || [],
-    deposit: apartment.deposit,
     fees: {
       electricity: fees?.electricity,
       water: fees?.water,
@@ -44,6 +44,7 @@ export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
       parkingMotor: fees?.parkingMotor,
     },
     attributes: {
+      propertyType: attributes.propertyType,
       area: attributes.area,
       bedrooms: attributes.bedrooms,
       bathrooms: attributes.bathrooms,
@@ -57,8 +58,15 @@ export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
       pool: attributes.pool,
       distanceToBeachM: attributes.distanceToBeachM,
       motorbikeParking: attributes.motorbikeParking,
+      gym: attributes.gym,
+      bathtub: attributes.bathtub,
+      riverView: attributes.riverView,
+      seaView: attributes.seaView,
+      sauna: attributes.sauna,
     },
     location: {
+      street: withStreet(apartment.location).street, // Chỉ tên đường — KHÔNG số nhà, link map (Story 8.3)
+      zone: apartment.location.zone,
       ward: apartment.location.ward,
       district: apartment.location.district,
       city: apartment.location.city,

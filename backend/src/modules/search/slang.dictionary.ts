@@ -27,9 +27,31 @@ export const NEAR_BEACH_CONDITION = {
 };
 export const POOL_CONDITION = { $or: [{ 'attributes.pool': true }, { title: POOL_TEXT }, { description: POOL_TEXT }] };
 
+/**
+ * Tiện ích mới (Story 8.5): căn có cờ = true, HOẶC căn chưa có cờ (căn cũ) nhưng tiêu đề / mô tả có chữ đó.
+ * Căn đã được Quản lý bỏ chọn (cờ = false) thì không tính theo chữ nữa.
+ */
+const amenityCondition = (field: string, phrases: string[]): Record<string, unknown> => {
+  const rx = textRegex(phrases);
+  return { $or: [{ [field]: true }, { [field]: { $exists: false }, $or: [{ title: rx }, { description: rx }] }] };
+};
+export const NEW_AMENITY_PHRASES = {
+  gym: ['gym', 'phong tap', 'fitness'],
+  bathtub: ['bon tam', 'bathtub'],
+  riverView: ['view song', 'river view', 'huong song'],
+  seaView: ['view bien', 'sea view', 'ocean view', 'huong bien'],
+  sauna: ['xong hoi', 'sauna'],
+} as const;
+export type NewAmenityKey = keyof typeof NEW_AMENITY_PHRASES;
+export const NEW_AMENITY_KEYS = Object.keys(NEW_AMENITY_PHRASES) as NewAmenityKey[];
+export const AMENITY_CONDITIONS = Object.fromEntries(
+  NEW_AMENITY_KEYS.map((key) => [key, amenityCondition(`attributes.${key}`, [...NEW_AMENITY_PHRASES[key]])])
+) as Record<NewAmenityKey, Record<string, unknown>>;
+
 export const REAL_ESTATE_SLANG_RULES: ISlangRule[] = [
   {
-    keywords: ['gan bien', 'sat bien', 'mat bien', 'view bien', 'ra bien', 'beach', 'near beach', 'beachfront'],
+    // "view biển" thuộc Sea view (Story 8.5): nhìn ra biển ≠ gần biển
+    keywords: ['gan bien', 'sat bien', 'mat bien', 'ra bien', 'beach', 'near beach', 'beachfront'],
     synonyms: [], // Điều kiện chữ đã nằm trong NEAR_BEACH_CONDITION
     attributeFilter: NEAR_BEACH_CONDITION,
   },
@@ -38,6 +60,7 @@ export const REAL_ESTATE_SLANG_RULES: ISlangRule[] = [
     synonyms: [],
     attributeFilter: POOL_CONDITION,
   },
+  ...NEW_AMENITY_KEYS.map((key) => ({ keywords: [...NEW_AMENITY_PHRASES[key]], synonyms: [], attributeFilter: AMENITY_CONDITIONS[key] })),
   {
     keywords: ['ccmn', 'chung cu mini'],
     synonyms: ['chung cư mini', 'ccmn', 'căn hộ mini', 'khép kín'],

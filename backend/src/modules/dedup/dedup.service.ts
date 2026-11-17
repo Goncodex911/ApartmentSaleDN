@@ -170,16 +170,18 @@ export class DedupService {
       priceUsd: ext.priceUsd,
       minLeaseMonths: ext.minLeaseMonths,
       includedServices: ext.includedServices,
-      deposit: ext.deposit,
-      commission: { type: 'PERCENT', value: 50 },
       location: {
         address: ext.address,
+        street: ext.street,
+        houseNumber: ext.houseNumber,
+        zone: ext.zone,
         ward: ext.ward,
         district: ext.district,
         city: ext.city,
         coordinates: geo?.coordinates,
       },
       attributes: {
+        propertyType: ext.propertyType,
         area: ext.area,
         bedrooms: ext.bedrooms,
         bathrooms: ext.bathrooms,
@@ -191,6 +193,11 @@ export class DedupService {
         pool: ext.pool,
         distanceToBeachM: ext.distanceToBeachM,
         motorbikeParking: ext.motorbikeParking,
+        gym: ext.gym,
+        bathtub: ext.bathtub,
+        riverView: ext.riverView,
+        seaView: ext.seaView,
+        sauna: ext.sauna,
         balcony: false,
         washingMachine: 'SHARED',
       },
@@ -231,7 +238,7 @@ export class DedupService {
   /**
    * Helper gộp subListing và cập nhật căn Master
    */
-  private static async aggregateSubListing(
+  public static async aggregateSubListing(
     master: IApartment,
     input: IProcessListingInput,
     ext: any,
