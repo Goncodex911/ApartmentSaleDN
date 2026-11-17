@@ -2,6 +2,7 @@ import React from 'react';
 import { Apartment, IncludedService } from '../../api/apartmentApi.js';
 import { SERVICE_LABEL } from '../../utils/apartmentLabels.js';
 import { Field, FormSection, ToggleChip, inputClass, numberOr } from './formFields.js';
+import { LEASE_STEPS, roundLeaseMonths } from '../../utils/danang.js';
 
 // Giá trị form dạng chuỗi (ô nhập số để trống = không có thông tin)
 export interface MarketFormValues {
@@ -9,7 +10,7 @@ export interface MarketFormValues {
   pool: boolean;
   motorbikeParking: boolean;
   priceUsd: string;
-  minLeaseMonths: string;
+  minLeaseMonths?: number; // Chỉ 1 / 3 / 6 / 12 (Story 8.4)
   includedServices: IncludedService[];
 }
 
@@ -20,7 +21,7 @@ export const toMarketForm = (apartment?: Apartment | null): MarketFormValues => 
   pool: apartment?.attributes?.pool ?? false,
   motorbikeParking: apartment?.attributes?.motorbikeParking ?? false,
   priceUsd: toText(apartment?.priceUsd),
-  minLeaseMonths: toText(apartment?.minLeaseMonths),
+  minLeaseMonths: roundLeaseMonths(apartment?.minLeaseMonths), // Căn cũ lưu 2, 9 tháng → mốc gần nhất, chỉ đổi khi bấm Lưu
   includedServices: apartment?.includedServices || [],
 });
 
@@ -34,7 +35,7 @@ const intOr = (value: string, empty: null | undefined) => {
 export const fromMarketForm = (form: MarketFormValues, empty: null | undefined) => ({
   attributes: { distanceToBeachM: intOr(form.distanceToBeachM, empty), pool: form.pool, motorbikeParking: form.motorbikeParking },
   priceUsd: intOr(form.priceUsd, empty) || empty,
-  minLeaseMonths: intOr(form.minLeaseMonths, empty) || empty,
+  minLeaseMonths: form.minLeaseMonths ?? empty,
   includedServices: form.includedServices,
 });
 
@@ -46,16 +47,24 @@ export const MarketFieldsSection: React.FC<{ value: MarketFormValues; onChange: 
 
   return (
     <FormSection title="Biển, thời hạn & dịch vụ">
-      <div className="grid grid-cols-3 gap-3 items-end">
+      <div className="grid grid-cols-2 gap-3 items-end">
         <Field label="Cách biển (m)">
           <input type="number" inputMode="numeric" min={0} placeholder="600" value={value.distanceToBeachM} onChange={(e) => set({ distanceToBeachM: e.target.value })} className={inputClass} />
         </Field>
         <Field label="Giá USD">
           <input type="number" inputMode="numeric" min={0} placeholder="760" value={value.priceUsd} onChange={(e) => set({ priceUsd: e.target.value })} className={inputClass} />
         </Field>
-        <Field label="Thuê tối thiểu">
-          <input type="number" inputMode="numeric" min={1} placeholder="Số tháng" value={value.minLeaseMonths} onChange={(e) => set({ minLeaseMonths: e.target.value })} className={inputClass} />
-        </Field>
+      </div>
+      <div className="space-y-1">
+        <span className="text-sm font-medium text-slate-700">Thuê tối thiểu</span>
+        <div className="flex flex-wrap gap-2">
+          {LEASE_STEPS.map((months) => (
+            // Bấm lại mốc đang chọn → bỏ chọn
+            <ToggleChip key={months} checked={value.minLeaseMonths === months} onChange={(on) => set({ minLeaseMonths: on ? months : undefined })}>
+              {months} tháng
+            </ToggleChip>
+          ))}
+        </div>
       </div>
       <div className="flex flex-wrap gap-2">
         <ToggleChip checked={value.pool} onChange={(pool) => set({ pool })}>Hồ bơi</ToggleChip>

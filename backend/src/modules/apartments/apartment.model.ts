@@ -1,4 +1,5 @@
 import { Schema, model, Document, Types } from 'mongoose';
+import { PROPERTY_TYPES, PropertyType, ZONES, Zone } from './listing-taxonomy.js';
 
 // Dịch vụ đã bao trong giá thuê (Story 7.2)
 export const INCLUDED_SERVICES = ['WIFI', 'CLEANING', 'ELECTRICITY', 'WATER', 'LAUNDRY'] as const;
@@ -32,12 +33,14 @@ export interface IApartment extends Document {
     street?: string; // Tên đường gửi khách (Story 8.3)
     houseNumber?: string; // Số nhà / kiệt — nội bộ
     mapUrl?: string; // Link Google Maps — nội bộ
+    zone?: Zone; // Khu vực theo cách gọi của khách (Story 8.4) — district tự suy ra từ đây
     ward?: string;
     district: string;
     city: string;
     coordinates?: [number, number]; // [kinh độ, vĩ độ] index 2dsphere
   };
   attributes: {
+    propertyType?: PropertyType; // Loại căn (Story 8.4)
     area?: number;
     bedrooms: number;
     livingRooms?: number;
@@ -113,12 +116,14 @@ const apartmentSchema = new Schema<IApartment>(
       street: { type: String, trim: true },
       houseNumber: { type: String, trim: true },
       mapUrl: { type: String, trim: true },
+      zone: { type: String, enum: ZONES, index: true },
       ward: { type: String, trim: true },
       district: { type: String, required: true, trim: true, index: true },
       city: { type: String, required: true, default: 'Đà Nẵng', trim: true },
       coordinates: { type: [Number], index: '2dsphere' },
     },
     attributes: {
+      propertyType: { type: String, enum: PROPERTY_TYPES, index: true },
       area: { type: Number },
       bedrooms: { type: Number, default: 1, min: 0 },
       livingRooms: { type: Number, default: 0 },

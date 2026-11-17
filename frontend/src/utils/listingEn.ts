@@ -1,10 +1,11 @@
 import { Apartment, IncludedService } from '../api/apartmentApi.js';
+import { OTHER_ZONE, propertyTypeLabel } from './danang.js';
 
 // Dữ liệu tối thiểu để mô tả căn bằng tiếng Anh — dùng được cho cả Apartment (CTV) và PublicListing (trang khách)
 export type ListingInfo = Pick<Apartment, 'price' | 'priceUsd' | 'minLeaseMonths' | 'status' | 'availableDate' | 'fees'> & {
   includedServices?: IncludedService[];
   attributes: Apartment['attributes'];
-  location: { street?: string; ward?: string; district: string; city: string };
+  location: { street?: string; zone?: string; ward?: string; district: string; city: string };
 };
 
 /** Bỏ dấu cho khách nước ngoài dễ đọc: "Ngũ Hành Sơn" → "Ngu Hanh Son". */
@@ -19,6 +20,8 @@ export const intlPhone = (phone: string) => {
 };
 
 export const placeEn = ({ location }: Pick<ListingInfo, 'location'>) => {
+  // Story 8.4: khu vực theo cách gọi của khách; căn cũ / khu "Khác" → phường, quận
+  if (location.zone && location.zone !== OTHER_ZONE) return toAscii(location.zone);
   const places = [location.ward, location.district === 'Chưa rõ' ? '' : location.district].filter(Boolean) as string[];
   return (places.length ? places : [location.city]).map(toAscii).join(', ');
 };
@@ -33,8 +36,11 @@ export const minStayEn = (months: number) => plural(months, 'month');
 export const dateEn = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
 /** Tiêu đề tiếng Anh tự sinh (tiêu đề gốc do AI viết tiếng Việt): "2BR Apartment for rent – My An, Ngu Hanh Son". */
-export const headlineEn = (listing: Pick<ListingInfo, 'attributes' | 'location'>) =>
-  `${listing.attributes.bedrooms === 0 ? 'Studio' : `${listing.attributes.bedrooms}BR Apartment`} for rent – ${placeEn(listing)}`;
+export const headlineEn = ({ attributes, ...listing }: Pick<ListingInfo, 'attributes' | 'location'>) => {
+  const type = propertyTypeLabel(attributes.propertyType, 'en') || 'Apartment';
+  const isStudio = attributes.propertyType === 'STUDIO' || attributes.bedrooms === 0;
+  return `${isStudio ? 'Studio' : `${attributes.bedrooms}BR ${type}`} for rent – ${placeEn(listing)}`;
+};
 
 export const FURNISHING_EN: Record<Apartment['attributes']['furnishing'], string> = {
   FULL: 'Fully furnished',

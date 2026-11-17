@@ -9,7 +9,7 @@ import { ShareLinkButton } from './ShareLinkButton.js';
 import { ShareLangToggle } from './ShareLangToggle.js';
 import { Lang, getShareLang, setShareLang } from '../../utils/shareLang.js';
 import { X, MapPin } from 'lucide-react';
-import { marketLabels, usdText } from '../../utils/apartmentLabels.js';
+import { marketLabels, roomParts, usdText, zoneText } from '../../utils/apartmentLabels.js';
 
 interface ApartmentDetailModalProps {
   apartment: Apartment | null;
@@ -48,7 +48,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
   const hiddenImageCount = apartment.images.length - visibleImageCount;
 
   const facts = [
-    attributes.bedrooms === 0 ? 'Studio' : `${attributes.bedrooms} phòng ngủ`,
+    ...roomParts(attributes),
     `${attributes.bathrooms} WC`,
     attributes.area && `${attributes.area}m²`,
     FURNISHING_LABEL[attributes.furnishing],
@@ -115,7 +115,8 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
             <div className="space-y-1.5">
               <h2 className="text-lg font-bold text-slate-900 leading-snug">{apartment.title}</h2>
               <p className="text-sm text-slate-500">
-                {[location.address, location.ward, location.district, location.city].filter(Boolean).join(', ')}
+                {/* Nội bộ: địa chỉ đủ số nhà; Set bỏ tên trùng (khu vực "Ngũ Hành Sơn" = quận Ngũ Hành Sơn) */}
+                {[...new Set([location.address, zoneText(location), location.district, location.city].filter(Boolean))].join(', ')}
               </p>
               {/* Link map nội bộ (Story 8.3): mở app Google Maps để dẫn khách xem phòng */}
               {location.mapUrl && (

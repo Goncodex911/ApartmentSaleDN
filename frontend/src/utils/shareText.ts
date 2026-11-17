@@ -1,6 +1,7 @@
 import { Apartment } from '../api/apartmentApi.js';
 import { User } from '../api/authApi.js';
-import { marketLabels, usdText } from './apartmentLabels.js';
+import { marketLabels, roomParts, usdText, zoneText } from './apartmentLabels.js';
+import { OTHER_ZONE } from './danang.js';
 
 type ShareContact = Pick<User, 'name' | 'phone' | 'zaloPhone'>;
 
@@ -37,10 +38,11 @@ export function buildShareText(apartment: Apartment, ctv: ShareContact): string 
   // Bỏ "Cho thuê" đầu tiêu đề (AI hay đặt vậy) để không thành "CĂN CHO THUÊ CĂN 2PN..."
   const title = stripPhoneNumbers(apartment.title).replace(/^cho thuê\s+/i, '');
   const titleWithPrefix = /^căn(\s|$)/i.test(title) ? title : `Căn ${title}`;
-  const header = `🏢 [${districtLabel}] - ${titleWithPrefix}`.toLocaleUpperCase('vi-VN');
+  // Khu vực theo cách gọi của khách (Story 8.4); căn cũ / khu "Khác" → quận
+  const areaLabel = location.zone && location.zone !== OTHER_ZONE ? location.zone : districtLabel;
+  const header = `🏢 [${areaLabel}] - ${titleWithPrefix}`.toLocaleUpperCase('vi-VN');
 
-  const roomLabel = attributes.bedrooms === 0 ? 'Studio' : `${attributes.bedrooms} phòng ngủ`;
-  const sizeLine = attributes.area ? `📐 Diện tích: ${attributes.area}m² · ${roomLabel}` : `📐 ${roomLabel}`;
+  const sizeLine = `📐 ${[...roomParts(attributes), attributes.area && `${attributes.area}m²`].filter(Boolean).join(' · ')}`;
 
   const feeParts = [
     fees?.electricity ? `Điện ${formatVnd(fees.electricity)}đ/kWh` : '',
@@ -60,7 +62,7 @@ export function buildShareText(apartment: Apartment, ctv: ShareContact): string 
     attributes.allowPets && 'nuôi pet',
     attributes.balcony && 'ban công',
     attributes.pcccStandard && 'PCCC đạt chuẩn',
-    ...marketLabels(apartment).map((label) => label.toLocaleLowerCase('vi-VN')),
+    ...marketLabels({ ...apartment, minLeaseMonths: undefined }).map((label) => label.toLocaleLowerCase('vi-VN')),
   ]
     .filter(Boolean)
     .join(', ');
@@ -74,12 +76,13 @@ export function buildShareText(apartment: Apartment, ctv: ShareContact): string 
 
   return [
     header,
-    `📍 Vị trí: ${[location.street, location.ward, district].filter(Boolean).join(', ')}`, // Chỉ tên đường, không số nhà (Story 8.3)
+    `📍 Vị trí: ${[location.street, zoneText(location)].filter(Boolean).join(', ')}`, // Chỉ tên đường, không số nhà (Story 8.3)
     sizeLine,
     `💵 Giá thuê: ${formatVnd(price)} VNĐ/tháng${apartment.priceUsd ? ` (${usdText(apartment.priceUsd)})` : ''}`,
     feeParts.length ? `⚡ Phí: ${feeParts.join(' · ')}` : '',
     `🛋 Nội thất: ${furnishing.join(', ')}`,
     amenities ? `🚗 Tiện ích: ${amenities[0].toLocaleUpperCase('vi-VN')}${amenities.slice(1)}` : '',
+    apartment.minLeaseMonths ? `📅 Thuê tối thiểu ${apartment.minLeaseMonths} tháng` : '',
     availableFrom ? `🗓 Trống từ: ${availableFrom}` : '',
     `📞 Liên hệ xem phòng trực tiếp: ${ctv.name} - ${contactPhone}${ctv.zaloPhone ? ' (Zalo)' : ''}`,
   ]

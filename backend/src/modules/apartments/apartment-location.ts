@@ -3,6 +3,7 @@ import { GeocodingService } from '../search/geocoding.service.js';
 import { canonicalDistrict } from '../search/district.js';
 import { splitAddress } from '../../utils/street.js';
 import { resolveMapCoordinates } from '../../utils/google-maps.js';
+import { OTHER_ZONE, Zone, districtOfZone } from './listing-taxonomy.js';
 
 // Phần vị trí trong payload tạo/sửa căn (sửa căn: null = xóa trắng ô)
 export interface LocationInput {
@@ -11,18 +12,23 @@ export interface LocationInput {
   houseNumber?: string | null;
   mapUrl?: string | null;
   district?: string | null;
+  zone?: Zone | null;
   coordinates?: [number, number] | null;
 }
 
 /**
  * Chuẩn hóa vị trí trước khi lưu (dùng cho cả tạo mới và sửa; `current` = vị trí đang lưu khi sửa):
- * 1. Quận → tên chuẩn ("nhs" → "Ngũ Hành Sơn").
+ * 1. Story 8.4: khu vực → quận (bỏ qua quận client gửi); khu vực "Khác" bắt buộc chọn quận Đà Nẵng. Quận → tên chuẩn ("nhs" → "Ngũ Hành Sơn").
  * 2. Story 8.3: address (nội bộ) = số nhà/kiệt + tên đường; client cũ chỉ gửi address → tự tách tên đường.
  * 3. Tọa độ: link Google Maps (chính xác) > ước lượng theo địa chỉ / quận. Chỉ tính lại khi có thay đổi,
  *    và không ghi đè tọa độ đã lấy từ link map bằng tọa độ ước lượng.
  */
 export async function prepareLocation(input: LocationInput, current?: IApartment['location']): Promise<void> {
-  if (input.district) input.district = canonicalDistrict(input.district) || input.district;
+  if (input.zone && input.zone !== OTHER_ZONE) input.district = districtOfZone(input.zone);
+  else if (input.district) input.district = canonicalDistrict(input.district) || input.district;
+  if (input.zone === OTHER_ZONE && !canonicalDistrict(input.district || current?.district)) {
+    throw { status: 400, message: 'Khu vực "Khác": vui lòng chọn quận' };
+  }
 
   if (input.street || input.houseNumber !== undefined) {
     const saved = { ...splitAddress(current?.address), ...(current?.street && { street: current.street, houseNumber: current.houseNumber }) };

@@ -3,7 +3,7 @@ import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { formatVnd } from '../../utils/format.js';
 import { CopyShareButton } from './CopyShareButton.js';
-import { beachDistanceText } from '../../utils/apartmentLabels.js';
+import { beachDistanceText, roomParts, zoneText } from '../../utils/apartmentLabels.js';
 
 export const STATUS_DISPLAY: Record<Apartment['status'], { label: string; dot: string }> = {
   AVAILABLE: { label: 'Trống', dot: 'bg-emerald-500' },
@@ -24,9 +24,10 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
   const thumbnail = apartment.images.find((url) => !apartment.hiddenImages?.includes(url)) || apartment.images[0];
   const status = STATUS_DISPLAY[apartment.status];
   const facts = [
-    attributes.bedrooms === 0 ? 'Studio' : `${attributes.bedrooms}PN`,
+    ...roomParts(attributes).map((part) => part.replace(' phòng ngủ', 'PN')),
     attributes.area && `${attributes.area}m²`,
-    location.district,
+    zoneText({ ...location, ward: undefined }), // Thẻ gọn: khu vực hoặc quận, không kèm phường
+    apartment.minLeaseMonths && `tối thiểu ${apartment.minLeaseMonths} th`,
     // Gần biển là tiêu chí số 1 của khách Đà Nẵng → hiện ngay trên thẻ khi ≤ 2km
     attributes.distanceToBeachM != null && attributes.distanceToBeachM <= 2000 && `biển ${beachDistanceText(attributes.distanceToBeachM)}`,
     apartment.distanceKm !== undefined && `cách ${apartment.distanceKm} km`,

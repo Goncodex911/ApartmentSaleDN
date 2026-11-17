@@ -30,6 +30,8 @@ BƯỚC 2: NẾU LÀ TIN CHO THUÊ, TRÍCH XUẤT CÁC THÔNG SỐ CHUẨN XÁC:
   Suy ra từ phường nếu tin chỉ ghi phường (Mỹ An, Khuê Mỹ, An Thượng -> Ngũ Hành Sơn; An Hải, Phước Mỹ -> Sơn Trà). Không xác định được -> null.
 - city: "Đà Nẵng" (hoặc tên tỉnh/thành phố khác nếu tin ghi rõ).
 - area: Số m2 (số nguyên, VD: 35).
+- propertyType: Loại căn, một trong: "APARTMENT" (căn hộ chung cư, căn hộ dịch vụ, phòng trong tòa nhà), "STUDIO", "DUPLEX" (có gác xép/gác lửng 2 tầng),
+  "PENTHOUSE", "HOUSE" (nhà nguyên căn, nhà riêng), "VILLA" (biệt thự). Không rõ -> "APARTMENT".
 - bedrooms: Số phòng ngủ (Studio = 1, 1N1K = 1, 1BR = 1, 2N1K = 2, 2BR = 2, Duplex = 1 hoặc 2, mặc định = 1).
 - bathrooms: Số phòng tắm (mặc định = 1).
 - furnishing: "FULL" (đầy đủ nội thất, full đồ, fully furnished) | "BASIC" (cơ bản: điều hòa, nóng lạnh; HOẶC tin không nhắc nội thất) | "EMPTY" (phòng trống).
@@ -42,7 +44,7 @@ BƯỚC 2: NẾU LÀ TIN CHO THUÊ, TRÍCH XUẤT CÁC THÔNG SỐ CHUẨN XÁC:
   "5 phút đi bộ ra biển" -> 400, "mặt biển/beachfront" -> 50). Không nhắc biển -> null.
 - motorbikeParking: boolean (chỗ để xe máy, hầm xe; "parking" chung chung = true).
 - priceUsd: Giá thuê USD/tháng nếu tin ghi ("760 USD/month" -> 760, "$500" -> 500), không có -> null.
-- minLeaseMonths: Số tháng thuê tối thiểu ("Minimum rental period: 1 months" -> 1, "thuê tối thiểu 6 tháng" -> 6, "hợp đồng 1 năm" -> 12), không có -> null.
+- minLeaseMonths: Số tháng thuê tối thiểu ("Minimum rental period: 1 months" -> 1, "thuê tối thiểu 6 tháng" -> 6, "hợp đồng 1 năm" -> 12, "2 năm" -> 24), không có -> null.
 - includedServices: Mảng dịch vụ ĐÃ BAO trong giá, chỉ dùng các mã: "WIFI" (free wifi, bao mạng), "CLEANING" (dọn phòng, clean 1 a week),
   "ELECTRICITY" (bao điện), "WATER" (bao nước), "LAUNDRY" (giặt là). Không có -> [].
 - fees:
@@ -70,6 +72,7 @@ Hãy trả về DUY NHẤT một chuỗi JSON hợp lệ (không kèm markdown \
     "district": "Sơn Trà",
     "city": "Đà Nẵng",
     "area": 35,
+    "propertyType": "APARTMENT",
     "bedrooms": 1,
     "bathrooms": 1,
     "furnishing": "FULL",

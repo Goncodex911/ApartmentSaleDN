@@ -1,4 +1,5 @@
 import { apiClient } from './client.js';
+import type { PropertyType, Zone } from '../utils/danang.js';
 
 export type IncludedService = 'WIFI' | 'CLEANING' | 'ELECTRICITY' | 'WATER' | 'LAUNDRY';
 
@@ -18,12 +19,14 @@ export interface Apartment {
     street?: string; // Tên đường gửi khách (Story 8.3)
     houseNumber?: string; // Nội bộ
     mapUrl?: string; // Nội bộ
+    zone?: Zone; // Khu vực theo cách gọi của khách (Story 8.4)
     ward?: string;
     district: string;
     city: string;
     coordinates?: [number, number];
   };
   attributes: {
+    propertyType?: PropertyType;
     area?: number;
     bedrooms: number;
     livingRooms?: number;

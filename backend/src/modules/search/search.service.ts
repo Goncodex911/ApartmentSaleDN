@@ -13,6 +13,8 @@ export interface ISearchOptions {
   status?: string;
   bedrooms?: number;
   furnishing?: string;
+  zones?: string[]; // Story 8.4
+  propertyTypes?: string[];
   page?: number;
   limit?: number;
   userRole?: string;

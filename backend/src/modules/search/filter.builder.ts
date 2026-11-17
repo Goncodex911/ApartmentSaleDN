@@ -55,6 +55,7 @@ export class FilterBuilder {
         filter.$and = filter.$and || [];
         filter.$and.push({
           $or: [
+            { 'attributes.propertyType': 'STUDIO' },
             { 'attributes.bedrooms': 0 },
             { title: /studio/i },
             { description: /studio/i },
@@ -68,6 +69,7 @@ export class FilterBuilder {
         filter.$and = filter.$and || [];
         filter.$and.push({
           $or: [
+            { 'attributes.propertyType': 'DUPLEX' },
             { title: /duplex|gác xép|gác lửng/i },
             { description: /duplex|gác xép|gác lửng/i },
           ],
@@ -78,6 +80,9 @@ export class FilterBuilder {
     }
 
     if (options.furnishing) filter['attributes.furnishing'] = options.furnishing;
+    // Story 8.4: chip Khu vực & Loại căn (chọn nhiều) — giá trị đã lọc theo danh mục ở controller
+    if (options.zones?.length) filter['location.zone'] = { $in: options.zones };
+    if (options.propertyTypes?.length) filter['attributes.propertyType'] = { $in: options.propertyTypes };
 
     // 5. Lọc theo Tiện ích Hot (Hot Amenities Facets)
     if (options.elevator !== undefined) filter['attributes.elevator'] = Boolean(options.elevator);

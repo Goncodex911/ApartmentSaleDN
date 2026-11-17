@@ -5,6 +5,7 @@ import { PhotoUploader } from './PhotoUploader.js';
 import { LocationSection, toLocationForm, fromLocationForm, isLocationComplete } from './LocationSection.js';
 import { MarketFieldsSection, toMarketForm, fromMarketForm } from './MarketFieldsSection.js';
 import { Field, FormSection, ToggleChip, inputClass, numberOr, textOr } from './formFields.js';
+import { PROPERTY_TYPES, PropertyType } from '../../utils/danang.js';
 
 interface ApartmentModalProps {
   initialData?: Apartment | null;
@@ -39,6 +40,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
   const [title, setTitle] = useState(initialData?.title || '');
   const [price, setPrice] = useState(toText(initialData?.price));
   const [location, setLocation] = useState(() => toLocationForm(initialData));
+  const [propertyType, setPropertyType] = useState<PropertyType | ''>(attrs?.propertyType || '');
   const [area, setArea] = useState(toText(attrs?.area));
   const [bedrooms, setBedrooms] = useState(toText(attrs?.bedrooms));
   const [bathrooms, setBathrooms] = useState(toText(attrs?.bathrooms));
@@ -61,7 +63,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !price || !isLocationComplete(location) || bedrooms === '' || !furnishing || !ownerName || !ownerPhone) {
+    if (!title || !price || !isLocationComplete(location) || !propertyType || bedrooms === '' || !furnishing || !ownerName || !ownerPhone) {
       setError('Vui lòng điền đủ các ô có dấu *');
       return;
     }
@@ -74,6 +76,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
       price: Number(price),
       location: fromLocationForm(location, empty, initialData?.location?.city),
       attributes: {
+        propertyType,
         area: numberOr(area, empty),
         bedrooms: Math.max(0, Math.trunc(Number(bedrooms))),
         bathrooms: bathrooms.trim() ? Math.max(0, Math.trunc(Number(bathrooms))) : undefined, // Bắt buộc ở DB → không xóa được
@@ -133,6 +136,12 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
 
           <FormSection title="Căn hộ">
             <div className="grid grid-cols-2 gap-3 items-end">
+              <Field label="Loại căn" required className="col-span-2">
+                <select value={propertyType} onChange={(e) => setPropertyType(e.target.value as PropertyType)} className={inputClass}>
+                  <option value="" disabled>Chọn loại căn</option>
+                  {PROPERTY_TYPES.map((type) => <option key={type.id} value={type.id}>{type.vi}</option>)}
+                </select>
+              </Field>
               <Field label="Phòng ngủ" required>
                 <input type="number" inputMode="numeric" min={0} value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} placeholder="0 = studio" className={inputClass} />
               </Field>

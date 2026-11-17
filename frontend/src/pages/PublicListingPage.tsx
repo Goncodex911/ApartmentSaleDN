@@ -6,7 +6,7 @@ import { PhotoSlider } from '../components/public/PhotoSlider.js';
 import { CtvContactBar } from '../components/public/CtvContactBar.js';
 import { ChatWidget } from '../components/public/ChatWidget.js';
 import { MapPin, LinkIcon } from 'lucide-react';
-import { marketLabels, usdText } from '../utils/apartmentLabels.js';
+import { marketLabels, roomParts, usdText, zoneText } from '../utils/apartmentLabels.js';
 import { usePublicLang } from '../hooks/usePublicLang.js';
 import { PUBLIC_COPY } from '../utils/publicCopy.js';
 import { Lang } from '../utils/shareLang.js';
@@ -65,7 +65,7 @@ function describe(listing: PublicListing, lang: Lang) {
   }
   return {
     title: listing.title,
-    place: [location.street, location.ward, location.district, location.city].filter(Boolean).join(', '),
+    place: [location.street, zoneText(location), location.city].filter(Boolean).join(', '),
     price: formatVnd(listing.price),
     fees: [
       fees.electricity && `Điện ${formatVnd(fees.electricity)}/kWh`,
@@ -75,7 +75,7 @@ function describe(listing: PublicListing, lang: Lang) {
     ].filter(Boolean) as string[],
     facts: [
       attributes.area && `${attributes.area}m²`,
-      attributes.bedrooms === 0 ? 'Studio' : `${attributes.bedrooms} phòng ngủ`,
+      ...roomParts(attributes),
       FURNISHING_LABEL[attributes.furnishing],
       attributes.washingMachine === 'PRIVATE' && 'Máy giặt riêng',
       attributes.elevator && 'Thang máy',

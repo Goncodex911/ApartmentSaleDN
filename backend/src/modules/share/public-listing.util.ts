@@ -44,6 +44,7 @@ export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
       parkingMotor: fees?.parkingMotor,
     },
     attributes: {
+      propertyType: attributes.propertyType,
       area: attributes.area,
       bedrooms: attributes.bedrooms,
       bathrooms: attributes.bathrooms,
@@ -60,6 +61,7 @@ export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
     },
     location: {
       street: withStreet(apartment.location).street, // Chỉ tên đường — KHÔNG số nhà, link map (Story 8.3)
+      zone: apartment.location.zone,
       ward: apartment.location.ward,
       district: apartment.location.district,
       city: apartment.location.city,

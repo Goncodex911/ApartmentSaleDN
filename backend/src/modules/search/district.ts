@@ -1,4 +1,5 @@
 import { DISTRICT_SYNONYMS } from './slang.dictionary.js';
+import { OTHER_ZONE, Zone } from '../apartments/listing-taxonomy.js';
 import { WARD_TO_DISTRICT } from './landmarks.data.js';
 import { toSearchTokens, consumePhrase, findPhrase } from './text-tokens.js';
 
@@ -41,4 +42,20 @@ export function findWard(text?: string | null): { ward: string; district: string
     .sort((a, b) => b.length - a.length)
     .find((name) => findPhrase(tokens, name));
   return ward ? { ward, district: WARD_TO_DISTRICT[ward] } : null;
+}
+
+// Phường thuộc danh sách khu vực của khách (Story 8.4); An Hải Bắc/Đông/Tây đều tính là "An Hải"
+const WARD_ZONES: Record<string, Zone> = { 'Mỹ An': 'Mỹ An', 'Khuê Mỹ': 'Khuê Mỹ', 'Hòa Xuân': 'Hòa Xuân' };
+const DISTRICT_ZONES: Record<string, Zone> = { 'Hải Châu': 'Hải Châu', 'Sơn Trà': 'Sơn Trà', 'Ngũ Hành Sơn': 'Ngũ Hành Sơn' };
+
+/**
+ * Suy ra khu vực từ phường / địa chỉ, không ra thì theo quận (dùng cho tin AI và script gán căn cũ).
+ * VD phường "An Hải Bắc" → "An Hải"; quận Ngũ Hành Sơn nhưng phường Hòa Hải → "Ngũ Hành Sơn"; quận Thanh Khê → "Khác".
+ */
+export function deriveZone(location: { ward?: string | null; address?: string | null; district?: string | null }): Zone {
+  const ward = (findWard(location.ward) || findWard(location.address))?.ward;
+  if (ward?.startsWith('An Hải')) return 'An Hải';
+  if (ward && WARD_ZONES[ward]) return WARD_ZONES[ward];
+  const district = canonicalDistrict(location.district);
+  return (district && DISTRICT_ZONES[district]) || OTHER_ZONE;
 }

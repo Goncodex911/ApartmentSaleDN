@@ -2,9 +2,10 @@ import {
   GEMINI_REAL_ESTATE_SYSTEM_PROMPT,
   GEMINI_JSON_SCHEMA_INSTRUCTION,
 } from './gemini.prompt.js';
-import { resolveListingLocation, UNKNOWN_DISTRICT } from '../search/district.js';
+import { resolveListingLocation, deriveZone, UNKNOWN_DISTRICT } from '../search/district.js';
 import { fetchWithRetry } from '../../utils/fetch-retry.js';
 import { splitAddress, ADDRESS_PLACEHOLDER } from '../../utils/street.js';
+import { OTHER_ZONE, PROPERTY_TYPES, PropertyType, Zone, inferPropertyType, roundLeaseMonths } from '../apartments/listing-taxonomy.js';
 import { INCLUDED_SERVICES, IncludedService } from '../apartments/apartment.model.js';
 
 // Số nguyên dương trong khoảng cho phép, ngược lại undefined (AI có thể trả chuỗi/số âm/null)
@@ -24,7 +25,7 @@ function sanitizeMarketFields(ext: any) {
     distanceToBeachM: ext.distanceToBeachM === 0 ? 0 : positiveInt(ext.distanceToBeachM, 100000),
     motorbikeParking: ext.motorbikeParking === true,
     priceUsd: positiveInt(ext.priceUsd, 100000),
-    minLeaseMonths: positiveInt(ext.minLeaseMonths, 60),
+    minLeaseMonths: roundLeaseMonths(ext.minLeaseMonths), // Story 8.4: làm tròn lên mốc 1/3/6/12
     includedServices: INCLUDED_SERVICES.filter((code) => services.includes(code)),
   };
 }
@@ -39,6 +40,8 @@ export interface IParsedApartmentData {
   district: string;
   city: string;
   area?: number;
+  propertyType: PropertyType;
+  zone: Zone;
   bedrooms: number;
   bathrooms: number;
   furnishing: 'FULL' | 'BASIC' | 'EMPTY';
@@ -174,8 +177,11 @@ ${rawText.trim()}
     const location = resolveListingLocation(ext);
     const address = typeof ext.address === 'string' && ext.address.trim() ? ext.address.trim() : ADDRESS_PLACEHOLDER;
     const unknownDistrict = location.district === UNKNOWN_DISTRICT;
+    // Story 8.4: khu vực tính bằng code (không để AI đoán); loại căn AI trả sai → đoán theo tiêu đề, không ra thì "Căn hộ" + cần kiểm tra
+    const zone = location.city === 'Đà Nẵng' ? deriveZone({ ...location, address }) : OTHER_ZONE;
+    const guessedType = PROPERTY_TYPES.includes(ext.propertyType) ? ext.propertyType : inferPropertyType(ext.title);
 
-    const needsReview = Boolean(ext.needsReview || price === 0 || priceFromUsd || !phone || unknownDistrict);
+    const needsReview = Boolean(ext.needsReview || price === 0 || priceFromUsd || !phone || unknownDistrict || !guessedType);
     const reviewReason =
       ext.reviewReason ||
       (price === 0
@@ -186,7 +192,9 @@ ${rawText.trim()}
             ? 'Không tìm thấy số điện thoại đầu mối'
             : unknownDistrict
               ? 'Chưa xác định được khu vực (quận)'
-              : null);
+              : !guessedType
+                ? 'Chưa rõ loại căn (tạm để Căn hộ)'
+                : null);
 
     return {
       isRentalListing: true,
@@ -199,6 +207,8 @@ ${rawText.trim()}
         // AI hay để trống hoặc ghi cả số nhà vào street → tách lại bằng code
         street: splitAddress(typeof ext.street === 'string' ? ext.street : '').street || splitAddress(address).street,
         ...location, // district, ward, city đã chuẩn hóa theo Đà Nẵng
+        zone,
+        propertyType: guessedType || 'APARTMENT',
         area: ext.area ? Number(ext.area) : undefined,
         bedrooms: Number(ext.bedrooms) || 1,
         bathrooms: Number(ext.bathrooms) || 1,
