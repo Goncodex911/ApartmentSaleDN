@@ -18,12 +18,12 @@ export const REAL_ESTATE_SLANG_RULES: ISlangRule[] = [
     synonyms: ['căn hộ dịch vụ', 'chdv', 'serviced apartment'],
   },
   {
-    keywords: ['1n1k', '1pn', '1 ngu 1 khach', '1 phong ngu'],
+    keywords: ['1n1k', '1pn', '1 ngu 1 khach', '1 phong ngu', '1br', '1 bedroom'],
     synonyms: ['1n1k', '1 ngủ 1 khách', '1 phòng ngủ', '1pn'],
     attributeFilter: { 'attributes.bedrooms': 1 },
   },
   {
-    keywords: ['2n1k', '2pn', '2 ngu 1 khach', '2 phong ngu'],
+    keywords: ['2n1k', '2pn', '2 ngu 1 khach', '2 phong ngu', '2br', '2 bedrooms', '2 bedroom'],
     synonyms: ['2n1k', '2 ngủ 1 khách', '2 phòng ngủ', '2pn'],
     attributeFilter: { 'attributes.bedrooms': 2 },
   },
@@ -42,7 +42,7 @@ export const REAL_ESTATE_SLANG_RULES: ISlangRule[] = [
     attributeFilter: { 'attributes.furnishing': 'FULL' },
   },
   {
-    keywords: ['co ban', 'noi that co ban'],
+    keywords: ['do co ban', 'noi that co ban'], // Không dùng 'co ban' trơn: 'có ban công' sẽ khớp nhầm
     synonyms: ['cơ bản', 'nội thất cơ bản', 'điều hòa nóng lạnh'],
     attributeFilter: { 'attributes.furnishing': 'BASIC' },
   },
@@ -52,7 +52,7 @@ export const REAL_ESTATE_SLANG_RULES: ISlangRule[] = [
     attributeFilter: { 'attributes.allowPets': true },
   },
   {
-    keywords: ['thang may'],
+    keywords: ['thang may', 'elevator'],
     synonyms: ['thang máy', 'elevator'],
     attributeFilter: { 'attributes.elevator': true },
   },
@@ -60,6 +60,11 @@ export const REAL_ESTATE_SLANG_RULES: ISlangRule[] = [
     keywords: ['oto', 'o to', 'o to do cua', 'oto vao nha'],
     synonyms: ['ô tô', 'oto', 'ô tô đỗ cửa', 'ô tô vào nhà'],
     attributeFilter: { 'attributes.carParking': true },
+  },
+  {
+    keywords: ['ban cong', 'balcony'],
+    synonyms: ['ban công', 'balcony'],
+    attributeFilter: { 'attributes.balcony': true },
   },
   {
     keywords: ['pccc', 'phong chay', 'thoat hiem'],
@@ -94,7 +99,7 @@ export function buildDiacriticRegex(str: string): string {
 /**
  * Xử lý lỗi gõ nhầm (Levenshtein 1 lỗi) cho các địa danh Hà Nội phổ biến
  */
-export const HANOI_DISTRICT_SYNONYMS: Record<string, string> = {
+export const DISTRICT_SYNONYMS: Record<string, string> = {
   caugiay: 'Cầu Giấy',
   caugay: 'Cầu Giấy',
   cg: 'Cầu Giấy',

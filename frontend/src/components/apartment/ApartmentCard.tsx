@@ -61,6 +61,7 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
               <span className={`w-2 h-2 rounded-full ${status.dot}`} aria-hidden />
               {status.label}
               {commissionText && <span className="text-emerald-700 font-medium">· {commissionText}</span>}
+              {apartment.needsReview && <span className="text-amber-700 font-medium">· Cần kiểm tra</span>}
             </p>
           </div>
           <CopyShareButton apartment={apartment} ctv={currentUser} compact />

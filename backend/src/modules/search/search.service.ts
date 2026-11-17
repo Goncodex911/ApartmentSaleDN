@@ -47,11 +47,11 @@ export class SearchService {
     // 2. Nhận diện điểm mốc hoặc tọa độ tìm kiếm
     let resolvedLandmark: IResolvedLocation | null = null;
     if (options.landmark) {
-      resolvedLandmark = GeocodingService.resolveCoordinates(options.landmark);
+      resolvedLandmark = GeocodingService.resolveCoordinates(options.landmark, { landmarksOnly: true });
     } else if (options.lng !== undefined && options.lat !== undefined) {
       resolvedLandmark = { name: 'Vị trí đã chọn', coordinates: [Number(options.lng), Number(options.lat)] };
     } else if (queryRaw) {
-      resolvedLandmark = GeocodingService.resolveCoordinates(queryRaw);
+      resolvedLandmark = GeocodingService.resolveCoordinates(queryRaw, { landmarksOnly: true });
     }
 
     const radiusKm = options.radiusKm ? Number(options.radiusKm) : (resolvedLandmark ? 2 : undefined);
@@ -127,7 +127,8 @@ export class SearchService {
       ...options,
       ...analysis.extracted,
       userRole: options.userRole, // Đặt sau cùng: kết quả AI không bao giờ được ghi đè quyền người dùng
-      q: undefined, // Không match nguyên câu văn vào title
+      // Giữ các từ khóa có nghĩa chưa được bóc thành tiêu chí (VD tên phường "Mỹ An", tên đường) → vẫn lọc theo chữ
+      q: QueryAnalyzer.analyze(rawQuery).cleanedQuery || undefined,
     };
 
     const searchResult = await this.search(searchOptions);

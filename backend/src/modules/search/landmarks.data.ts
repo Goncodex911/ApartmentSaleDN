@@ -13,7 +13,7 @@ export interface ILandmark {
   category: 'UNIVERSITY' | 'BUILDING' | 'HOSPITAL' | 'AREA';
 }
 
-export const HANOI_LANDMARKS: ILandmark[] = [
+export const LANDMARKS: ILandmark[] = [
   {
     id: 'dhqg',
     name: 'ĐH Quốc Gia Hà Nội',
@@ -154,7 +154,7 @@ export const HANOI_LANDMARKS: ILandmark[] = [
 /**
  * Tọa độ tâm các quận Hà Nội (dùng làm vị trí ước lượng khi chỉ có tên quận)
  */
-export const HANOI_DISTRICT_CENTROIDS: Record<string, [number, number]> = {
+export const DISTRICT_CENTROIDS: Record<string, [number, number]> = {
   'cầu giấy': [105.7944, 21.0333],
   'đống đa': [105.8239, 21.0181],
   'ba đình': [105.8194, 21.0341],

@@ -63,6 +63,8 @@ export interface IApartment extends Document {
   subListings: ISubListing[]; // Mảng các nguồn tham chiếu (Story 2.3)
   status: 'AVAILABLE' | 'UPCOMING' | 'DEPOSITED' | 'RENTED';
   availableDate?: Date;
+  needsReview?: boolean; // Tin AI bóc chưa chắc chắn (thiếu giá/SĐT/địa chỉ mơ hồ) — chỉ Quản lý thấy, KHÔNG đổi trạng thái
+  reviewReason?: string;
   managerId: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -143,6 +145,8 @@ const apartmentSchema = new Schema<IApartment>(
       index: true,
     },
     availableDate: { type: Date },
+    needsReview: { type: Boolean, default: false },
+    reviewReason: { type: String, trim: true },
     managerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   },
   { timestamps: true }

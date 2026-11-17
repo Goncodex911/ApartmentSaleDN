@@ -128,6 +128,12 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
               </div>
             </div>
 
+            {apartment.needsReview && (
+              <p className="px-3 py-2 rounded-xl bg-amber-50 text-sm text-amber-800">
+                Cần kiểm tra: {apartment.reviewReason || 'AI chưa chắc chắn thông tin của tin này'}. Bấm Sửa rồi Lưu để xác nhận.
+              </p>
+            )}
+
             <div>
               <p className="text-2xl font-bold text-slate-900">
                 {formatVnd(apartment.price)}

@@ -200,7 +200,10 @@ export class DedupService {
           postedAt: new Date(),
         },
       ],
-      status: ext.needsReview ? 'UPCOMING' : 'AVAILABLE',
+      // Tin cần kiểm tra vẫn là "Trống" — chỉ gắn cờ cho Quản lý (trước đây bị đổi sai thành "Sắp trống")
+      status: 'AVAILABLE',
+      needsReview: ext.needsReview,
+      reviewReason: ext.needsReview ? ext.reviewReason || undefined : undefined,
       managerId: input.managerId,
     });
 

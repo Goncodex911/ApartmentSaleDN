@@ -61,6 +61,8 @@ export interface Apartment {
   }>;
   status: 'AVAILABLE' | 'UPCOMING' | 'DEPOSITED' | 'RENTED';
   availableDate?: string;
+  needsReview?: boolean; // Chỉ Quản lý/Admin nhận được (backend ẩn với CTV)
+  reviewReason?: string;
   distanceKm?: number;
   nearestLandmark?: string;
   managerId: string;

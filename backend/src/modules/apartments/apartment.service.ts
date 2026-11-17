@@ -40,6 +40,8 @@ export class ApartmentService {
     item.description = maskText(item.description);
     item.ownerContact = maskContact(item.ownerContact);
     delete item.imageHashes; // Dữ liệu nội bộ của bộ khử trùng, không cần gửi ra ngoài
+    delete item.needsReview; // Cờ kiểm duyệt nội bộ của Quản lý
+    delete item.reviewReason;
     item.subListings = (item.subListings || []).map((sub: any) => ({
       ...sub,
       ownerContact: maskContact(sub.ownerContact),
@@ -109,6 +111,8 @@ export class ApartmentService {
       }
       for (const [subKey, subValue] of Object.entries(value)) apartment.set(`${key}.${subKey}`, subValue);
     }
+    // Quản lý đã mở form và lưu lại → coi như đã kiểm tra tin AI
+    apartment.set({ needsReview: false, reviewReason: undefined });
     await apartment.save();
     return apartment;
   }

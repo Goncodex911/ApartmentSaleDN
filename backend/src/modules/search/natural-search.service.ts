@@ -1,5 +1,6 @@
-import { HANOI_DISTRICT_SYNONYMS } from './slang.dictionary.js';
-import { HANOI_LANDMARKS } from './landmarks.data.js';
+import { LANDMARKS } from './landmarks.data.js';
+import { consumeDistrict } from './query-analyzer.js';
+import { toSearchTokens, findPhrase } from './text-tokens.js';
 import { GeminiService } from '../ingestion/gemini.service.js';
 
 export interface INaturalExtracted {
@@ -94,50 +95,42 @@ export class NaturalSearchService {
    */
   public static parseHeuristic(query: string): INaturalExtracted {
     const lower = query.toLowerCase();
+    const tokens = toSearchTokens(query);
+    const has = (...phrases: string[]) => phrases.some((phrase) => findPhrase(tokens, phrase));
     const result: INaturalExtracted = {};
 
-    // 1. Bóc tách Quận/Huyện
-    const norm = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '');
-    for (const [typo, standard] of Object.entries(HANOI_DISTRICT_SYNONYMS)) {
-      if (norm.replace(/\s+/g, '').includes(typo)) {
-        result.district = standard;
-        break;
-      }
-    }
+    // 1. Quận: so khớp nguyên từ ("the" không còn bị hiểu là "th" = Tây Hồ)
+    const district = consumeDistrict([...tokens]);
+    if (district) result.district = district;
 
-    // 2. Bóc tách Điểm mốc trường học/tòa nhà
-    for (const lm of HANOI_LANDMARKS) {
-      const match = lm.aliases.some((a) => lower.includes(a)) || lower.includes(lm.shortName.toLowerCase());
-      if (match) {
-        result.landmark = lm.id;
-        break;
-      }
-    }
+    // 2. Điểm mốc trường học/tòa nhà/bãi biển
+    const landmark = LANDMARKS.find((lm) => has(lm.shortName, ...lm.aliases));
+    if (landmark) result.landmark = landmark.id;
 
-    // 3. Bóc tách Loại phòng
+    // 3. Loại phòng (hỗ trợ cả tin tiếng Anh: 1BR/2BR)
     if (/studio/i.test(lower)) {
       result.roomType = 'studio';
       result.bedrooms = 0;
-    } else if (/2\s*ng[uủ]|2n1k|2pn|2\s*ph[oò]ng\s*ng[uủ]/i.test(lower)) {
+    } else if (/2\s*ng[uủ]|2n1k|2pn|2\s*ph[oò]ng\s*ng[uủ]|2\s*br\b|2\s*bed/i.test(lower)) {
       result.roomType = '2pn';
       result.bedrooms = 2;
-    } else if (/1\s*ng[uủ]|1n1k|1pn|1\s*ph[oò]ng\s*ng[uủ]/i.test(lower)) {
+    } else if (/1\s*ng[uủ]|1n1k|1pn|1\s*ph[oò]ng\s*ng[uủ]|1\s*br\b|1\s*bed/i.test(lower)) {
       result.roomType = '1pn';
       result.bedrooms = 1;
     } else if (/duplex|g[aá]c\s*(x[eé]p|l[uử]ng)/i.test(lower)) {
       result.roomType = 'duplex';
     }
 
-    // 4. Bóc tách Khoảng giá
+    // 4. Khoảng giá
     this.extractPrice(lower, result);
 
-    // 5. Bóc tách Tiện ích Hot (hỗ trợ cả có dấu và không dấu)
-    if (/thang\s*m[aá]y/i.test(lower) || /thang\s*may/i.test(norm)) result.elevator = true;
-    if (/pet|ch[oó]|m[eè]o|th[uú]\s*c[uư]ng/i.test(lower) || /pet|cho|meo|thu\s*cung/i.test(norm)) result.allowPets = true;
-    if (/[oô]\s*t[oô]|xe\s*h[oơ]i/i.test(lower) || /o\s*to|xe\s*hoi/i.test(norm)) result.carParking = true;
-    if (/ban\s*c[oô]ng/i.test(lower) || /ban\s*cong/i.test(norm)) result.balcony = true;
-    if (/full\s*[dđ][oòóỏõọôồốổỗộ]/i.test(lower) || /full\s*do|day\s*du\s*(do|noi\s*that)/i.test(norm)) result.furnishing = 'FULL';
-    if (/pccc/i.test(lower)) result.pcccStandard = true;
+    // 5. Tiện ích: so khớp cụm từ không dấu (trước đây "cho thuê" bị hiểu nhầm là "chó" → cho nuôi thú cưng)
+    if (has('thang may', 'elevator', 'lift')) result.elevator = true;
+    if (has('pet', 'pets', 'thu cung', 'cho meo', 'nuoi cho', 'nuoi meo')) result.allowPets = true;
+    if (has('oto', 'o to', 'xe hoi', 'car')) result.carParking = true;
+    if (has('ban cong', 'balcony')) result.balcony = true;
+    if (has('full do', 'full noi that', 'day du noi that', 'du do', 'fully furnished')) result.furnishing = 'FULL';
+    if (has('pccc')) result.pcccStandard = true;
 
     return result;
   }
