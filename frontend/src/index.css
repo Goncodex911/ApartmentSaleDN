@@ -10,9 +10,22 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
-  /* Chừa chỗ cho huy hiệu "Powered by Netlify" ở góc dưới (gói miễn phí không ẩn được) — chỉ sửa 1 chỗ này nếu đổi host */
+  /* Chừa chỗ cho huy hiệu "Powered by Netlify" ở góc dưới (gói miễn phí không ẩn được, khung cao 64px) — chỉ sửa 1 chỗ này nếu đổi host */
   .pb-badge-safe {
-    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+  /* Story 9.3: menu đáy (điện thoại) nằm ngay trên huy hiệu Netlify và thanh Home của iPhone */
+  .pb-bottom-nav {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+  /* Đệm đáy nội dung trang: huy hiệu (+ menu đáy 56px trên điện thoại) + 16px khoảng thở */
+  .pb-app {
+    padding-bottom: calc(64px + 56px + 16px + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 768px) {
+    .pb-app {
+      padding-bottom: calc(64px + 16px + env(safe-area-inset-bottom));
+    }
   }
 }
 

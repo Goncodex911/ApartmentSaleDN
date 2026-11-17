@@ -7,6 +7,7 @@ import { PublicListingPage } from './pages/PublicListingPage.js';
 import { LeadsPage } from './pages/LeadsPage.js';
 import { SubmissionsPage } from './pages/SubmissionsPage.js';
 import { PwaStatus } from './components/layout/PwaStatus.js';
+import { AppShell } from './components/layout/AppShell.js';
 
 export const App: React.FC = () => {
   return (
@@ -16,32 +17,18 @@ export const App: React.FC = () => {
         <Route path="/login" element={<LoginPage />} />
         {/* Trang xem phòng công khai cho khách — không cần đăng nhập (Story 5.3) */}
         <Route path="/p/:slug" element={<PublicListingPage />} />
+        {/* Các trang sau đăng nhập dùng chung khung AppShell: thanh trên, menu đáy, hộp Tài khoản / Nhập tin AI / Đăng tin (Story 9.3) */}
         <Route
-          path="/apartments"
           element={
             <ProtectedRoute>
-              <ApartmentsPage />
+              <AppShell />
             </ProtectedRoute>
           }
-        />
-        {/* Phễu khách hàng CRM (Story 6.1) */}
-        <Route
-          path="/leads"
-          element={
-            <ProtectedRoute>
-              <LeadsPage />
-            </ProtectedRoute>
-          }
-        />
-        {/* Tin CTV đăng chờ Quản lý duyệt (Story 8.6) */}
-        <Route
-          path="/submissions"
-          element={
-            <ProtectedRoute>
-              <SubmissionsPage />
-            </ProtectedRoute>
-          }
-        />
+        >
+          <Route path="/apartments" element={<ApartmentsPage />} />
+          <Route path="/leads" element={<LeadsPage />} /> {/* Phễu khách hàng CRM (Story 6.1) */}
+          <Route path="/submissions" element={<SubmissionsPage />} /> {/* Tin CTV đăng chờ duyệt (Story 8.6) */}
+        </Route>
         <Route path="/" element={<Navigate to="/apartments" replace />} />
         <Route path="*" element={<Navigate to="/apartments" replace />} />
       </Routes>

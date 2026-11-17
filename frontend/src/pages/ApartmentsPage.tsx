@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useCurrentUser } from '../hooks/useCurrentUser.js';
+import { useApp } from '../components/layout/AppShell.js';
 import { Apartment, apartmentApi } from '../api/apartmentApi.js';
 import { useApartmentSearch, ApartmentFilterValues, AMENITY_KEYS, EMPTY_FILTERS, countActiveFilters } from '../hooks/useApartmentSearch.js';
-import { Navbar } from '../components/layout/Navbar.js';
 import { ApartmentCard } from '../components/apartment/ApartmentCard.js';
 import { ApartmentDetailModal } from '../components/apartment/ApartmentDetailModal.js';
 import { ApartmentModal } from '../components/apartment/ApartmentModal.js';
-import { QuickPasteModal } from '../components/apartment/QuickPasteModal.js';
 import { FilterSheet, PRICE_RANGES, ROOM_TYPES, AMENITIES, STATUSES } from '../components/apartment/FilterSheet.js';
-import { ProfileModal } from '../components/profile/ProfileModal.js';
-import { submissionApi } from '../api/submissionApi.js';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { propertyTypeLabel, PropertyType } from '../utils/danang.js';
 
@@ -33,18 +28,13 @@ function activeChips(f: ApartmentFilterValues) {
 }
 
 export const ApartmentsPage: React.FC = () => {
-  const navigate = useNavigate();
-  const { user: currentUser, setUser: setCurrentUser } = useCurrentUser(); // Mất mạng vẫn vào được (Story 9.1)
+  const { user: currentUser, openQuickPaste, openSubmit } = useApp(); // AppShell: người dùng + hộp Nhập tin AI / Đăng tin dùng chung
   const { apartments, pagination, status, query, filters, aiSummary, search, applyFilters, setPage, reload, removeApartment } =
     useApartmentSearch();
   const [searchText, setSearchText] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedApartment, setSelectedApartment] = useState<Apartment | null>(null);
   const [editingApartment, setEditingApartment] = useState<Apartment | null | undefined>(undefined); // undefined = đóng form
-  const [isQuickPasteOpen, setIsQuickPasteOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isSubmitOpen, setIsSubmitOpen] = useState(false); // CTV đăng tin chờ duyệt (Story 8.6)
-
 
   const isManager = currentUser?.role === 'MANAGER' || currentUser?.role === 'ADMIN';
   const filterCount = countActiveFilters(filters);
@@ -67,23 +57,22 @@ export const ApartmentsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Navbar user={currentUser} onOpenProfile={() => setIsProfileOpen(true)} onLogout={() => { localStorage.clear(); navigate('/login'); }} />
-
-      <main className="max-w-5xl mx-auto px-4 pt-4 pb-badge-safe space-y-3">
+    <>
+      <main className="max-w-5xl mx-auto px-4 pt-4 pb-app space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Bảng hàng</h1>
             <p className="text-sm text-slate-500">{pagination.total} căn hộ</p>
           </div>
           {currentUser && !isManager && (
-            <button onClick={() => setIsSubmitOpen(true)} className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
+            // Điện thoại đã có nút Đăng tin ở menu đáy (Story 9.3)
+            <button onClick={openSubmit} className="hidden md:block h-10 px-4 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
               Đăng tin
             </button>
           )}
           {isManager && (
             <div className="flex items-center gap-1">
-              <button onClick={() => setIsQuickPasteOpen(true)} className="h-10 px-3 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-200">
+              <button onClick={openQuickPaste} className="hidden md:block h-10 px-3 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-200">
                 Nhập nhanh
               </button>
               <button onClick={() => setEditingApartment(null)} className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
@@ -191,19 +180,6 @@ export const ApartmentsPage: React.FC = () => {
       />
       {/* Chỉ mount modal khi mở → form reset mỗi lần mở */}
       {editingApartment !== undefined && <ApartmentModal initialData={editingApartment} onClose={() => setEditingApartment(undefined)} onSuccess={reload} />}
-      {isSubmitOpen && (
-        <ApartmentModal
-          heading="Đăng tin"
-          submitLabel="Gửi Quản lý duyệt"
-          onSave={async (payload) => {
-            await submissionApi.create(payload);
-            navigate('/submissions'); // Xem tin vừa gửi ở trạng thái Chờ duyệt
-          }}
-          onClose={() => setIsSubmitOpen(false)}
-        />
-      )}
-      {isQuickPasteOpen && <QuickPasteModal onClose={() => setIsQuickPasteOpen(false)} onSuccess={reload} />}
-      {isProfileOpen && currentUser && <ProfileModal user={currentUser} onClose={() => setIsProfileOpen(false)} onProfileUpdated={setCurrentUser} />}
-    </div>
+    </>
   );
 };

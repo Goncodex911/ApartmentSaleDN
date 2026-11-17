@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useCurrentUser } from '../hooks/useCurrentUser.js';
 import { Lead, LeadStage, leadApi } from '../api/leadApi.js';
 import { useLeads } from '../hooks/useLeads.js';
-import { Navbar } from '../components/layout/Navbar.js';
-import { ProfileModal } from '../components/profile/ProfileModal.js';
 import { LeadCard } from '../components/leads/LeadCard.js';
 import { LeadDetailModal } from '../components/leads/LeadDetailModal.js';
 import { LeadFormModal } from '../components/leads/LeadFormModal.js';
@@ -13,12 +9,9 @@ import { AlertCircle } from 'lucide-react';
 
 // Bảng Kanban phễu khách hàng (Story 6.1): cột cuộn ngang trên điện thoại, kéo-thả trên máy tính
 export const LeadsPage: React.FC = () => {
-  const navigate = useNavigate();
-  const { user: currentUser, setUser: setCurrentUser } = useCurrentUser(); // Mất mạng vẫn vào được (Story 9.1)
   const { leads, status, reload, upsert, remove } = useLeads();
   const [openLead, setOpenLead] = useState<{ lead: Lead; pendingStage?: LeadStage } | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropError, setDropError] = useState('');
 
@@ -98,9 +91,8 @@ export const LeadsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Navbar user={currentUser} onOpenProfile={() => setIsProfileOpen(true)} onLogout={() => { localStorage.clear(); navigate('/login'); }} />
-      <main className="max-w-7xl mx-auto px-4 pt-4 pb-badge-safe space-y-3">
+    <>
+      <main className="max-w-7xl mx-auto px-4 pt-4 pb-app space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Khách hàng</h1>
@@ -128,7 +120,6 @@ export const LeadsPage: React.FC = () => {
         />
       )}
       {isFormOpen && <LeadFormModal onClose={() => setIsFormOpen(false)} onCreated={(lead) => { upsert(lead); setIsFormOpen(false); }} />}
-      {isProfileOpen && currentUser && <ProfileModal user={currentUser} onClose={() => setIsProfileOpen(false)} onProfileUpdated={setCurrentUser} />}
-    </div>
+    </>
   );
 };

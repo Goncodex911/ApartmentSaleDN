@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Apartment, apartmentApi, Pagination } from '../api/apartmentApi.js';
 
+// Phát sự kiện này khi kho căn đổi ở nơi khác (VD Nhập tin AI từ menu đáy) → Bảng hàng tự tải lại
+export const APARTMENTS_CHANGED = 'apartments:changed';
+
 export const AMENITY_KEYS = ['nearBeach', 'pool', 'gym', 'seaView', 'riverView', 'elevator', 'allowPets', 'carParking', 'balcony', 'pcccStandard'] as const;
 type AmenityKey = (typeof AMENITY_KEYS)[number];
 
@@ -111,10 +114,14 @@ export function useApartmentSearch() {
   }, []);
 
   const reload = useCallback(() => setReloadKey((key) => key + 1), []);
-  // Có mạng lại → tải danh sách mới nhất (đang xem bản lưu offline) — Story 9.1
+  // Có mạng lại (Story 9.1) hoặc vừa Nhập tin AI từ menu đáy (Story 9.3) → tải danh sách mới nhất
   useEffect(() => {
     window.addEventListener('online', reload);
-    return () => window.removeEventListener('online', reload);
+    window.addEventListener(APARTMENTS_CHANGED, reload);
+    return () => {
+      window.removeEventListener('online', reload);
+      window.removeEventListener(APARTMENTS_CHANGED, reload);
+    };
   }, [reload]);
   const removeApartment = useCallback((id: string) => setApartments((list) => list.filter((item) => item._id !== id)), []);
 
