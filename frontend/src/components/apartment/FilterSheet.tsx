@@ -7,7 +7,8 @@ export const PRICE_RANGES = [
   { id: 'under_5m', label: 'Dưới 5 triệu' },
   { id: '5m_8m', label: '5 – 8 triệu' },
   { id: '8m_12m', label: '8 – 12 triệu' },
-  { id: 'above_12m', label: 'Trên 12 triệu' },
+  { id: '12m_20m', label: '12 – 20 triệu' },
+  { id: 'above_20m', label: 'Trên 20 triệu' },
 ];
 export const ROOM_TYPES = [
   { id: 'studio', label: 'Studio' },

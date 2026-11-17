@@ -140,7 +140,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
               rows={3}
               value={greetingMessage}
               onChange={(e) => setGreetingMessage(e.target.value)}
-              placeholder="VD: Em Hải chuyên viên căn hộ Cầu Giấy xin chào anh/chị!"
+              placeholder="VD: Em Hải chuyên viên căn hộ Sơn Trà xin chào anh/chị!"
               className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
             />
             <span className="text-[11px] text-slate-400 block">Hiển thị trên trang xem phòng và là câu chào đầu tiên của trợ lý AI khi khách chat.</span>

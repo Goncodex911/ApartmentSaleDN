@@ -66,7 +66,7 @@ export class GeocodingService {
 
     // 3. Tâm quận (dùng khi gắn tọa độ ước lượng cho căn chỉ có tên quận)
     const district = Object.keys(DISTRICT_CENTROIDS).find((name) => findPhrase(tokens, name));
-    return district ? { name: `Quận ${district}`, coordinates: DISTRICT_CENTROIDS[district], district, category: 'AREA' } : null;
+    return district ? { name: `Khu vực ${district}`, coordinates: DISTRICT_CENTROIDS[district], district, category: 'AREA' } : null;
   }
 
   /**

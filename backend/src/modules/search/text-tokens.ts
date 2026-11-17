@@ -47,14 +47,15 @@ export function consumePhrase(tokens: string[], phrases: string[]): string | nul
 }
 
 // Cụm đệm nhiều từ: bỏ trước khi bỏ từ đệm đơn (để "hồ" trong "hồ bơi" không bị mất oan)
-const FILLER_PHRASES = ['can ho', 'chung cu', 'phong tro', 'cho thue', 'can thue', 'tim phong', 'tim can', 'quay dau', 'do lai', 'tro xuong', 'tro len'];
+const FILLER_PHRASES = ['can ho', 'chung cu', 'phong tro', 'cho thue', 'can thue', 'tim phong', 'tim can', 'quay dau', 'do lai', 'tro xuong', 'tro len', 'dai hoc', 'close to'];
 
 // Từ đệm đơn: không mang ý nghĩa lọc (tiếng Việt + tiếng Anh hay gặp trong tin Đà Nẵng)
 const FILLER_WORDS = new Set([
   'can', 'phong', 'nha', 'cho', 'thue', 'tim', 'gan', 'tai', 'khu', 'quanh', 'co', 'va', 'voi', 'gia', 'tam', 'khoang',
   'duoi', 'tren', 'tu', 'den', 'toi', 'da', 'trieu', 'tr', 'cu', 'thang', 'quan', 'phuong', 'duong', 'pho', 'muon',
   'loai', 'kieu', 'nhe', 'oi', 'la', 'cua', 'near', 'the', 'with', 'and', 'for', 'in', 'at', 'of', 'to', 'rent',
-  'apartment', 'apartments', 'room', 'rooms', 'house', 'need', 'looking', 'under', 'below', 'max', 'month',
+  'apartment', 'apartments', 'room', 'rooms', 'house', 'need', 'looking', 'under', 'below', 'max', 'month', 'on', 'st',
+  'street', 'road', 'by', 'dh', 'truong',
 ]);
 
 // Cụm giá/số đứng riêng: "25tr", "6.5", "20trieu", "700usd", "10m"

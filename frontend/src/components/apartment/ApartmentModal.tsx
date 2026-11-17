@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Apartment, apartmentApi } from '../../api/apartmentApi.js';
 import { X, Loader2, Sparkles } from 'lucide-react';
 import { PhotoUploader } from './PhotoUploader.js';
+import { DANANG_DISTRICTS } from '../../utils/danang.js';
 
 interface ApartmentModalProps {
   initialData?: Apartment | null;
@@ -28,7 +29,8 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
 
   // Location & Attributes
   const [address, setAddress] = useState(initialData?.location?.address || '');
-  const [district, setDistrict] = useState(initialData?.location?.district || 'Cầu Giấy');
+  const [ward, setWard] = useState(initialData?.location?.ward || '');
+  const [district, setDistrict] = useState(initialData?.location?.district || ''); // Không điền sẵn: tránh lưu nhầm quận
   const [area, setArea] = useState(initialData?.attributes?.area ? String(initialData.attributes.area) : '35');
   // Dùng ?? (không dùng ?:) để Studio (0 phòng ngủ) không bị đổi thành 1
   const [bedrooms, setBedrooms] = useState(String(initialData?.attributes?.bedrooms ?? 1));
@@ -67,7 +69,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
         price: Number(price),
         deposit: Number(deposit) || 0,
         commission: { type: commissionType, value: Number(commissionValue) || 0 },
-        location: { address, district, city: 'Hà Nội' },
+        location: { address, ward: ward.trim() || undefined, district, city: initialData?.location?.city || 'Đà Nẵng' },
         attributes: {
           area: Number(area) || undefined,
           bedrooms: Math.max(0, Math.trunc(Number(bedrooms)) || 0),
@@ -151,14 +153,22 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
           </div>
 
           {/* Địa chỉ */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
               <label className="font-semibold text-slate-700">Địa chỉ cụ thể *</label>
-              <input type="text" required placeholder="Số 20 ngõ 105 Doãn Kế Thiện" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 py-2 border rounded-xl border-slate-200" />
+              <input type="text" required placeholder="K12 Bà Huyện Thanh Quan" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 py-2 border rounded-xl border-slate-200" />
             </div>
             <div className="space-y-1">
-              <label className="font-semibold text-slate-700">Quận / Huyện *</label>
-              <input type="text" required placeholder="Cầu Giấy, Đống Đa..." value={district} onChange={(e) => setDistrict(e.target.value)} className="w-full px-3 py-2 border rounded-xl border-slate-200" />
+              <label className="font-semibold text-slate-700">Phường</label>
+              <input type="text" placeholder="Mỹ An, An Hải Bắc..." value={ward} onChange={(e) => setWard(e.target.value)} className="w-full px-3 py-2 border rounded-xl border-slate-200" />
+            </div>
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700">Khu vực (quận) *</label>
+              {/* Gợi ý danh sách quận Đà Nẵng nhưng vẫn cho gõ tự do */}
+              <input type="text" required list="danang-districts" placeholder="Chọn hoặc gõ" value={district} onChange={(e) => setDistrict(e.target.value)} className="w-full px-3 py-2 border rounded-xl border-slate-200" />
+              <datalist id="danang-districts">
+                {DANANG_DISTRICTS.map((name) => <option key={name} value={name} />)}
+              </datalist>
             </div>
           </div>
 

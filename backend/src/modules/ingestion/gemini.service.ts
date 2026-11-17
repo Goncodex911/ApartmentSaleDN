@@ -2,12 +2,14 @@ import {
   GEMINI_REAL_ESTATE_SYSTEM_PROMPT,
   GEMINI_JSON_SCHEMA_INSTRUCTION,
 } from './gemini.prompt.js';
+import { resolveListingLocation, UNKNOWN_DISTRICT } from '../search/district.js';
 
 export interface IParsedApartmentData {
   title: string;
   price: number;
   deposit: number;
   address: string;
+  ward?: string;
   district: string;
   city: string;
   area?: number;
@@ -135,14 +137,19 @@ ${rawText.trim()}
     const price = Number(ext.price) || 0;
     const phone = ext.ownerContact?.phone ? String(ext.ownerContact.phone).trim() : '';
 
-    const needsReview = Boolean(ext.needsReview || price === 0 || !phone);
+    const location = resolveListingLocation(ext);
+    const unknownDistrict = location.district === UNKNOWN_DISTRICT;
+
+    const needsReview = Boolean(ext.needsReview || price === 0 || !phone || unknownDistrict);
     const reviewReason =
       ext.reviewReason ||
       (price === 0
         ? 'Không tìm thấy mức giá cụ thể'
         : !phone
           ? 'Không tìm thấy số điện thoại đầu mối'
-          : null);
+          : unknownDistrict
+            ? 'Chưa xác định được khu vực (quận)'
+            : null);
 
     return {
       isRentalListing: true,
@@ -152,8 +159,7 @@ ${rawText.trim()}
         price,
         deposit: Number(ext.deposit) || 0,
         address: ext.address || 'Đang cập nhật địa chỉ',
-        district: ext.district || 'Cầu Giấy',
-        city: ext.city || 'Hà Nội',
+        ...location, // district, ward, city đã chuẩn hóa theo Đà Nẵng
         area: ext.area ? Number(ext.area) : undefined,
         bedrooms: Number(ext.bedrooms) || 1,
         bathrooms: Number(ext.bathrooms) || 1,

@@ -1,5 +1,5 @@
-import { LANDMARKS } from './landmarks.data.js';
-import { consumeDistrict } from './query-analyzer.js';
+import { LANDMARKS, DANANG_DISTRICTS } from './landmarks.data.js';
+import { consumeDistrict, canonicalDistrict } from './district.js';
 import { toSearchTokens, findPhrase } from './text-tokens.js';
 import { GeminiService } from '../ingestion/gemini.service.js';
 
@@ -36,8 +36,10 @@ const AMENITY_KEYS = ['elevator', 'allowPets', 'carParking', 'balcony', 'pcccSta
  */
 function sanitizeExtracted(raw: any): INaturalExtracted {
   const result: INaturalExtracted = {};
-  if (typeof raw?.district === 'string' && raw.district.trim()) result.district = raw.district.trim().slice(0, 50);
-  if (typeof raw?.landmark === 'string' && raw.landmark.trim()) result.landmark = raw.landmark.trim().slice(0, 80);
+  // Chỉ nhận khu vực Đà Nẵng có trong danh sách: AI hay nhầm phường ("Mỹ An") thành quận → bỏ, chữ đó vẫn được lọc như từ khóa
+  const district = typeof raw?.district === 'string' ? canonicalDistrict(raw.district.slice(0, 50)) : undefined;
+  if (district) result.district = district;
+  if (LANDMARKS.some((lm) => lm.id === raw?.landmark)) result.landmark = raw.landmark;
   if (ROOM_TYPES.includes(raw?.roomType)) result.roomType = raw.roomType;
   if (FURNISHING_VALUES.includes(raw?.furnishing)) result.furnishing = raw.furnishing;
   if (Number(raw?.minPrice) > 0) result.minPrice = Number(raw.minPrice);
@@ -70,7 +72,7 @@ export class NaturalSearchService {
             engineUsed: 'GEMINI_AI',
             extracted: aiResult,
             badges,
-            summary: badges.map((b) => b.label).join(' • '),
+            summary: badges.map((b) => b.label).join(' · '),
           };
         }
       } catch (_err) {
@@ -86,7 +88,7 @@ export class NaturalSearchService {
       engineUsed: 'HEURISTIC_NLP',
       extracted: heuristicResult,
       badges,
-      summary: badges.map((b) => b.label).join(' • '),
+      summary: badges.map((b) => b.label).join(' · '),
     };
   }
 
@@ -163,12 +165,13 @@ export class NaturalSearchService {
    * Gọi mô hình Gemini để trích xuất JSON
    */
   private static async callGemini(query: string, apiKey: string): Promise<INaturalExtracted | null> {
-    const prompt = `Bạn là trợ lý AI trích xuất tiêu chí tìm kiếm phòng trọ tại Hà Nội.
+    const prompt = `Bạn là trợ lý AI trích xuất tiêu chí tìm căn hộ/phòng cho thuê tại Đà Nẵng. Câu có thể là tiếng Việt hoặc tiếng Anh.
 Hãy phân tích đoạn tin nhắn sau: "${query}"
-Trả về DUY NHẤT một đối tượng JSON chuẩn (không giải thích):
+Chỉ điền trường được nhắc rõ, KHÔNG đoán. Trả về DUY NHẤT một đối tượng JSON chuẩn (không giải thích):
 {
-  "district": "Tên quận Hà Nội nếu có (ví dụ: Cầu Giấy, Đống Đa, Nam Từ Liêm)",
-  "roomType": "studio | 1pn | 2pn | duplex nếu có",
+  "district": "Một trong: ${DANANG_DISTRICTS.join(', ')} — chỉ khi câu nhắc quận đó (tên phường như Mỹ An, An Hải thì để trống)",
+  "landmark": "Mã điểm mốc nếu câu nhắc tới: ${LANDMARKS.map((lm) => `${lm.id} (${lm.name})`).join('; ')}",
+  "roomType": "studio | 1pn | 2pn | duplex nếu có (1BR = 1pn, 2BR = 2pn)",
   "minPrice": số tiền VNĐ tối thiểu nếu có (number),
   "maxPrice": số tiền VNĐ tối đa nếu có (number),
   "elevator": boolean nếu yêu cầu thang máy,
@@ -209,27 +212,27 @@ Trả về DUY NHẤT một đối tượng JSON chuẩn (không giải thích):
   private static buildBadges(data: INaturalExtracted) {
     const badges: Array<{ label: string; type: 'district' | 'landmark' | 'price' | 'roomType' | 'amenity' }> = [];
 
-    if (data.district) badges.push({ label: `📍 Quận ${data.district}`, type: 'district' });
-    if (data.landmark) badges.push({ label: `🎓 Mốc: ${data.landmark}`, type: 'landmark' });
+    if (data.district) badges.push({ label: data.district, type: 'district' });
+    if (data.landmark) badges.push({ label: `Gần ${LANDMARKS.find((lm) => lm.id === data.landmark)?.shortName || data.landmark}`, type: 'landmark' });
 
     if (data.roomType) {
       const names: Record<string, string> = { studio: 'Studio', '1pn': '1PN / 1N1K', '2pn': '2PN', duplex: 'Duplex' };
-      badges.push({ label: `🛏️ ${names[data.roomType] || data.roomType}`, type: 'roomType' });
+      badges.push({ label: names[data.roomType] || data.roomType, type: 'roomType' });
     }
 
     if (data.minPrice && data.maxPrice) {
-      badges.push({ label: `💰 ${data.minPrice / 1e6}tr - ${data.maxPrice / 1e6}tr`, type: 'price' });
+      badges.push({ label: `${data.minPrice / 1e6}–${data.maxPrice / 1e6} triệu`, type: 'price' });
     } else if (data.maxPrice) {
-      badges.push({ label: `💰 ≤ ${(data.maxPrice / 1e6).toFixed(1).replace('.0', '')} triệu`, type: 'price' });
+      badges.push({ label: `≤ ${(data.maxPrice / 1e6).toFixed(1).replace('.0', '')} triệu`, type: 'price' });
     } else if (data.minPrice) {
-      badges.push({ label: `💰 ≥ ${(data.minPrice / 1e6).toFixed(1).replace('.0', '')} triệu`, type: 'price' });
+      badges.push({ label: `≥ ${(data.minPrice / 1e6).toFixed(1).replace('.0', '')} triệu`, type: 'price' });
     }
 
-    if (data.elevator) badges.push({ label: '🛗 Thang máy', type: 'amenity' });
-    if (data.allowPets) badges.push({ label: '🐾 Nuôi Pet', type: 'amenity' });
-    if (data.carParking) badges.push({ label: '🚗 Ô tô đỗ cửa', type: 'amenity' });
-    if (data.balcony) badges.push({ label: '🌿 Ban công', type: 'amenity' });
-    if (data.furnishing === 'FULL') badges.push({ label: '✨ Full đồ', type: 'amenity' });
+    if (data.elevator) badges.push({ label: 'Thang máy', type: 'amenity' });
+    if (data.allowPets) badges.push({ label: 'Nuôi thú cưng', type: 'amenity' });
+    if (data.carParking) badges.push({ label: 'Ô tô đỗ cửa', type: 'amenity' });
+    if (data.balcony) badges.push({ label: 'Ban công', type: 'amenity' });
+    if (data.furnishing === 'FULL') badges.push({ label: 'Full đồ', type: 'amenity' });
 
     return badges;
   }

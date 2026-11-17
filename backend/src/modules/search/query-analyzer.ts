@@ -1,4 +1,5 @@
-import { REAL_ESTATE_SLANG_RULES, buildDiacriticRegex, DISTRICT_SYNONYMS } from './slang.dictionary.js';
+import { REAL_ESTATE_SLANG_RULES, buildDiacriticRegex } from './slang.dictionary.js';
+import { consumeDistrict } from './district.js';
 import { LANDMARKS } from './landmarks.data.js';
 import { toSearchTokens, consumePhrase, meaningfulWords } from './text-tokens.js';
 
@@ -12,12 +13,6 @@ export interface IAnalyzedQuery {
 const KEYWORD_FIELDS = ['title', 'description', 'location.address', 'location.ward', 'location.district'];
 const WORD_START = `(?:^|[\\s,.;:!?()/'"-])`;
 const WORD_END = `(?=$|[\\s,.;:!?()/'"-])`;
-
-/** Bóc tên quận khỏi danh sách từ (so khớp nguyên từ) → tên quận chuẩn hoặc undefined. */
-export function consumeDistrict(tokens: string[]): string | undefined {
-  const matched = consumePhrase(tokens, Object.keys(DISTRICT_SYNONYMS));
-  return matched ? DISTRICT_SYNONYMS[matched] : undefined;
-}
 
 export class QueryAnalyzer {
   /**

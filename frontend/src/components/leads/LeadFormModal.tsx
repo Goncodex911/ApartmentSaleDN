@@ -58,7 +58,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({ onClose, onCreated
 
         <input required autoFocus placeholder="Tên khách *" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
         <input type="tel" placeholder="Số điện thoại" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
-        <input placeholder="Khu vực mong muốn (VD: Cầu Giấy, Ba Đình)" value={districts} onChange={(e) => setDistricts(e.target.value)} className={inputClass} />
+        <input placeholder="Khu vực mong muốn (VD: Sơn Trà, Ngũ Hành Sơn)" value={districts} onChange={(e) => setDistricts(e.target.value)} className={inputClass} />
         <input
           type="number"
           min="0"

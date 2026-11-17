@@ -18,7 +18,7 @@ export const createApartmentSchema = z.object({
     address: z.string().min(2, 'Địa chỉ không được để trống'),
     ward: z.string().optional(),
     district: z.string().min(2, 'Quận/Huyện không được để trống'),
-    city: z.string().default('Hà Nội'),
+    city: z.string().default('Đà Nẵng'),
     coordinates: z.tuple([z.number(), z.number()]).optional(),
   }),
   attributes: z

@@ -2,6 +2,7 @@ import { Apartment, IApartment, buildStatusFilter, isPrivilegedRole } from './ap
 import { CreateApartmentInput, UpdateApartmentInput, UpdateStatusInput, AddSubListingInput } from './apartment.validation.js';
 import { uploadBufferToCloudinary } from '../../config/cloudinary.js';
 import { GeocodingService } from '../search/geocoding.service.js';
+import { canonicalDistrict } from '../search/district.js';
 import { Types } from 'mongoose';
 import { maskPhonesInText, escapeRegex } from '../../utils/phone-text.js';
 import { LeadMatchingService } from '../leads/lead-matching.service.js';
@@ -70,6 +71,8 @@ export class ApartmentService {
 
   // Thêm mới căn hộ (Tự động Geocoding tọa độ nếu chưa có)
   static async create(data: CreateApartmentInput, managerId: string) {
+    // Chuẩn tên khu vực ("nhs", "Q. Hải Châu" → "Ngũ Hành Sơn", "Hải Châu") để lọc theo quận chính xác
+    data.location.district = canonicalDistrict(data.location.district) || data.location.district;
     if (!data.location.coordinates || data.location.coordinates.length < 2) {
       const geo =
         GeocodingService.resolveCoordinates(data.location.address) ||
@@ -91,6 +94,7 @@ export class ApartmentService {
     if (user.role !== 'ADMIN' && apartment.managerId.toString() !== user.id) {
       throw { status: 403, message: 'Bạn không có quyền chỉnh sửa căn hộ này' };
     }
+    if (data.location?.district) data.location.district = canonicalDistrict(data.location.district) || data.location.district;
     // Chỉ geocode lại khi địa chỉ/quận thực sự đổi — tránh ghi đè tọa độ chính xác bằng tọa độ ước lượng
     const addressChanged =
       (data.location?.address && data.location.address !== apartment.location.address) ||

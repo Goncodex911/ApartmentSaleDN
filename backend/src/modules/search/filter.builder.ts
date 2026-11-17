@@ -1,7 +1,18 @@
 import { ISearchOptions } from './search.service.js';
 import { IResolvedLocation } from './geocoding.service.js';
-import { escapeRegex } from '../../utils/phone-text.js';
+import { buildDiacriticRegex } from './slang.dictionary.js';
+import { removeVietnameseTones } from '../../utils/vietnamese.js';
 import { buildStatusFilter } from '../apartments/apartment.model.js';
+
+// Khoảng giá 1-chạm theo mặt bằng Đà Nẵng: [tối thiểu, tối đa] VNĐ/tháng ("above_12m" giữ cho link cũ)
+const PRICE_RANGES: Record<string, [number, number?]> = {
+  under_5m: [0, 5_000_000],
+  '5m_8m': [5_000_000, 8_000_000],
+  '8m_12m': [8_000_000, 12_000_000],
+  '12m_20m': [12_000_000, 20_000_000],
+  above_20m: [20_000_000],
+  above_12m: [12_000_000],
+};
 
 export class FilterBuilder {
   /**
@@ -22,24 +33,16 @@ export class FilterBuilder {
     // 2. Lọc theo Quận/Huyện (chỉ áp dụng nếu không tìm theo điểm mốc)
     const targetDistrict = options.district || recognizedDistrict || resolvedLandmark?.district;
     if (targetDistrict && !resolvedLandmark) {
-      // Escape: district có thể đến từ người dùng/AI (chat công khai) → chống regex injection & ReDoS
-      filter['location.district'] = new RegExp(escapeRegex(targetDistrict), 'i');
+      // Không phân biệt dấu ("Hai Chau" ≈ "Hải Châu"); buildDiacriticRegex tự escape ký tự đặc biệt
+      // → chống regex injection & ReDoS (district có thể đến từ người dùng/AI chat công khai)
+      filter['location.district'] = new RegExp(buildDiacriticRegex(removeVietnameseTones(targetDistrict)), 'i');
     }
 
     // 3. Lọc theo Khoảng giá (Story 4.3 1-Tap Faceted Price Range)
-    if (options.priceRange) {
-      filter.price = {};
-      if (options.priceRange === 'under_5m') {
-        filter.price.$lte = 5000000;
-      } else if (options.priceRange === '5m_8m') {
-        filter.price.$gte = 5000000;
-        filter.price.$lte = 8000000;
-      } else if (options.priceRange === '8m_12m') {
-        filter.price.$gte = 8000000;
-        filter.price.$lte = 12000000;
-      } else if (options.priceRange === 'above_12m') {
-        filter.price.$gte = 12000000;
-      }
+    const range = options.priceRange && Object.hasOwn(PRICE_RANGES, options.priceRange) ? PRICE_RANGES[options.priceRange] : undefined;
+    if (range) {
+      filter.price = { $gte: range[0] };
+      if (range[1] !== undefined) filter.price.$lte = range[1];
     } else if (options.minPrice !== undefined || options.maxPrice !== undefined) {
       filter.price = {};
       if (options.minPrice !== undefined) filter.price.$gte = Number(options.minPrice);

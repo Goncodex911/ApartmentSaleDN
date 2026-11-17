@@ -5,6 +5,7 @@ import { fetchImageBuffer } from '../../utils/fetch-image.js';
 import { escapeRegex } from '../../utils/phone-text.js';
 import { removeVietnameseTones } from '../../utils/vietnamese.js';
 import { LeadMatchingService } from '../leads/lead-matching.service.js';
+import { GeocodingService } from '../search/geocoding.service.js';
 import { PHashUtil } from './phash.util.js';
 import { IProcessListingInput } from './dedup.types.js';
 
@@ -159,6 +160,8 @@ export class DedupService {
 
     // Bước 5: Tin hoàn toàn mới -> Gemini Vision đánh dấu ảnh dán SĐT nguồn cũ (Story 5.2) -> Tạo Master
     const phoneImageIndexes = await GeminiVisionService.detectImagesWithPhone(downloadedImages.map((img) => img.buffer));
+    // Gắn tọa độ (điểm mốc trong địa chỉ → tâm khu vực) để tin nhập tự động cũng tìm được theo bán kính
+    const geo = GeocodingService.resolveCoordinates(ext.address) || GeocodingService.resolveCoordinates(ext.district);
 
     const newApartment = await Apartment.create({
       title: ext.title,
@@ -168,8 +171,10 @@ export class DedupService {
       commission: { type: 'PERCENT', value: 50 },
       location: {
         address: ext.address,
+        ward: ext.ward,
         district: ext.district,
-        city: ext.city || 'Hà Nội',
+        city: ext.city,
+        coordinates: geo?.coordinates,
       },
       attributes: {
         area: ext.area,

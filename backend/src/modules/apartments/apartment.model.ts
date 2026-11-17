@@ -106,7 +106,7 @@ const apartmentSchema = new Schema<IApartment>(
       address: { type: String, required: true, trim: true },
       ward: { type: String, trim: true },
       district: { type: String, required: true, trim: true, index: true },
-      city: { type: String, required: true, default: 'Hà Nội', trim: true },
+      city: { type: String, required: true, default: 'Đà Nẵng', trim: true },
       coordinates: { type: [Number], index: '2dsphere' },
     },
     attributes: {

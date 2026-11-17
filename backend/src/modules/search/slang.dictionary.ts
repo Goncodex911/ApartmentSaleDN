@@ -1,3 +1,5 @@
+import { DANANG_DISTRICTS } from './landmarks.data.js';
+
 /**
  * Từ điển Tiếng Lóng Bất Động Sản & Quy tắc Mở rộng Đồng nghĩa (Synonyms Mapping)
  */
@@ -97,28 +99,16 @@ export function buildDiacriticRegex(str: string): string {
 }
 
 /**
- * Xử lý lỗi gõ nhầm (Levenshtein 1 lỗi) cho các địa danh Hà Nội phổ biến
+ * Tên khu vực Đà Nẵng + viết tắt hay gõ (so khớp nguyên từ, không dấu, viết liền/rời đều nhận).
+ * Không dùng "st" cho Sơn Trà: trùng chữ viết tắt "Street" trong tin tiếng Anh.
  */
 export const DISTRICT_SYNONYMS: Record<string, string> = {
-  caugiay: 'Cầu Giấy',
-  caugay: 'Cầu Giấy',
-  cg: 'Cầu Giấy',
-  dongda: 'Đống Đa',
-  doda: 'Đống Đa',
-  dd: 'Đống Đa',
-  namtuliem: 'Nam Từ Liêm',
-  ntl: 'Nam Từ Liêm',
-  bactuliem: 'Bắc Từ Liêm',
-  btl: 'Bắc Từ Liêm',
-  thanhxuan: 'Thanh Xuân',
-  tx: 'Thanh Xuân',
-  badinh: 'Ba Đình',
-  tayho: 'Tây Hồ',
-  th: 'Tây Hồ',
-  haibatrung: 'Hai Bà Trưng',
-  hbt: 'Hai Bà Trưng',
-  hoangmai: 'Hoàng Mai',
-  hadong: 'Hà Đông',
-  hd: 'Hà Đông',
+  ...Object.fromEntries(DANANG_DISTRICTS.map((name) => [name, name])),
+  hc: 'Hải Châu',
+  tk: 'Thanh Khê',
+  nhs: 'Ngũ Hành Sơn',
+  lc: 'Liên Chiểu',
+  cl: 'Cẩm Lệ',
+  hv: 'Hòa Vang',
 };
 
