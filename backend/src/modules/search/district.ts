@@ -53,7 +53,8 @@ const DISTRICT_ZONES: Record<string, Zone> = { 'Hải Châu': 'Hải Châu', 'S�
  * VD phường "An Hải Bắc" → "An Hải"; quận Ngũ Hành Sơn nhưng phường Hòa Hải → "Ngũ Hành Sơn"; quận Thanh Khê → "Khác".
  */
 export function deriveZone(location: { ward?: string | null; address?: string | null; district?: string | null }): Zone {
-  const ward = (findWard(location.ward) || findWard(location.address))?.ward;
+  // Căn nhập tay / tin cũ hay ghi tên phường vào ô quận ("hòa xuân") → tìm phường ở cả 3 ô
+  const ward = (findWard(location.ward) || findWard(location.address) || findWard(location.district))?.ward;
   if (ward?.startsWith('An Hải')) return 'An Hải';
   if (ward && WARD_ZONES[ward]) return WARD_ZONES[ward];
   const district = canonicalDistrict(location.district);
