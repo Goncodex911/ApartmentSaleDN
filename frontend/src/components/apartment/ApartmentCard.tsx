@@ -2,6 +2,7 @@ import React from 'react';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { formatVnd } from '../../utils/format.js';
+import { imageCors } from '../../utils/offlineCache.js';
 import { CopyShareButton } from './CopyShareButton.js';
 import { beachDistanceText, roomParts, zoneText } from '../../utils/apartmentLabels.js';
 
@@ -44,7 +45,7 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
       className="flex gap-3 p-3 bg-white rounded-2xl border border-slate-200 cursor-pointer hover:border-slate-300 active:bg-slate-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
     >
       {thumbnail ? (
-        <img src={thumbnail} alt={apartment.title} loading="lazy" className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl object-cover shrink-0 bg-slate-100" />
+        <img src={thumbnail} alt={apartment.title} loading="lazy" crossOrigin={imageCors(thumbnail)} className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl object-cover shrink-0 bg-slate-100" />
       ) : (
         <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-slate-100 shrink-0" aria-hidden />
       )}

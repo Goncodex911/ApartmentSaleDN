@@ -3,6 +3,7 @@ import { Landmark, apartmentApi } from '../../api/apartmentApi.js';
 import { AMENITY_KEYS, ApartmentFilterValues, EMPTY_FILTERS, countActiveFilters } from '../../hooks/useApartmentSearch.js';
 import { amenityLabel } from '../../utils/amenities.js';
 import { X } from 'lucide-react';
+import { tapFeedback } from '../../utils/haptics.js';
 import { PROPERTY_TYPES, ZONES } from '../../utils/danang.js';
 
 export const PRICE_RANGES = [
@@ -30,7 +31,10 @@ const RADIUS_OPTIONS = ['1', '2', '3', '5'];
 const Chip: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
   <button
     type="button"
-    onClick={onClick}
+    onClick={() => {
+      tapFeedback(); // Story 9.4: rung nhẹ khi chọn lọc
+      onClick();
+    }}
     aria-pressed={active}
     className={`min-h-[40px] px-3.5 rounded-full border text-sm transition-colors ${
       active ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'

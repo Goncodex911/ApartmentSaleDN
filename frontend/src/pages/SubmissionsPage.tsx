@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { User, authApi } from '../api/authApi.js';
+import { useApp } from '../components/layout/AppShell.js';
+import { PullIndicator } from '../components/layout/PullIndicator.js';
+import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
 import { ApartmentPayload } from '../api/apartmentApi.js';
 import { DuplicateApartment, ListingSubmission, submissionApi } from '../api/submissionApi.js';
 import { useSubmissions } from '../hooks/useSubmissions.js';
-import { Navbar } from '../components/layout/Navbar.js';
-import { ProfileModal } from '../components/profile/ProfileModal.js';
 import { ApartmentModal } from '../components/apartment/ApartmentModal.js';
 import { SubmissionCard } from '../components/submissions/SubmissionCard.js';
 import { DuplicateDialog, RejectDialog } from '../components/submissions/ReviewDialogs.js';
@@ -16,29 +15,23 @@ const REVIEW_TABS = [
   { status: '', label: 'Tất cả' },
 ];
 
-// Form đang mở: đăng tin mới (CTV) hoặc sửa tin còn chờ duyệt
-type FormState = { mode: 'create' } | { mode: 'edit'; submission: ListingSubmission };
 
 /**
  * Tin đăng (Story 8.6) — CTV: "Tin tôi đăng" + nút Đăng tin; Quản lý: "Duyệt tin" (xem, sửa, duyệt / gộp, từ chối).
  */
 export const SubmissionsPage: React.FC = () => {
-  const navigate = useNavigate();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const { user: currentUser, openSubmit } = useApp(); // AppShell: người dùng + form Đăng tin dùng chung (Story 9.3)
   const [tab, setTab] = useState('PENDING');
-  const [form, setForm] = useState<FormState | null>(null);
+  const [editing, setEditing] = useState<ListingSubmission | null>(null); // Tin đang sửa (còn chờ duyệt); đăng tin mới dùng form chung của AppShell
   const [rejecting, setRejecting] = useState<ListingSubmission | null>(null);
   const [duplicates, setDuplicates] = useState<{ submission: ListingSubmission; items: DuplicateApartment[] } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
-  useEffect(() => {
-    authApi.getMe().then((res) => setCurrentUser(res.data)).catch(() => navigate('/login'));
-  }, [navigate]);
 
   const isManager = currentUser?.role === 'MANAGER' || currentUser?.role === 'ADMIN';
   const { items, state, reload } = useSubmissions(currentUser ? (isManager ? 'review' : 'mine') : null, isManager ? tab : '');
+  const pullState = usePullToRefresh(reload); // Story 9.4: kéo xuống ở đầu trang để tải lại (app đã cài)
 
   // Chạy 1 thao tác trên tin: khóa nút của tin đó, báo kết quả, tải lại danh sách
   const run = async (submission: ListingSubmission, action: () => Promise<unknown>, success: string) => {
@@ -69,10 +62,9 @@ export const SubmissionsPage: React.FC = () => {
     else approve(submission);
   };
 
-  const saveForm = async (payload: ApartmentPayload) => {
-    if (form?.mode === 'edit') await submissionApi.update(form.submission._id, payload);
-    else await submissionApi.create(payload);
-    setMessage({ tone: 'ok', text: form?.mode === 'edit' ? 'Đã lưu tin' : 'Đã gửi tin, chờ Quản lý duyệt' });
+  const saveEdit = async (payload: ApartmentPayload) => {
+    await submissionApi.update(editing!._id, payload);
+    setMessage({ tone: 'ok', text: 'Đã lưu tin' });
     reload();
   };
 
@@ -104,7 +96,7 @@ export const SubmissionsPage: React.FC = () => {
             key={submission._id}
             submission={submission}
             busy={busyId === submission._id}
-            onEdit={() => setForm({ mode: 'edit', submission })}
+            onEdit={() => setEditing(submission)}
             {...(isManager
               ? { onApprove: () => startApprove(submission), onReject: () => setRejecting(submission) }
               : {
@@ -119,14 +111,13 @@ export const SubmissionsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Navbar user={currentUser} onOpenProfile={() => setIsProfileOpen(true)} onLogout={() => { localStorage.clear(); navigate('/login'); }} />
-
-      <main className="max-w-5xl mx-auto px-4 pt-4 pb-badge-safe space-y-3">
+    <>
+      <PullIndicator {...pullState} />
+      <main className="max-w-5xl mx-auto px-4 pt-4 pb-app space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-xl font-bold text-slate-900">{isManager ? 'Duyệt tin' : 'Tin tôi đăng'}</h1>
           {currentUser && !isManager && (
-            <button onClick={() => setForm({ mode: 'create' })} className="h-11 px-4 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
+            <button onClick={openSubmit} className="hidden md:block h-11 px-4 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
               Đăng tin
             </button>
           )}
@@ -156,14 +147,8 @@ export const SubmissionsPage: React.FC = () => {
         {renderList()}
       </main>
 
-      {form && (
-        <ApartmentModal
-          initialData={form.mode === 'edit' ? form.submission.data : null}
-          heading={form.mode === 'edit' ? 'Sửa tin đăng' : 'Đăng tin'}
-          submitLabel={form.mode === 'edit' ? 'Lưu tin' : 'Gửi Quản lý duyệt'}
-          onSave={saveForm}
-          onClose={() => setForm(null)}
-        />
+      {editing && (
+        <ApartmentModal initialData={editing.data} heading="Sửa tin đăng" submitLabel="Lưu tin" onSave={saveEdit} onClose={() => setEditing(null)} />
       )}
       {rejecting && (
         <RejectDialog
@@ -182,7 +167,6 @@ export const SubmissionsPage: React.FC = () => {
           onCreateNew={() => approve(duplicates.submission)}
         />
       )}
-      {isProfileOpen && currentUser && <ProfileModal user={currentUser} onClose={() => setIsProfileOpen(false)} onProfileUpdated={setCurrentUser} />}
-    </div>
+    </>
   );
 };

@@ -1,32 +1,28 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { User, authApi } from '../../api/authApi.js';
-import { copyText } from '../../utils/clipboard.js';
-import { PendingUsersModal } from './PendingUsersModal.js';
+import { User } from '../../api/authApi.js';
 import { NotificationBell } from './NotificationBell.js';
-import { usePendingSubmissionCount } from '../../hooks/useSubmissions.js';
 
 interface NavbarProps {
   user: User | null;
-  onOpenProfile: () => void;
-  onLogout: () => void;
+  pendingCount: number;
+  accountMenu: React.ReactNode; // Nội dung menu avatar (AccountMenu) — AppShell truyền vào
 }
 
-const ROLE_LABEL: Record<User['role'], string> = { ADMIN: 'Admin', MANAGER: 'Quản lý', COLLABORATOR: 'CTV' };
 const NAV_ITEMS = [
   { to: '/apartments', label: 'Bảng hàng' },
   { to: '/leads', label: 'Khách hàng' },
   { to: '/submissions', label: 'Tin đăng' }, // Story 8.6: Quản lý thấy là "Duyệt tin" kèm số tin chờ
 ];
 
-// Thanh trên tối giản: logo + 2 tab + chuông + avatar (Hồ sơ, Duyệt tài khoản, Đăng xuất nằm trong menu avatar)
-export const Navbar: React.FC<NavbarProps> = ({ user, onOpenProfile, onLogout }) => {
+/**
+ * Thanh trên. Máy tính: logo + tab + chuông + avatar. Điện thoại (Story 9.3): chỉ logo + chuông —
+ * tab và tài khoản chuyển xuống menu đáy trong tầm ngón cái.
+ */
+export const Navbar: React.FC<NavbarProps> = ({ user, pendingCount, accountMenu }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isApprovalOpen, setIsApprovalOpen] = useState(false);
-  const [codeCopied, setCodeCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const isManager = user?.role === 'ADMIN' || user?.role === 'MANAGER';
-  const pendingCount = usePendingSubmissionCount(isManager);
 
   // Đóng menu khi chạm ra ngoài
   useEffect(() => {
@@ -36,32 +32,21 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onOpenProfile, onLogout })
     return () => document.removeEventListener('pointerdown', close);
   }, [isMenuOpen]);
 
-  const handleLogout = async () => {
-    await authApi.logout().catch(() => undefined); // Lỗi mạng khi đăng xuất thì vẫn xóa phiên ở máy
-    onLogout();
-  };
-
-  const handleCopyCode = async () => {
-    if (user && (await copyText(user.ctvCode))) {
-      setCodeCopied(true);
-      setTimeout(() => setCodeCopied(false), 1500);
-    }
-  };
-
-  const menuItem = 'w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50';
-
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 pt-[env(safe-area-inset-top)]">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          <span className="hidden sm:inline mr-2 text-base font-bold text-indigo-600">RoomMaster</span>
+          <NavLink to="/apartments" className="flex items-center gap-2 mr-2" aria-label="ApartmentDN — Bảng hàng">
+            <img src="/icons/favicon-64.png" alt="" className="w-8 h-8 rounded-lg" />
+            <span className="text-base font-bold text-[#0f2a45]">ApartmentDN</span>
+          </NavLink>
           {user &&
             NAV_ITEMS.map(({ to, label }) => (
               <NavLink
                 key={to}
                 to={to}
                 className={({ isActive }) =>
-                  `h-9 px-2 sm:px-3 flex items-center gap-1 rounded-lg text-sm font-medium whitespace-nowrap ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-800'}`
+                  `hidden md:flex h-9 px-3 items-center gap-1 rounded-lg text-sm font-medium whitespace-nowrap ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-800'}`
                 }
               >
                 {to === '/submissions' && isManager ? 'Duyệt tin' : label}
@@ -77,7 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onOpenProfile, onLogout })
         {user && (
           <div className="flex items-center gap-1">
             <NotificationBell user={user} />
-            <div className="relative" ref={menuRef}>
+            <div className="relative hidden md:block" ref={menuRef}>
               <button
                 onClick={() => setIsMenuOpen((open) => !open)}
                 aria-label="Tài khoản"
@@ -87,25 +72,18 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onOpenProfile, onLogout })
                 {user.name.trim().charAt(0).toUpperCase()}
               </button>
               {isMenuOpen && (
-                <div className="absolute right-0 top-11 w-60 bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden z-50">
-                  <div className="px-4 py-3 border-b border-slate-100">
-                    <p className="text-sm font-semibold text-slate-900 truncate">{user.name}</p>
-                    <button onClick={handleCopyCode} className="text-xs text-slate-500 hover:text-slate-700">
-                      {ROLE_LABEL[user.role]} · {codeCopied ? 'Đã copy mã' : user.ctvCode}
-                    </button>
-                  </div>
-                  <button className={menuItem} onClick={() => { setIsMenuOpen(false); onOpenProfile(); }}>Hồ sơ cá nhân</button>
-                  {user.role === 'ADMIN' && (
-                    <button className={menuItem} onClick={() => { setIsMenuOpen(false); setIsApprovalOpen(true); }}>Duyệt tài khoản</button>
-                  )}
-                  <button className={`${menuItem} text-rose-600 border-t border-slate-100`} onClick={handleLogout}>Đăng xuất</button>
+                // Bấm mục nào trong menu thì đóng menu (nút copy mã tự chặn để giữ chữ "Đã copy")
+                <div
+                  onClick={() => setIsMenuOpen(false)}
+                  className="absolute right-0 top-11 w-60 p-1 bg-white rounded-xl border border-slate-200 shadow-lg z-50"
+                >
+                  {accountMenu}
                 </div>
               )}
             </div>
           </div>
         )}
       </div>
-      {isApprovalOpen && <PendingUsersModal onClose={() => setIsApprovalOpen(false)} />}
     </header>
   );
 };

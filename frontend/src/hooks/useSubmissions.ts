@@ -14,6 +14,13 @@ export function useSubmissions(mode: 'mine' | 'review' | null, status: string) {
   const [state, setState] = useState<'loading' | 'error' | 'ready'>('loading');
   const [reloadKey, setReloadKey] = useState(0);
 
+  // Đăng tin từ menu đáy / trang khác (Story 9.3) → danh sách tự tải lại
+  useEffect(() => {
+    const refresh = () => setReloadKey((key) => key + 1);
+    window.addEventListener(CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(CHANGED_EVENT, refresh);
+  }, []);
+
   useEffect(() => {
     if (!mode) return; // Chưa biết vai trò người dùng
     let cancelled = false;

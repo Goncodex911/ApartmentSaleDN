@@ -2,13 +2,21 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hệ thống Quản lý Căn hộ & CTV</title>
+    <!-- viewport-fit=cover: dùng env(safe-area-inset-*) cho tai thỏ / thanh Home của iPhone (Story 9.1, 9.3) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>ApartmentDN</title>
+    <meta name="description" content="Kho căn hộ cho thuê Đà Nẵng cho CTV và Quản lý" />
+    <meta name="theme-color" content="#0f2a45" />
+    <link rel="icon" type="image/png" href="/icons/favicon-64.png" />
+    <!-- iOS Safari: chạy toàn màn hình khi mở từ màn hình chính -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ApartmentDN" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   </head>
   <body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

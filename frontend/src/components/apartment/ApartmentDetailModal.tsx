@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { formatVnd } from '../../utils/format.js';
+import { imageCors } from '../../utils/offlineCache.js';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { StatusBadge } from './StatusBadge.js';
@@ -7,7 +8,8 @@ import { CopyShareButton } from './CopyShareButton.js';
 import { DownloadPhotosButton } from './DownloadPhotosButton.js';
 import { ShareLinkButton } from './ShareLinkButton.js';
 import { ShareLangToggle } from './ShareLangToggle.js';
-import { Lang, getShareLang, setShareLang } from '../../utils/shareLang.js';
+import { Lang, getShareLang, setShareLang, withLang } from '../../utils/shareLang.js';
+import { shareApi } from '../../api/shareApi.js';
 import { X, MapPin } from 'lucide-react';
 import { marketLabels, roomParts, usdText, zoneText } from '../../utils/apartmentLabels.js';
 import { amenityLabels } from '../../utils/amenities.js';
@@ -41,6 +43,12 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
   // Hook phải gọi trước mọi lệnh return (Rules of Hooks); trang cha đặt key theo _id nên state reset khi đổi căn
   const [activeImage, setActiveImage] = useState(apartment?.images?.[0] || '');
   const [shareLang, setShareLangState] = useState<Lang>(getShareLang); // Story 7.3: nhớ lựa chọn cho lần sau
+  const [shareLink, setShareLink] = useState('');
+  // Story 9.4: tạo sẵn link xem phòng khi mở chi tiết — iPhone chỉ cho mở khay chia sẻ ngay trong lần bấm, không chờ API được
+  const canShareLink = !!apartment && apartment.status !== 'RENTED';
+  useEffect(() => {
+    if (canShareLink) shareApi.createLink(apartment!._id).then((link) => setShareLink(link.url)).catch(() => undefined);
+  }, [canShareLink, apartment?._id]);
   if (!apartment) return null;
 
   const { attributes, fees, location, ownerContact } = apartment;
@@ -89,7 +97,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
         <div className="flex-1 overflow-y-auto">
           {apartment.images.length > 0 && (
             <div className="bg-slate-100">
-              <img src={activeImage || apartment.images[0]} alt={apartment.title} className="w-full aspect-[4/3] object-cover" />
+              <img src={activeImage || apartment.images[0]} alt={apartment.title} crossOrigin={imageCors(activeImage || apartment.images[0])} className="w-full aspect-[4/3] object-cover" />
               {apartment.images.length > 1 && (
                 <div className="flex gap-2 overflow-x-auto scrollbar-none p-2 bg-white">
                   {apartment.images.map((img, idx) => (
@@ -99,7 +107,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
                       aria-label={`Ảnh ${idx + 1}`}
                       className={`w-14 h-14 shrink-0 rounded-lg overflow-hidden ring-2 ${activeImage === img ? 'ring-indigo-600' : 'ring-transparent opacity-70'}`}
                     >
-                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <img src={img} alt="" crossOrigin={imageCors(img)} className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>
@@ -197,7 +205,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
         <div key={apartment._id} className="shrink-0 border-t border-slate-100 p-3 pb-badge-safe sm:pb-3 space-y-2">
           <ShareLangToggle value={shareLang} onChange={(lang) => { setShareLang(lang); setShareLangState(lang); }} />
           <div className="grid grid-cols-3 gap-2">
-            <CopyShareButton apartment={apartment} ctv={currentUser} lang={shareLang} />
+            <CopyShareButton apartment={apartment} ctv={currentUser} lang={shareLang} shareUrl={shareLink && withLang(shareLink, shareLang)} />
             <DownloadPhotosButton apartmentId={apartment._id} photoCount={visibleImageCount} />
             <ShareLinkButton apartmentId={apartment._id} disabled={apartment.status === 'RENTED'} lang={shareLang} />
           </div>
