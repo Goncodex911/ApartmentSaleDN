@@ -12,12 +12,10 @@ export const PRICE_RANGES = [
   { id: '12m_20m', label: '12 – 20 triệu' },
   { id: 'above_20m', label: 'Trên 20 triệu' },
 ];
-// Studio / Duplex nằm ở nhóm Loại căn (Story 8.4); "studio", "duplex" vẫn giữ để đọc link / chip cũ
+// Studio / Duplex nằm ở nhóm Loại căn (Story 8.4)
 export const ROOM_TYPES = [
   { id: '1pn', label: '1 phòng ngủ' },
   { id: '2pn', label: '2 phòng ngủ' },
-  { id: 'studio', label: 'Studio', hidden: true },
-  { id: 'duplex', label: 'Duplex / gác xép', hidden: true },
 ];
 // Tên tiện ích tiếng Anh lấy từ danh mục chung (Story 8.5); "Gần biển" là điều kiện khoảng cách, khác "Sea view"
 export const AMENITIES = AMENITY_KEYS.map((key) => ({ key, label: key === 'nearBeach' ? 'Gần biển (<1km)' : amenityLabel(key) }));
@@ -106,7 +104,7 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({ initial, isManager, on
             ))}
           </Section>
           <Section title="Phòng ngủ">
-            {ROOM_TYPES.filter((r) => !r.hidden).map((r) => (
+            {ROOM_TYPES.map((r) => (
               <Chip key={r.id} active={draft.roomType === r.id} onClick={() => pick('roomType', r.id)}>{r.label}</Chip>
             ))}
           </Section>

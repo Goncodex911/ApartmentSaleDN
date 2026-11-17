@@ -31,7 +31,8 @@ export async function prepareLocation(input: LocationInput, current?: IApartment
   }
 
   if (input.street || input.houseNumber !== undefined) {
-    const saved = { ...splitAddress(current?.address), ...(current?.street && { street: current.street, houseNumber: current.houseNumber }) };
+    // Giá trị đang lưu; căn cũ chưa có tên đường → tách từ địa chỉ
+    const saved = current?.street ? { street: current.street, houseNumber: current.houseNumber } : splitAddress(current?.address);
     const street = input.street || saved.street;
     const houseNumber = input.houseNumber === undefined ? saved.houseNumber : input.houseNumber;
     input.address = [houseNumber, street].filter(Boolean).join(' ');

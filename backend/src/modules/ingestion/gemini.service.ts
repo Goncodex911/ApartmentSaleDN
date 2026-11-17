@@ -187,7 +187,7 @@ ${rawText.trim()}
     const unknownDistrict = location.district === UNKNOWN_DISTRICT;
     // Story 8.4: khu vực tính bằng code (không để AI đoán); loại căn AI trả sai → đoán theo tiêu đề, không ra thì "Căn hộ" + cần kiểm tra
     const zone = location.city === 'Đà Nẵng' ? deriveZone({ ...location, address }) : OTHER_ZONE;
-    const guessedType = PROPERTY_TYPES.includes(ext.propertyType) ? ext.propertyType : inferPropertyType(ext.title);
+    const guessedType = PROPERTY_TYPES.includes(ext.propertyType) ? ext.propertyType : inferPropertyType(ext.title) || inferPropertyType(rawText);
 
     const needsReview = Boolean(ext.needsReview || price === 0 || priceFromUsd || !phone || unknownDistrict || !guessedType);
     const reviewReason =

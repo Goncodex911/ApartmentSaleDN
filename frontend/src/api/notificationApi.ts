@@ -2,7 +2,7 @@ import { apiClient } from './client.js';
 
 export interface AppNotification {
   _id: string;
-  type: 'NEW_CHAT_LEAD' | 'APARTMENT_MATCH';
+  type: 'NEW_CHAT_LEAD' | 'APARTMENT_MATCH' | 'LISTING_SUBMITTED' | 'LISTING_APPROVED' | 'LISTING_REJECTED';
   title: string;
   body: string;
   leadId?: string;

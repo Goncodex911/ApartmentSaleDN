@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AppNotification, notificationApi } from '../../api/notificationApi.js';
 import { User } from '../../api/authApi.js';
 import { MatchShareModal } from '../leads/MatchShareModal.js';
-import { Bell, Sparkles, MessageSquare } from 'lucide-react';
+import { Bell, Sparkles, MessageSquare, ClipboardCheck } from 'lucide-react';
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -52,6 +52,8 @@ export const NotificationBell: React.FC<{ user: User }> = ({ user }) => {
     }
     if (item.type === 'APARTMENT_MATCH' && item.apartmentId && item.leadId) {
       setMatch({ apartmentId: item.apartmentId, leadId: item.leadId });
+    } else if (item.type.startsWith('LISTING_')) {
+      navigate('/submissions'); // Tin đăng chờ duyệt / kết quả duyệt (Story 8.6)
     } else {
       navigate('/leads');
     }
@@ -87,6 +89,8 @@ export const NotificationBell: React.FC<{ user: User }> = ({ user }) => {
             >
               {item.type === 'APARTMENT_MATCH' ? (
                 <Sparkles className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              ) : item.type.startsWith('LISTING_') ? (
+                <ClipboardCheck className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
               ) : (
                 <MessageSquare className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
               )}

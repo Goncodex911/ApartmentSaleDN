@@ -11,7 +11,7 @@ import { amenityLabels } from '../utils/amenities.js';
 import { usePublicLang } from '../hooks/usePublicLang.js';
 import { PUBLIC_COPY } from '../utils/publicCopy.js';
 import { Lang } from '../utils/shareLang.js';
-import { headlineEn, addressEn, toAscii, formatVndEn, feesEn, amenitiesEn, bedroomsEn, FURNISHING_EN, minStayEn, dateEn } from '../utils/listingEn.js';
+import { headlineEn, addressEn, formatVndEn, feesEn, amenitiesEn, bedroomsEn, FURNISHING_EN, minStayEn, dateEn } from '../utils/listingEn.js';
 
 const FURNISHING_LABEL = { FULL: 'Full đồ', BASIC: 'Đồ cơ bản', EMPTY: 'Nhà trống' } as const;
 

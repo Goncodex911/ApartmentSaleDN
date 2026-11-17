@@ -10,6 +10,7 @@ import { ApartmentModal } from '../components/apartment/ApartmentModal.js';
 import { QuickPasteModal } from '../components/apartment/QuickPasteModal.js';
 import { FilterSheet, PRICE_RANGES, ROOM_TYPES, AMENITIES, STATUSES } from '../components/apartment/FilterSheet.js';
 import { ProfileModal } from '../components/profile/ProfileModal.js';
+import { submissionApi } from '../api/submissionApi.js';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { propertyTypeLabel, PropertyType } from '../utils/danang.js';
 
@@ -42,6 +43,7 @@ export const ApartmentsPage: React.FC = () => {
   const [editingApartment, setEditingApartment] = useState<Apartment | null | undefined>(undefined); // undefined = đóng form
   const [isQuickPasteOpen, setIsQuickPasteOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSubmitOpen, setIsSubmitOpen] = useState(false); // CTV đăng tin chờ duyệt (Story 8.6)
 
   useEffect(() => {
     authApi.getMe().then((res) => setCurrentUser(res.data)).catch(() => navigate('/login'));
@@ -77,6 +79,11 @@ export const ApartmentsPage: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-900">Bảng hàng</h1>
             <p className="text-sm text-slate-500">{pagination.total} căn hộ</p>
           </div>
+          {currentUser && !isManager && (
+            <button onClick={() => setIsSubmitOpen(true)} className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
+              Đăng tin
+            </button>
+          )}
           {isManager && (
             <div className="flex items-center gap-1">
               <button onClick={() => setIsQuickPasteOpen(true)} className="h-10 px-3 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-200">
@@ -187,6 +194,17 @@ export const ApartmentsPage: React.FC = () => {
       />
       {/* Chỉ mount modal khi mở → form reset mỗi lần mở */}
       {editingApartment !== undefined && <ApartmentModal initialData={editingApartment} onClose={() => setEditingApartment(undefined)} onSuccess={reload} />}
+      {isSubmitOpen && (
+        <ApartmentModal
+          heading="Đăng tin"
+          submitLabel="Gửi Quản lý duyệt"
+          onSave={async (payload) => {
+            await submissionApi.create(payload);
+            navigate('/submissions'); // Xem tin vừa gửi ở trạng thái Chờ duyệt
+          }}
+          onClose={() => setIsSubmitOpen(false)}
+        />
+      )}
       {isQuickPasteOpen && <QuickPasteModal onClose={() => setIsQuickPasteOpen(false)} onSuccess={reload} />}
       {isProfileOpen && currentUser && <ProfileModal user={currentUser} onClose={() => setIsProfileOpen(false)} onProfileUpdated={setCurrentUser} />}
     </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Apartment, apartmentApi } from '../../api/apartmentApi.js';
+import { Apartment, ApartmentPayload, apartmentApi } from '../../api/apartmentApi.js';
 import { X, Loader2 } from 'lucide-react';
 import { PhotoUploader } from './PhotoUploader.js';
 import { LocationSection, toLocationForm, fromLocationForm, isLocationComplete } from './LocationSection.js';
@@ -12,7 +12,11 @@ import { PROPERTY_TYPES, PropertyType } from '../../utils/danang.js';
 interface ApartmentModalProps {
   initialData?: Apartment | null;
   onClose: () => void;
-  onSuccess: (savedApartment: Apartment) => void;
+  onSuccess?: (savedApartment: Apartment) => void;
+  // Story 8.6: dùng chung form cho Đăng tin / Sửa tin chờ duyệt — truyền hàm lưu riêng thay cho tạo/sửa căn trong kho
+  onSave?: (payload: ApartmentPayload) => Promise<unknown>;
+  heading?: string;
+  submitLabel?: string;
 }
 
 type Furnishing = Apartment['attributes']['furnishing'];
@@ -23,7 +27,7 @@ const toText = (value?: number) => (value !== undefined && value !== null ? Stri
  * xóa trắng ô khi sửa → gửi null để backend xóa giá trị cũ.
  * Trang cha chỉ render modal khi đang mở → mỗi lần mở là một lần mount mới, form lấy lại initialData.
  */
-export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onClose, onSuccess }) => {
+export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onClose, onSuccess, onSave, heading, submitLabel }) => {
   const isEdit = Boolean(initialData?._id);
   const attrs = initialData?.attributes;
   const [loading, setLoading] = useState(false);
@@ -81,10 +85,13 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
     try {
       setLoading(true);
       setError(null);
-      const result = isEdit
-        ? await apartmentApi.updateApartment(initialData!._id, payload)
-        : await apartmentApi.createApartment(payload);
-      onSuccess(result.data);
+      if (onSave) await onSave(payload);
+      else {
+        const result = isEdit
+          ? await apartmentApi.updateApartment(initialData!._id, payload)
+          : await apartmentApi.createApartment(payload);
+        onSuccess?.(result.data);
+      }
       onClose();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Có lỗi xảy ra khi lưu căn hộ');
@@ -104,7 +111,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
           <button type="button" onClick={onClose} aria-label="Đóng" className="p-3 text-slate-500 hover:text-slate-800">
             <X className="w-5 h-5" />
           </button>
-          <h2 className="text-base font-semibold text-slate-900">{isEdit ? 'Sửa căn hộ' : 'Thêm căn hộ'}</h2>
+          <h2 className="text-base font-semibold text-slate-900">{heading || (isEdit ? 'Sửa căn hộ' : 'Thêm căn hộ')}</h2>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -169,7 +176,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
             </div>
           </FormSection>
 
-          <FormSection title="Chủ nhà / đầu mối (CTV không thấy)" tone="private">
+          <FormSection title="Chủ nhà / đầu mối (chỉ Quản lý xem được)" tone="private">
             <div className="grid grid-cols-2 gap-3 items-end">
               <Field label="Tên" required>
                 <input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} autoComplete="off" className={inputClass} />
@@ -191,7 +198,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
           </button>
           <button type="submit" disabled={loading} className="flex-1 h-11 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60">
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isEdit ? 'Lưu thay đổi' : 'Lưu căn hộ'}
+            {submitLabel || (isEdit ? 'Lưu thay đổi' : 'Lưu căn hộ')}
           </button>
         </div>
       </form>
