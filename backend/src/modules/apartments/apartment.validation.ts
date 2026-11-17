@@ -46,6 +46,11 @@ export const createApartmentSchema = z.object({
       pool: z.boolean().default(false),
       distanceToBeachM: z.number().int().min(0).max(100000).optional(),
       motorbikeParking: z.boolean().default(false),
+      gym: z.boolean().optional(), // Story 8.5
+      bathtub: z.boolean().optional(),
+      riverView: z.boolean().optional(),
+      seaView: z.boolean().optional(),
+      sauna: z.boolean().optional(),
     }), // Bắt buộc gửi: có loại căn (Story 8.4)
   fees: z
     .object({

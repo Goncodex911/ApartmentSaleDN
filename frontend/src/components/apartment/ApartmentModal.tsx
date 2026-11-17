@@ -4,7 +4,9 @@ import { X, Loader2 } from 'lucide-react';
 import { PhotoUploader } from './PhotoUploader.js';
 import { LocationSection, toLocationForm, fromLocationForm, isLocationComplete } from './LocationSection.js';
 import { MarketFieldsSection, toMarketForm, fromMarketForm } from './MarketFieldsSection.js';
-import { Field, FormSection, ToggleChip, inputClass, numberOr, textOr } from './formFields.js';
+import { AmenitiesSection } from './AmenitiesSection.js';
+import { Field, FormSection, inputClass, numberOr, textOr } from './formFields.js';
+import { AmenityKey, amenityKeysOf, amenityPayload } from '../../utils/amenities.js';
 import { PROPERTY_TYPES, PropertyType } from '../../utils/danang.js';
 
 interface ApartmentModalProps {
@@ -15,16 +17,6 @@ interface ApartmentModalProps {
 
 type Furnishing = Apartment['attributes']['furnishing'];
 const toText = (value?: number) => (value !== undefined && value !== null ? String(value) : '');
-
-// Tiện ích dạng bật/tắt trên form (Story 8.5 sẽ bổ sung thêm)
-const AMENITY_TOGGLES = [
-  { key: 'elevator', label: 'Thang máy' },
-  { key: 'allowPets', label: 'Cho nuôi pet' },
-  { key: 'carParking', label: 'Ô tô đỗ cửa' },
-  { key: 'balcony', label: 'Ban công' },
-  { key: 'pcccStandard', label: 'PCCC đạt chuẩn' },
-] as const;
-type AmenityKey = (typeof AMENITY_TOGGLES)[number]['key'];
 
 /**
  * Form thêm/sửa căn (Story 8.1): toàn màn hình trên điện thoại, KHÔNG điền sẵn số liệu giả,
@@ -45,13 +37,8 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
   const [bedrooms, setBedrooms] = useState(toText(attrs?.bedrooms));
   const [bathrooms, setBathrooms] = useState(toText(attrs?.bathrooms));
   const [furnishing, setFurnishing] = useState<Furnishing | ''>(attrs?.furnishing || '');
-  const [amenities, setAmenities] = useState<Record<AmenityKey, boolean>>({
-    elevator: attrs?.elevator ?? false,
-    allowPets: attrs?.allowPets ?? false,
-    carParking: attrs?.carParking ?? false,
-    balcony: attrs?.balcony ?? false,
-    pcccStandard: attrs?.pcccStandard ?? false,
-  });
+  // Tiện ích (Story 8.5): mã đang chọn; tạo mới không chọn sẵn gì
+  const [amenities, setAmenities] = useState<AmenityKey[]>(() => (initialData ? amenityKeysOf(initialData) : []));
   const [electricity, setElectricity] = useState(toText(initialData?.fees?.electricity));
   const [water, setWater] = useState(toText(initialData?.fees?.water));
   const [serviceFee, setServiceFee] = useState(toText(initialData?.fees?.service));
@@ -69,9 +56,11 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
     }
     // Ô trống: tạo mới → bỏ qua; sửa → null để xóa giá trị cũ
     const empty = isEdit ? null : undefined;
-    const marketPayload = fromMarketForm(market, empty);
+    const { distanceToBeachM, ...marketPayload } = fromMarketForm(market, empty);
+    const amenityData = amenityPayload(amenities, attrs?.washingMachine);
     const payload = {
       ...marketPayload,
+      includedServices: amenityData.includedServices,
       title,
       price: Number(price),
       location: fromLocationForm(location, empty, initialData?.location?.city),
@@ -81,8 +70,8 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
         bedrooms: Math.max(0, Math.trunc(Number(bedrooms))),
         bathrooms: bathrooms.trim() ? Math.max(0, Math.trunc(Number(bathrooms))) : undefined, // Bắt buộc ở DB → không xóa được
         furnishing,
-        ...amenities,
-        ...marketPayload.attributes,
+        distanceToBeachM,
+        ...amenityData.attributes,
       },
       fees: { electricity: numberOr(electricity, empty), water: numberOr(water, empty), service: numberOr(serviceFee, empty) },
       images,
@@ -160,14 +149,9 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
                 </select>
               </Field>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {AMENITY_TOGGLES.map(({ key, label }) => (
-                <ToggleChip key={key} checked={amenities[key]} onChange={(checked) => setAmenities((prev) => ({ ...prev, [key]: checked }))}>
-                  {label}
-                </ToggleChip>
-              ))}
-            </div>
           </FormSection>
+
+          <AmenitiesSection value={amenities} onChange={setAmenities} />
 
           <MarketFieldsSection value={market} onChange={setMarket} />
 

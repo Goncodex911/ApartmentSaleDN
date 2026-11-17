@@ -55,6 +55,12 @@ export interface IApartment extends Document {
     pool?: boolean;
     distanceToBeachM?: number; // Khoảng cách tới biển (mét)
     motorbikeParking?: boolean; // Chỗ để xe máy (ô tô dùng carParking)
+    // Story 8.5 — không có giá trị mặc định: căn cũ "chưa có thông tin" khác với "không có"
+    gym?: boolean;
+    bathtub?: boolean;
+    riverView?: boolean;
+    seaView?: boolean;
+    sauna?: boolean;
   };
   fees: {
     electricity?: number;
@@ -138,6 +144,11 @@ const apartmentSchema = new Schema<IApartment>(
       pool: { type: Boolean, default: false },
       distanceToBeachM: { type: Number, min: 0 },
       motorbikeParking: { type: Boolean, default: false },
+      gym: { type: Boolean },
+      bathtub: { type: Boolean },
+      riverView: { type: Boolean },
+      seaView: { type: Boolean },
+      sauna: { type: Boolean },
     },
     fees: {
       electricity: { type: Number },

@@ -40,6 +40,7 @@ BƯỚC 2: NẾU LÀ TIN CHO THUÊ, TRÍCH XUẤT CÁC THÔNG SỐ CHUẨN XÁC:
 - carParking: boolean (CHỈ true khi ghi rõ ô tô/car đỗ được; "parking" chung chung hoặc chỗ để xe máy = false).
 - pcccStandard: boolean (PCCC đạt chuẩn, thang thoát hiểm, cửa chống cháy = true).
 - pool: boolean (hồ bơi, bể bơi, pool, swimming pool = true).
+- gym, bathtub, riverView, seaView, sauna: boolean — có phòng gym / bồn tắm / view sông (sông Hàn) / view biển (nhìn ra biển, KHÁC gần biển) / xông hơi.
 - distanceToBeachM: Khoảng cách tới biển, số nguyên MÉT ("less than 600m to the sea" -> 600, "cách biển 1,2km" -> 1200,
   "5 phút đi bộ ra biển" -> 400, "mặt biển/beachfront" -> 50). Không nhắc biển -> null.
 - motorbikeParking: boolean (chỗ để xe máy, hầm xe; "parking" chung chung = true).

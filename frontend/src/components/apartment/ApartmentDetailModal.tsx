@@ -10,6 +10,7 @@ import { ShareLangToggle } from './ShareLangToggle.js';
 import { Lang, getShareLang, setShareLang } from '../../utils/shareLang.js';
 import { X, MapPin } from 'lucide-react';
 import { marketLabels, roomParts, usdText, zoneText } from '../../utils/apartmentLabels.js';
+import { amenityLabels } from '../../utils/amenities.js';
 
 interface ApartmentDetailModalProps {
   apartment: Apartment | null;
@@ -52,12 +53,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
     `${attributes.bathrooms} WC`,
     attributes.area && `${attributes.area}m²`,
     FURNISHING_LABEL[attributes.furnishing],
-    attributes.elevator && 'Thang máy',
-    attributes.allowPets && 'Nuôi thú cưng',
-    attributes.carParking && 'Ô tô đỗ cửa',
-    attributes.balcony && 'Ban công',
-    attributes.pcccStandard && 'PCCC đạt chuẩn',
-    attributes.washingMachine === 'PRIVATE' && 'Máy giặt riêng',
+    ...amenityLabels(apartment), // Story 8.5: tên tiếng Anh từ danh mục chung
     ...marketLabels(apartment),
   ].filter(Boolean) as string[];
   const feeText = [

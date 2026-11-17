@@ -2,6 +2,7 @@ import { Apartment } from '../api/apartmentApi.js';
 import { User } from '../api/authApi.js';
 import { marketLabels, roomParts, usdText, zoneText } from './apartmentLabels.js';
 import { OTHER_ZONE } from './danang.js';
+import { amenityLabels } from './amenities.js';
 
 type ShareContact = Pick<User, 'name' | 'phone' | 'zaloPhone'>;
 
@@ -52,20 +53,10 @@ export function buildShareText(apartment: Apartment, ctv: ShareContact): string 
 
   const furnishing = [
     FURNISHING_LABEL[attributes.furnishing],
-    attributes.washingMachine === 'PRIVATE' ? 'máy giặt riêng' : '',
-    attributes.washingMachine === 'SHARED' ? 'máy giặt chung' : '',
   ].filter(Boolean);
 
-  const amenities = [
-    attributes.elevator && 'thang máy',
-    attributes.carParking && 'ô tô đỗ cửa',
-    attributes.allowPets && 'nuôi pet',
-    attributes.balcony && 'ban công',
-    attributes.pcccStandard && 'PCCC đạt chuẩn',
-    ...marketLabels({ ...apartment, minLeaseMonths: undefined }).map((label) => label.toLocaleLowerCase('vi-VN')),
-  ]
-    .filter(Boolean)
-    .join(', ');
+  // Tên tiện ích tiếng Anh như mọi nơi khác (Story 8.5) + khoảng cách biển
+  const amenities = [...amenityLabels(apartment), ...marketLabels({ ...apartment, minLeaseMonths: undefined })].join(', ');
 
   const availableFrom =
     status === 'UPCOMING' && availableDate
@@ -81,7 +72,7 @@ export function buildShareText(apartment: Apartment, ctv: ShareContact): string 
     `💵 Giá thuê: ${formatVnd(price)} VNĐ/tháng${apartment.priceUsd ? ` (${usdText(apartment.priceUsd)})` : ''}`,
     feeParts.length ? `⚡ Phí: ${feeParts.join(' · ')}` : '',
     `🛋 Nội thất: ${furnishing.join(', ')}`,
-    amenities ? `🚗 Tiện ích: ${amenities[0].toLocaleUpperCase('vi-VN')}${amenities.slice(1)}` : '',
+    amenities ? `✨ Tiện ích: ${amenities}` : '',
     apartment.minLeaseMonths ? `📅 Thuê tối thiểu ${apartment.minLeaseMonths} tháng` : '',
     availableFrom ? `🗓 Trống từ: ${availableFrom}` : '',
     `📞 Liên hệ xem phòng trực tiếp: ${ctv.name} - ${contactPhone}${ctv.zaloPhone ? ' (Zalo)' : ''}`,

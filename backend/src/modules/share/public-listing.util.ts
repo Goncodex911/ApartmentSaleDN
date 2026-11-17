@@ -58,6 +58,11 @@ export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
       pool: attributes.pool,
       distanceToBeachM: attributes.distanceToBeachM,
       motorbikeParking: attributes.motorbikeParking,
+      gym: attributes.gym,
+      bathtub: attributes.bathtub,
+      riverView: attributes.riverView,
+      seaView: attributes.seaView,
+      sauna: attributes.sauna,
     },
     location: {
       street: withStreet(apartment.location).street, // Chỉ tên đường — KHÔNG số nhà, link map (Story 8.3)

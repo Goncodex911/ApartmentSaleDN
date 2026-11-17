@@ -1,5 +1,6 @@
 import { Apartment, IncludedService } from '../api/apartmentApi.js';
 import { OTHER_ZONE, propertyTypeLabel } from './danang.js';
+import { amenityLabels } from './amenities.js';
 
 // Dữ liệu tối thiểu để mô tả căn bằng tiếng Anh — dùng được cho cả Apartment (CTV) và PublicListing (trang khách)
 export type ListingInfo = Pick<Apartment, 'price' | 'priceUsd' | 'minLeaseMonths' | 'status' | 'availableDate' | 'fees'> & {
@@ -48,30 +49,12 @@ export const FURNISHING_EN: Record<Apartment['attributes']['furnishing'], string
   EMPTY: 'Unfurnished',
 };
 
-const SERVICE_EN: Record<IncludedService, string> = {
-  WIFI: 'Free wifi',
-  CLEANING: 'Cleaning',
-  ELECTRICITY: 'Electricity included',
-  WATER: 'Water included',
-  LAUNDRY: 'Laundry',
-};
-
 const beachEn = (meters: number) => (meters < 1000 ? `${meters}m` : `${(meters / 1000).toFixed(1).replace('.0', '')}km`);
 
-/** Tiện ích tiếng Anh — ưu tiên những thứ khách nước ngoài hỏi nhiều (biển, hồ bơi) lên đầu. */
-export function amenitiesEn({ attributes: a, includedServices }: Pick<ListingInfo, 'attributes' | 'includedServices'>): string[] {
-  return [
-    a.distanceToBeachM != null && `${beachEn(a.distanceToBeachM)} to the beach`,
-    a.pool && 'Pool',
-    a.elevator && 'Elevator',
-    a.allowPets && 'Pet friendly',
-    a.carParking && 'Car parking',
-    a.motorbikeParking && 'Motorbike parking',
-    a.balcony && 'Balcony',
-    a.washingMachine === 'PRIVATE' && 'Private washing machine',
-    a.pcccStandard && 'Fire safety',
-    ...(includedServices || []).map((code) => SERVICE_EN[code]),
-  ].filter(Boolean) as string[];
+/** Tiện ích tiếng Anh: khoảng cách biển (khách hỏi đầu tiên) + danh mục tiện ích chung (Story 8.5). */
+export function amenitiesEn(listing: Pick<ListingInfo, 'attributes' | 'includedServices'>): string[] {
+  const beach = listing.attributes.distanceToBeachM;
+  return [...(beach != null ? [`${beachEn(beach)} to the beach`] : []), ...amenityLabels(listing)];
 }
 
 export function feesEn({ fees }: Pick<ListingInfo, 'fees'>): string[] {

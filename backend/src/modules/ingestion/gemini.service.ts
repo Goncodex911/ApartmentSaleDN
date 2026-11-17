@@ -5,6 +5,7 @@ import {
 import { resolveListingLocation, deriveZone, UNKNOWN_DISTRICT } from '../search/district.js';
 import { fetchWithRetry } from '../../utils/fetch-retry.js';
 import { splitAddress, ADDRESS_PLACEHOLDER } from '../../utils/street.js';
+import { NEW_AMENITY_KEYS } from '../search/slang.dictionary.js';
 import { OTHER_ZONE, PROPERTY_TYPES, PropertyType, Zone, inferPropertyType, roundLeaseMonths } from '../apartments/listing-taxonomy.js';
 import { INCLUDED_SERVICES, IncludedService } from '../apartments/apartment.model.js';
 
@@ -24,6 +25,8 @@ function sanitizeMarketFields(ext: any) {
     pool: ext.pool === true,
     distanceToBeachM: ext.distanceToBeachM === 0 ? 0 : positiveInt(ext.distanceToBeachM, 100000),
     motorbikeParking: ext.motorbikeParking === true,
+    // Story 8.5: tiện ích mới (AI trả boolean)
+    ...Object.fromEntries(NEW_AMENITY_KEYS.map((key) => [key, ext[key] === true])),
     priceUsd: positiveInt(ext.priceUsd, 100000),
     minLeaseMonths: roundLeaseMonths(ext.minLeaseMonths), // Story 8.4: làm tròn lên mốc 1/3/6/12
     includedServices: INCLUDED_SERVICES.filter((code) => services.includes(code)),
@@ -52,6 +55,11 @@ export interface IParsedApartmentData {
   pool: boolean;
   distanceToBeachM?: number;
   motorbikeParking: boolean;
+  gym?: boolean; // Story 8.5
+  bathtub?: boolean;
+  riverView?: boolean;
+  seaView?: boolean;
+  sauna?: boolean;
   priceUsd?: number;
   minLeaseMonths?: number;
   includedServices: IncludedService[];

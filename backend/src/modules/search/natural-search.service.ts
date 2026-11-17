@@ -2,6 +2,7 @@ import { LANDMARKS, DANANG_DISTRICTS } from './landmarks.data.js';
 import { consumeDistrict, canonicalDistrict } from './district.js';
 import { toSearchTokens, findPhrase } from './text-tokens.js';
 import { GeminiService } from '../ingestion/gemini.service.js';
+import { NEW_AMENITY_KEYS, NEW_AMENITY_PHRASES, NewAmenityKey } from './slang.dictionary.js';
 
 export interface INaturalExtracted {
   district?: string;
@@ -18,6 +19,11 @@ export interface INaturalExtracted {
   pcccStandard?: boolean;
   nearBeach?: boolean;
   pool?: boolean;
+  gym?: boolean; // Story 8.5
+  bathtub?: boolean;
+  riverView?: boolean;
+  seaView?: boolean;
+  sauna?: boolean;
 }
 
 export interface INaturalAnalysisResult {
@@ -30,7 +36,8 @@ export interface INaturalAnalysisResult {
 
 const ROOM_TYPES = ['studio', '1pn', '2pn', 'duplex'];
 const FURNISHING_VALUES = ['FULL', 'BASIC', 'EMPTY'];
-const AMENITY_KEYS = ['elevator', 'allowPets', 'carParking', 'balcony', 'pcccStandard', 'nearBeach', 'pool'] as const;
+const AMENITY_KEYS = ['elevator', 'allowPets', 'carParking', 'balcony', 'pcccStandard', 'nearBeach', 'pool', ...NEW_AMENITY_KEYS] as const;
+const NEW_AMENITY_LABEL: Record<NewAmenityKey, string> = { gym: 'Gym', bathtub: 'Bathtub', riverView: 'River view', seaView: 'Sea view', sauna: 'Sauna' };
 
 /**
  * Kết quả AI có thể bị khách chèn lệnh (prompt injection, VD bắt AI trả thêm "userRole":"ADMIN")
@@ -135,8 +142,9 @@ export class NaturalSearchService {
     if (has('ban cong', 'balcony')) result.balcony = true;
     if (has('full do', 'full noi that', 'day du noi that', 'du do', 'fully furnished')) result.furnishing = 'FULL';
     if (has('pccc')) result.pcccStandard = true;
-    if (has('gan bien', 'sat bien', 'mat bien', 'view bien', 'ra bien', 'beach', 'beachfront')) result.nearBeach = true;
+    if (has('gan bien', 'sat bien', 'mat bien', 'ra bien', 'beach', 'beachfront')) result.nearBeach = true; // "view biển" = Sea view
     if (has('ho boi', 'be boi', 'pool')) result.pool = true;
+    for (const key of NEW_AMENITY_KEYS) if (has(...NEW_AMENITY_PHRASES[key])) result[key] = true;
 
     return result;
   }
@@ -184,6 +192,7 @@ Chỉ điền trường được nhắc rõ, KHÔNG đoán. Trả về DUY NHẤ
   "balcony": boolean nếu yêu cầu ban công,
   "nearBeach": boolean nếu yêu cầu gần biển (gần biển, sát biển, near the beach),
   "pool": boolean nếu yêu cầu hồ bơi/bể bơi/pool,
+  "gym", "bathtub", "riverView", "seaView", "sauna": boolean nếu yêu cầu phòng gym / bồn tắm / view sông / view biển (nhìn ra biển, KHÁC gần biển) / xông hơi,
   "furnishing": "FULL nếu yêu cầu đầy đủ nội thất"
 }`;
 
@@ -241,6 +250,7 @@ Chỉ điền trường được nhắc rõ, KHÔNG đoán. Trả về DUY NHẤ
     if (data.furnishing === 'FULL') badges.push({ label: 'Full đồ', type: 'amenity' });
     if (data.nearBeach) badges.push({ label: 'Gần biển', type: 'amenity' });
     if (data.pool) badges.push({ label: 'Hồ bơi', type: 'amenity' });
+    for (const key of NEW_AMENITY_KEYS) if (data[key]) badges.push({ label: NEW_AMENITY_LABEL[key], type: 'amenity' });
 
     return badges;
   }

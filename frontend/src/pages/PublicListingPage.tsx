@@ -7,6 +7,7 @@ import { CtvContactBar } from '../components/public/CtvContactBar.js';
 import { ChatWidget } from '../components/public/ChatWidget.js';
 import { MapPin, LinkIcon } from 'lucide-react';
 import { marketLabels, roomParts, usdText, zoneText } from '../utils/apartmentLabels.js';
+import { amenityLabels } from '../utils/amenities.js';
 import { usePublicLang } from '../hooks/usePublicLang.js';
 import { PUBLIC_COPY } from '../utils/publicCopy.js';
 import { Lang } from '../utils/shareLang.js';
@@ -77,12 +78,7 @@ function describe(listing: PublicListing, lang: Lang) {
       attributes.area && `${attributes.area}m²`,
       ...roomParts(attributes),
       FURNISHING_LABEL[attributes.furnishing],
-      attributes.washingMachine === 'PRIVATE' && 'Máy giặt riêng',
-      attributes.elevator && 'Thang máy',
-      attributes.carParking && 'Ô tô đỗ cửa',
-      attributes.allowPets && 'Nuôi thú cưng',
-      attributes.balcony && 'Ban công',
-      attributes.pcccStandard && 'PCCC đạt chuẩn',
+      ...amenityLabels(listing), // Story 8.5: tên tiếng Anh từ danh mục chung
       ...marketLabels(listing),
     ].filter(Boolean) as string[],
     date: (iso: string) => new Date(iso).toLocaleDateString('vi-VN'),

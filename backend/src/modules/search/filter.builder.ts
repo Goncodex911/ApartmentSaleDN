@@ -1,6 +1,6 @@
 import { ISearchOptions } from './search.service.js';
 import { IResolvedLocation } from './geocoding.service.js';
-import { buildDiacriticRegex, NEAR_BEACH_CONDITION, POOL_CONDITION } from './slang.dictionary.js';
+import { buildDiacriticRegex, NEAR_BEACH_CONDITION, POOL_CONDITION, AMENITY_CONDITIONS, NEW_AMENITY_KEYS } from './slang.dictionary.js';
 import { removeVietnameseTones } from '../../utils/vietnamese.js';
 import { buildStatusFilter } from '../apartments/apartment.model.js';
 
@@ -92,7 +92,11 @@ export class FilterBuilder {
     if (options.pcccStandard !== undefined) filter['attributes.pcccStandard'] = Boolean(options.pcccStandard);
 
     // Tiện ích Đà Nẵng (Story 7.2): tính cả căn cũ chỉ ghi bằng chữ trong mô tả
-    const marketConditions = [options.nearBeach && NEAR_BEACH_CONDITION, options.pool && POOL_CONDITION].filter(Boolean);
+    const marketConditions = [
+      options.nearBeach && NEAR_BEACH_CONDITION,
+      options.pool && POOL_CONDITION,
+      ...NEW_AMENITY_KEYS.map((key) => options[key] && AMENITY_CONDITIONS[key]), // Story 8.5
+    ].filter(Boolean);
     if (marketConditions.length > 0) {
       filter.$and = filter.$and || [];
       filter.$and.push(...marketConditions);

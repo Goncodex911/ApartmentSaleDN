@@ -41,6 +41,11 @@ export interface Apartment {
     pool?: boolean;
     distanceToBeachM?: number; // mét
     motorbikeParking?: boolean;
+    gym?: boolean; // Story 8.5 — căn cũ chưa có (undefined)
+    bathtub?: boolean;
+    riverView?: boolean;
+    seaView?: boolean;
+    sauna?: boolean;
   };
   fees?: {
     electricity?: number;

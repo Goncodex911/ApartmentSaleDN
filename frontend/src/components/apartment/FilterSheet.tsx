@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Landmark, apartmentApi } from '../../api/apartmentApi.js';
-import { ApartmentFilterValues, EMPTY_FILTERS, countActiveFilters } from '../../hooks/useApartmentSearch.js';
+import { AMENITY_KEYS, ApartmentFilterValues, EMPTY_FILTERS, countActiveFilters } from '../../hooks/useApartmentSearch.js';
+import { amenityLabel } from '../../utils/amenities.js';
 import { X } from 'lucide-react';
 import { PROPERTY_TYPES, ZONES } from '../../utils/danang.js';
 
@@ -18,15 +19,8 @@ export const ROOM_TYPES = [
   { id: 'studio', label: 'Studio', hidden: true },
   { id: 'duplex', label: 'Duplex / gác xép', hidden: true },
 ];
-export const AMENITIES = [
-  { key: 'elevator', label: 'Thang máy' },
-  { key: 'allowPets', label: 'Nuôi thú cưng' },
-  { key: 'carParking', label: 'Ô tô đỗ cửa' },
-  { key: 'balcony', label: 'Ban công' },
-  { key: 'pcccStandard', label: 'PCCC đạt chuẩn' },
-  { key: 'nearBeach', label: 'Gần biển (<1km)' },
-  { key: 'pool', label: 'Hồ bơi' },
-] as const;
+// Tên tiện ích tiếng Anh lấy từ danh mục chung (Story 8.5); "Gần biển" là điều kiện khoảng cách, khác "Sea view"
+export const AMENITIES = AMENITY_KEYS.map((key) => ({ key, label: key === 'nearBeach' ? 'Gần biển (<1km)' : amenityLabel(key) }));
 export const STATUSES = [
   { id: 'AVAILABLE', label: 'Trống' },
   { id: 'UPCOMING', label: 'Sắp trống' },

@@ -1,17 +1,7 @@
-import { Apartment, IncludedService } from '../api/apartmentApi.js';
+import { Apartment } from '../api/apartmentApi.js';
 import { OTHER_ZONE, propertyTypeLabel } from './danang.js';
 
-export const SERVICE_LABEL: Record<IncludedService, string> = {
-  WIFI: 'Bao wifi',
-  CLEANING: 'Dọn phòng',
-  ELECTRICITY: 'Bao điện',
-  WATER: 'Bao nước',
-  LAUNDRY: 'Giặt là',
-};
-
-type MarketInfo = Pick<Apartment, 'minLeaseMonths' | 'includedServices'> & {
-  attributes: Pick<Apartment['attributes'], 'pool' | 'distanceToBeachM' | 'motorbikeParking'>;
-};
+type MarketInfo = Pick<Apartment, 'minLeaseMonths'> & { attributes: Pick<Apartment['attributes'], 'distanceToBeachM'> };
 
 /** "600m" / "1,2km" */
 export const beachDistanceText = (meters: number) =>
@@ -21,15 +11,12 @@ export const beachDistanceText = (meters: number) =>
 export const usdText = (usd?: number) => (usd ? `≈ $${new Intl.NumberFormat('en-US').format(usd)}` : '');
 
 /**
- * Nhãn thông tin đặc thù Đà Nẵng (Story 7.2) — dùng chung cho chi tiết căn, trang khách xem và bài gửi khách
- * để 3 nơi luôn hiển thị giống nhau.
+ * Nhãn khoảng cách biển & thuê tối thiểu (Story 7.2) — dùng chung cho chi tiết căn và trang khách xem.
+ * Tiện ích (hồ bơi, dịch vụ bao gồm...) lấy từ utils/amenities.ts (Story 8.5).
  */
-export function marketLabels({ attributes, includedServices, minLeaseMonths }: MarketInfo): string[] {
+export function marketLabels({ attributes, minLeaseMonths }: MarketInfo): string[] {
   return [
     attributes.distanceToBeachM !== undefined && attributes.distanceToBeachM !== null && `Cách biển ${beachDistanceText(attributes.distanceToBeachM)}`,
-    attributes.pool && 'Hồ bơi',
-    attributes.motorbikeParking && 'Chỗ để xe máy',
-    ...(includedServices || []).map((code) => SERVICE_LABEL[code]),
     minLeaseMonths && `Thuê tối thiểu ${minLeaseMonths} tháng`,
   ].filter(Boolean) as string[];
 }

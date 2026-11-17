@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Apartment, apartmentApi, Pagination } from '../api/apartmentApi.js';
 
-export const AMENITY_KEYS = ['elevator', 'allowPets', 'carParking', 'balcony', 'pcccStandard', 'nearBeach', 'pool'] as const;
+export const AMENITY_KEYS = ['nearBeach', 'pool', 'gym', 'seaView', 'riverView', 'elevator', 'allowPets', 'carParking', 'balcony', 'pcccStandard'] as const;
 type AmenityKey = (typeof AMENITY_KEYS)[number];
 
 export type ApartmentFilterValues = {
@@ -31,6 +31,9 @@ export const EMPTY_FILTERS: ApartmentFilterValues = {
   pcccStandard: false,
   nearBeach: false,
   pool: false,
+  gym: false,
+  seaView: false,
+  riverView: false,
 };
 
 export const countActiveFilters = (f: ApartmentFilterValues) =>
