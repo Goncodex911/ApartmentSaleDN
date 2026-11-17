@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../components/layout/AppShell.js';
+import { PullIndicator } from '../components/layout/PullIndicator.js';
+import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
+import { tapFeedback } from '../utils/haptics.js';
 import { Apartment, apartmentApi } from '../api/apartmentApi.js';
 import { useApartmentSearch, ApartmentFilterValues, AMENITY_KEYS, EMPTY_FILTERS, countActiveFilters } from '../hooks/useApartmentSearch.js';
 import { ApartmentCard } from '../components/apartment/ApartmentCard.js';
@@ -31,6 +34,7 @@ export const ApartmentsPage: React.FC = () => {
   const { user: currentUser, openQuickPaste, openSubmit } = useApp(); // AppShell: người dùng + hộp Nhập tin AI / Đăng tin dùng chung
   const { apartments, pagination, status, query, filters, aiSummary, search, applyFilters, setPage, reload, removeApartment } =
     useApartmentSearch();
+  const pullState = usePullToRefresh(reload); // Story 9.4: kéo xuống ở đầu trang để tải lại (app đã cài)
   const [searchText, setSearchText] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedApartment, setSelectedApartment] = useState<Apartment | null>(null);
@@ -58,6 +62,7 @@ export const ApartmentsPage: React.FC = () => {
 
   return (
     <>
+      <PullIndicator {...pullState} />
       <main className="max-w-5xl mx-auto px-4 pt-4 pb-app space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -120,7 +125,7 @@ export const ApartmentsPage: React.FC = () => {
               </button>
             )}
             {chips.map((chip) => (
-              <button key={chip.key} onClick={() => applyFilters({ ...filters, ...chip.clear })} className="shrink-0 h-8 px-3 flex items-center gap-1 rounded-full bg-indigo-50 text-sm text-indigo-700">
+              <button key={chip.key} onClick={() => { tapFeedback(); applyFilters({ ...filters, ...chip.clear }); }} className="shrink-0 h-8 px-3 flex items-center gap-1 rounded-full bg-indigo-50 text-sm text-indigo-700">
                 {chip.label} <X className="w-3.5 h-3.5" aria-hidden />
               </button>
             ))}

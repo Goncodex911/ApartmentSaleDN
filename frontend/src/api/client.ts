@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { clearOfflineData } from '../utils/offlineCache.js';
 
 export const apiClient = axios.create({
   baseURL: '/api/v1',
@@ -21,6 +22,7 @@ apiClient.interceptors.request.use(
 );
 
 const redirectToLogin = () => {
+  void clearOfflineData(); // Hết phiên → không để dữ liệu Bảng hàng (có SĐT chủ nhà) lại trên máy (Story 9.1)
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   if (window.location.pathname !== '/login') window.location.href = '/login';

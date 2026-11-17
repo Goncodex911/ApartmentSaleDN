@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { isStandalone, isTouchDevice } from '../utils/device.js';
 
 // Sự kiện cài đặt của Chrome / Samsung Internet / Cốc Cốc (chưa có trong kiểu DOM chuẩn)
 interface BeforeInstallPromptEvent extends Event {
@@ -48,8 +49,6 @@ window.addEventListener('appinstalled', () => {
 const visits = Number(storage.get(VISITS_KEY) || 0) + 1;
 storage.set(VISITS_KEY, String(visits));
 
-const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
-const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches;
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 // Trình duyệt trong app (Zalo, Facebook...) và Chrome / Firefox / Edge trên iPhone không cài được app → phải mở bằng Safari
 const isIOSSafari = () => !/CriOS|FxiOS|EdgiOS|OPiOS|Zalo|FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent);

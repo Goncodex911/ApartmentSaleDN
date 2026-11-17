@@ -31,7 +31,6 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
-        globIgnores: ['brand/**'], // Logo gốc 2048px chỉ để xuất icon, không tải về máy
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,

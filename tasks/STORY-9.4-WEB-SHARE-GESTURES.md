@@ -39,14 +39,15 @@ Là **CTV đang tư vấn khách**, tôi muốn bấm 1 nút để mở khay chi
 |---|---|
 | `frontend/src/utils/haptics.ts` (mới) | `tapFeedback()` = `navigator.vibrate?.(10)` an toàn |
 | `frontend/src/utils/share.ts` (mới) | `shareOrCopy({ text, url })`: `navigator.share` → `AbortError` bỏ qua → còn lại copy |
-| `frontend/src/components/apartment/SendToCustomerButton.tsx` (mới) | Nút **Gửi khách** thay cặp Copy tin + Tạo link ở chi tiết căn; bản gọn (icon) trên thẻ căn |
-| `ApartmentDetailModal.tsx` | Tạo sẵn link khi mở chi tiết; dùng nút mới; giữ `ShareLangToggle` |
-| `ApartmentCard.tsx` | Thay `CopyShareButton` bằng bản gọn của nút mới |
-| `frontend/src/hooks/usePullToRefresh.ts` (mới) | Theo dõi `touchstart/move/end` khi cuộn = 0, ngưỡng 70px, chỉ ở chế độ standalone |
+| `components/apartment/CopyShareButton.tsx` | **Nâng cấp thành nút "Gửi khách"** (thay vì tạo nút mới rồi xóa nút cũ — ít code hơn, không phải xóa file): điện thoại → khay chia sẻ; không hỗ trợ → copy như cũ; nhận thêm `shareUrl` để gộp link vào cuối bài. Thẻ căn, chi tiết căn và `MatchShareModal` (Epic 6) tự dùng chung |
+| `ApartmentDetailModal.tsx` | Tạo sẵn link xem phòng khi mở chi tiết, truyền vào nút Gửi khách (đúng ngôn ngữ đang chọn) |
+| `ShareLinkButton.tsx` | Giữ nguyên — vẫn cần để xem **lượt khách mở link** và "Mở thử" |
+| `frontend/src/utils/device.ts` (mới) | `isStandalone()`, `isTouchDevice()` dùng chung cho 9.2 và 9.4 |
+| `frontend/src/hooks/usePullToRefresh.ts`, `components/layout/PullIndicator.tsx` (mới) | Kéo để làm mới, chỉ ở chế độ app đã cài, ngưỡng 70px |
 | `ApartmentsPage.tsx`, `SubmissionsPage.tsx` | Gắn kéo-làm-mới + vòng xoay |
-| `FilterSheet.tsx`, chip lọc nhanh trên Bảng hàng | Gọi `tapFeedback()` |
-| `components/leads/MatchShareModal.tsx` | Đang dùng `CopyShareButton` + `ShareLinkButton` (gửi căn phù hợp cho khách — Epic 6) → chuyển sang nút Gửi khách |
-| `CopyShareButton.tsx`, `ShareLinkButton.tsx` | Xóa sau khi 3 nơi trên đã chuyển hết (xóa file chỉ khi được duyệt) |
+| `FilterSheet.tsx`, chip lọc đang bật trên Bảng hàng | Gọi `tapFeedback()` |
+
+Ghi chú: nút trên **thẻ căn** chia sẻ bài không kèm link (link chỉ có khi đã mở chi tiết căn — iPhone không cho chờ API rồi mới mở khay chia sẻ).
 
 Không đổi backend, không thêm thư viện.
 

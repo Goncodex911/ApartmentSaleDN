@@ -58,7 +58,7 @@ Là **CTV / Quản lý dùng điện thoại**, tôi muốn cài RoomMaster ra m
 |---|---|
 | `frontend/package.json` | Thêm devDependency `vite-plugin-pwa` (+ `workbox-window` đi kèm) |
 | `frontend/vite.config.ts` | `VitePWA({ registerType: 'prompt', manifest, workbox: { navigateFallback: '/index.html', navigateFallbackDenylist: [/^\/api\//], runtimeCaching } })` |
-| `frontend/public/brand/logo-source.png` (mới) | Logo gốc người dùng gửi |
+| `frontend/brand/logo-source.png` (mới) | Logo gốc người dùng gửi — để ngoài `public` (5MB, không deploy), chỉ dùng khi cần xuất lại icon |
 | `frontend/public/icons/*` (mới) | `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png` (180), `favicon-32.png` — xuất 1 lần bằng `sharp` (có sẵn trong backend), commit file PNG, không thêm script build |
 | `frontend/index.html` | Meta iOS, theme-color, `viewport-fit=cover`, favicon, title |
 | `frontend/public/_headers` (mới) | `/sw.js`, `/manifest.webmanifest`, `/index.html`: `Cache-Control: no-cache` (tránh kẹt bản cũ) |

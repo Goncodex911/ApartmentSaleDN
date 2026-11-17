@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { useApp } from '../components/layout/AppShell.js';
+import { PullIndicator } from '../components/layout/PullIndicator.js';
+import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
 import { ApartmentPayload } from '../api/apartmentApi.js';
 import { DuplicateApartment, ListingSubmission, submissionApi } from '../api/submissionApi.js';
 import { useSubmissions } from '../hooks/useSubmissions.js';
@@ -29,6 +31,7 @@ export const SubmissionsPage: React.FC = () => {
 
   const isManager = currentUser?.role === 'MANAGER' || currentUser?.role === 'ADMIN';
   const { items, state, reload } = useSubmissions(currentUser ? (isManager ? 'review' : 'mine') : null, isManager ? tab : '');
+  const pullState = usePullToRefresh(reload); // Story 9.4: kéo xuống ở đầu trang để tải lại (app đã cài)
 
   // Chạy 1 thao tác trên tin: khóa nút của tin đó, báo kết quả, tải lại danh sách
   const run = async (submission: ListingSubmission, action: () => Promise<unknown>, success: string) => {
@@ -109,6 +112,7 @@ export const SubmissionsPage: React.FC = () => {
 
   return (
     <>
+      <PullIndicator {...pullState} />
       <main className="max-w-5xl mx-auto px-4 pt-4 pb-app space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-xl font-bold text-slate-900">{isManager ? 'Duyệt tin' : 'Tin tôi đăng'}</h1>

@@ -90,7 +90,7 @@ Epic này **không cần API key hay biến môi trường mới**, không đổ
 * **Dùng để làm gì:** Icon hiện trên màn hình chính điện thoại, màn hình chờ khi mở app, icon tab trình duyệt.
 * **Cần gửi:** 1 file logo **vuông**, PNG hoặc SVG, tối thiểu **1024×1024px**, càng đơn giản càng rõ khi thu nhỏ.
   * Nên để hình chính nằm gọn trong **80% giữa** ảnh (Android cắt icon thành hình tròn / bo góc).
-  * Chép file vào: `frontend/public/brand/logo-source.png` (hoặc `.svg`). Tôi sẽ tự xuất ra đủ các cỡ:
+  * Logo gốc lưu ở: `frontend/brand/logo-source.png` (ngoài thư mục `public` → không bị deploy). Icon đã xuất sẵn trong `frontend/public/icons/` các cỡ:
     `192×192`, `512×512`, `512×512 maskable` (Android), `180×180` (iPhone), favicon.
 * **Chưa có logo?** Tôi tạo tạm icon chữ **"R"** trắng trên nền tím `#4f46e5` (màu chủ đạo của app), đổi sau chỉ cần thay file và build lại.
 
