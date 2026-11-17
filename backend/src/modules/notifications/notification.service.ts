@@ -10,6 +10,7 @@ export interface NotifyInput {
   body: string;
   leadId?: string;
   apartmentId?: string;
+  submissionId?: string;
 }
 
 export class NotificationService {
@@ -34,6 +35,12 @@ export class NotificationService {
       })
       .catch(() => undefined);
     return true;
+  }
+
+  /** Gửi cho mọi Quản lý / Admin đang hoạt động (VD có tin CTV chờ duyệt — Story 8.6). */
+  static async notifyManagers(input: Omit<NotifyInput, 'userId'>) {
+    const managers = await User.find({ role: { $in: ['ADMIN', 'MANAGER'] }, status: 'ACTIVE' }).select('_id').lean();
+    await Promise.all(managers.map((manager) => this.notify({ ...input, userId: String(manager._id) })));
   }
 
   static async listForUser(userId: string) {

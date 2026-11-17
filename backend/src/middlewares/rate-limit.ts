@@ -4,6 +4,7 @@ interface RateLimitOptions {
   windowMs: number;
   max: number;
   message: string;
+  key?: (req: Request) => string; // Mặc định theo IP; VD theo tài khoản: (req) => req.user.id
 }
 
 /**
@@ -11,7 +12,7 @@ interface RateLimitOptions {
  * Đủ cho 1 instance server. Nếu chạy nhiều instance cần chuyển bộ đếm sang Redis.
  * Lưu ý: chạy sau reverse proxy (Nginx...) phải bật app.set('trust proxy', 1) để lấy đúng IP khách.
  */
-export function rateLimit({ windowMs, max, message }: RateLimitOptions) {
+export function rateLimit({ windowMs, max, message, key: keyOf = (req) => req.ip || 'unknown' }: RateLimitOptions) {
   const hits = new Map<string, { count: number; resetAt: number }>();
 
   // Dọn định kỳ các bộ đếm đã hết hạn để Map không phình mãi; unref() để không giữ tiến trình sống
@@ -21,7 +22,7 @@ export function rateLimit({ windowMs, max, message }: RateLimitOptions) {
   }, windowMs).unref();
 
   return (req: Request, res: Response, next: NextFunction): void => {
-    const key = req.ip || 'unknown';
+    const key = keyOf(req);
     const now = Date.now();
     const entry = hits.get(key);
 

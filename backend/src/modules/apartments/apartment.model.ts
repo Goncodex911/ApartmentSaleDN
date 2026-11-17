@@ -83,6 +83,7 @@ export interface IApartment extends Document {
   needsReview?: boolean; // Tin AI bóc chưa chắc chắn (thiếu giá/SĐT/địa chỉ mơ hồ) — chỉ Quản lý thấy, KHÔNG đổi trạng thái
   reviewReason?: string;
   managerId: Types.ObjectId;
+  submittedBy?: Types.ObjectId; // CTV đăng tin (Story 8.6) — chỉ Quản lý thấy
   createdAt: Date;
   updatedAt: Date;
 }
@@ -176,6 +177,7 @@ const apartmentSchema = new Schema<IApartment>(
     needsReview: { type: Boolean, default: false },
     reviewReason: { type: String, trim: true },
     managerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    submittedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
 );

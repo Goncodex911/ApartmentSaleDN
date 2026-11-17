@@ -1,17 +1,25 @@
 import { Router } from 'express';
 import { ApartmentController } from './apartment.controller.js';
-import { authMiddleware } from '../../middlewares/auth.js';
+import { authMiddleware, AuthRequest } from '../../middlewares/auth.js';
+import { rateLimit } from '../../middlewares/rate-limit.js';
 import { requireRoles, optionalAuthMiddleware } from '../../middlewares/rbac.js';
 import { uploadMiddleware } from '../../middlewares/upload.js';
 import { searchRoutes } from '../search/search.routes.js';
 
 const router = Router();
 
-// 1. Upload ảnh & video lên Cloudinary (Chỉ Manager / Admin)
+// 1. Upload ảnh & video lên Cloudinary — CTV được tải ảnh cho tin đăng chờ duyệt (Story 8.6), giới hạn 6 lần × 10 file / giờ
+const ctvUploadLimit = rateLimit({
+  windowMs: 60 * 60_000,
+  max: 6,
+  message: 'Bạn tải ảnh quá nhiều, vui lòng thử lại sau 1 giờ',
+  key: (req) => (req as AuthRequest).user!.id,
+});
 router.post(
   '/upload-media',
   authMiddleware,
-  requireRoles('ADMIN', 'MANAGER'),
+  requireRoles('ADMIN', 'MANAGER', 'COLLABORATOR'),
+  (req: AuthRequest, res, next) => (req.user!.role === 'COLLABORATOR' ? ctvUploadLimit(req, res, next) : next()),
   uploadMiddleware.array('media', 10),
   ApartmentController.uploadMedia
 );

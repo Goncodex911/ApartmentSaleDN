@@ -45,6 +45,7 @@ export class ApartmentService {
     item.ownerContact = maskContact(item.ownerContact);
     delete item.imageHashes; // Dữ liệu nội bộ của bộ khử trùng, không cần gửi ra ngoài
     delete item.needsReview; // Cờ kiểm duyệt nội bộ của Quản lý
+    delete item.submittedBy;
     delete item.reviewReason;
     item.subListings = (item.subListings || []).map((sub: any) => ({
       ...sub,
@@ -55,13 +56,14 @@ export class ApartmentService {
   }
 
   // Tải nhiều ảnh/video lên Cloudinary
-  static async uploadMedia(files: Express.Multer.File[]) {
+  // folder: ảnh CTV đăng tin để riêng (Story 8.6) → dọn ảnh tin bị từ chối / rút mà không đụng ảnh căn trong kho
+  static async uploadMedia(files: Express.Multer.File[], folder = 'apartment_sale/apartments') {
     if (!files || files.length === 0) {
       throw { status: 400, message: 'Vui lòng chọn ít nhất một file ảnh hoặc video' };
     }
     const uploadPromises = files.map((file) => {
       const resourceType = file.mimetype.startsWith('video/') ? 'video' : 'image';
-      return uploadBufferToCloudinary(file.buffer, 'apartment_sale/apartments', resourceType);
+      return uploadBufferToCloudinary(file.buffer, folder, resourceType);
     });
     const results = await Promise.all(uploadPromises);
     return results.map((r) => ({
@@ -73,10 +75,12 @@ export class ApartmentService {
   }
 
   // Thêm mới căn hộ (chuẩn hóa vị trí, lấy tọa độ từ link map hoặc ước lượng)
-  static async create(data: CreateApartmentInput, managerId: string) {
+  // extra: dữ liệu nội bộ khi duyệt tin CTV (Story 8.6) — không nhận từ request
+  static async create(data: CreateApartmentInput, managerId: string, extra: { submittedBy?: string; imageHashes?: string[] } = {}) {
     await prepareLocation(data.location);
     const apartment = await Apartment.create({
       ...data,
+      ...extra,
       managerId: new Types.ObjectId(managerId),
     });
     LeadMatchingService.runInBackground(apartment); // Story 6.3: báo CTV có khách phù hợp

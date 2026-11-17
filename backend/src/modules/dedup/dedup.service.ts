@@ -238,7 +238,7 @@ export class DedupService {
   /**
    * Helper gộp subListing và cập nhật căn Master
    */
-  private static async aggregateSubListing(
+  public static async aggregateSubListing(
     master: IApartment,
     input: IProcessListingInput,
     ext: any,
