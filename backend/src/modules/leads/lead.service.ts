@@ -1,6 +1,12 @@
 import { isValidObjectId } from 'mongoose';
 import { Lead, LeadStage, pushLeadNote } from './lead.model.js';
 import { CreateLeadInput, UpdateLeadInput, ChangeStageInput } from './lead.validation.js';
+import { Apartment } from '../apartments/apartment.model.js';
+import { ApartmentService } from '../apartments/apartment.service.js';
+import { MATCH_THRESHOLD, scoreLeadMatch } from './lead-matching.service.js';
+
+const MAX_MATCHES = 10;
+const MATCH_CANDIDATES = 300;
 
 export const STAGE_LABEL: Record<LeadStage, string> = {
   NEW: 'MỚI LIÊN HỆ',
@@ -71,6 +77,29 @@ export class LeadService {
 
     pushLeadNote(lead, systemNote, true);
     return lead.save();
+  }
+
+  /** Căn đang trống / sắp trống phù hợp ≥ 80% với khách, sắp theo điểm (Story 11.1). */
+  static async matches(leadId: string, ctvId: string, role: string) {
+    const { requirements } = await findOwnLead(leadId, ctvId);
+    const filter: Record<string, unknown> = { status: { $in: ['AVAILABLE', 'UPCOMING'] } };
+    // Khách chỉ khai khu vực mới → sai khu vực tối đa còn 65% → lọc luôn ở DB cho nhanh
+    if (requirements.zones?.length && !requirements.districts?.length) filter['location.zone'] = { $in: requirements.zones };
+    const candidates = await Apartment.find(filter).select('-imageHashes').sort({ updatedAt: -1 }).limit(MATCH_CANDIDATES).lean();
+    return candidates
+      .map((apartment) => ({ apartment, match: scoreLeadMatch(requirements, apartment) }))
+      .filter((item): item is typeof item & { match: NonNullable<typeof item.match> } => !!item.match && item.match.score >= MATCH_THRESHOLD)
+      .sort((a, b) => b.match.score - a.match.score)
+      .slice(0, MAX_MATCHES)
+      .map(({ apartment, match }) => ({ ...match, apartment: ApartmentService.maskApartment(apartment, role) }));
+  }
+
+  /** Điểm phù hợp giữa khách và 1 căn — mở từ thông báo ghép căn. */
+  static async matchScore(leadId: string, ctvId: string, apartmentId: string) {
+    const { requirements } = await findOwnLead(leadId, ctvId);
+    const apartment = isValidObjectId(apartmentId) ? await Apartment.findById(apartmentId).lean() : null;
+    if (!apartment) throw { status: 404, message: 'Không tìm thấy căn hộ' };
+    return scoreLeadMatch(requirements, apartment) || { score: 0, reasons: [] };
   }
 
   static async addNote(leadId: string, ctvId: string, content: string) {

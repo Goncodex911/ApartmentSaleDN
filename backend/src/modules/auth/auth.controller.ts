@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthService } from './auth.service.js';
 import { registerSchema, loginSchema } from './auth.validation.js';
 import { AuthRequest } from '../../middlewares/auth.js';
+import { runDailyJobsIfDue } from '../jobs/daily-jobs.js';
 
 // Cấu hình cookie HttpOnly cho Refresh Token
 const COOKIE_OPTIONS = {
@@ -82,6 +83,8 @@ export class AuthController {
   static async me(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = await AuthService.getMe(req.user!.id);
+      // Story 11.5: lần mở app đầu tiên trong ngày kích hoạt việc hằng ngày (chạy nền, không làm chậm phản hồi)
+      runDailyJobsIfDue().catch((err) => console.error('[Việc hằng ngày] Lỗi:', err.message));
       res.status(200).json({ success: true, data: user });
     } catch (error) {
       next(error);

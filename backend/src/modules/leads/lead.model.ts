@@ -6,9 +6,17 @@ export type LeadStage = (typeof LEAD_STAGES)[number];
 export const OPEN_LEAD_STAGES: LeadStage[] = ['NEW', 'CONSULTING', 'VIEWING'];
 export const MAX_NOTES_PER_LEAD = 200;
 
+// Tiện ích khách bắt buộc phải có (Story 11.1)
+export const LEAD_AMENITIES = ['pool', 'allowPets', 'privateWasher', 'elevator'] as const;
+export type LeadAmenity = (typeof LEAD_AMENITIES)[number];
+
 export interface ILeadRequirements {
-  districts: string[];
+  districts: string[]; // Khu vực gõ tay (khách cũ, chat AI) — vẫn dùng khi ghép
+  zones?: string[]; // Khu vực theo danh sách ZONES (Story 11.1)
+  propertyTypes?: string[];
   maxBudget?: number;
+  budgetCurrency?: 'VND' | 'USD'; // Không có = VNĐ
+  amenities?: LeadAmenity[];
   moveInDate?: string;
   bedrooms?: number;
   allowPets?: boolean;
@@ -51,7 +59,11 @@ const leadSchema = new Schema<ILead>(
     depositedApartmentId: { type: Schema.Types.ObjectId, ref: 'Apartment' },
     requirements: {
       districts: { type: [String], default: [] },
+      zones: { type: [String], default: undefined },
+      propertyTypes: { type: [String], default: undefined },
       maxBudget: { type: Number },
+      budgetCurrency: { type: String, enum: ['VND', 'USD'] },
+      amenities: { type: [String], enum: LEAD_AMENITIES, default: undefined },
       moveInDate: { type: String, trim: true },
       bedrooms: { type: Number },
       allowPets: { type: Boolean },

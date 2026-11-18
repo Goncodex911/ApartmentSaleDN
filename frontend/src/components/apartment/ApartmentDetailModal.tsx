@@ -5,6 +5,7 @@ import { splitMedia, videoPoster } from '../../utils/media.js';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { StatusBadge } from './StatusBadge.js';
+import { LeaseSection } from './LeaseSection.js';
 import { CopyShareButton } from './CopyShareButton.js';
 import { DownloadPhotosButton } from './DownloadPhotosButton.js';
 import { ShareLinkButton } from './ShareLinkButton.js';
@@ -149,6 +150,8 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
                 />
               </div>
             </div>
+
+            {isOwnerOrAdmin && apartment.status === 'RENTED' && <LeaseSection apartment={apartment} onChanged={() => onStatusUpdated?.(apartment.status)} />}
 
             {apartment.needsReview && (
               <p className="px-3 py-2 rounded-xl bg-amber-50 text-sm text-amber-800">

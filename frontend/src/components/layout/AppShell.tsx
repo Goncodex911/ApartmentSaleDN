@@ -15,6 +15,8 @@ import { InstallPrompt } from './InstallPrompt.js';
 import { ProfileModal } from '../profile/ProfileModal.js';
 import { QuickPasteModal } from '../apartment/QuickPasteModal.js';
 import { ApartmentModal } from '../apartment/ApartmentModal.js';
+import { LiveToast } from './LiveToast.js';
+import { useRealtimeInventory } from '../../hooks/useRealtimeInventory.js';
 
 interface AppContextValue {
   user: User | null;
@@ -36,6 +38,7 @@ export const AppShell: React.FC = () => {
   const [panel, setPanel] = useState<Panel>(null);
   const isManager = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const pendingCount = usePendingSubmissionCount(isManager);
+  const liveUpdates = useRealtimeInventory(user); // Story 11.4: kho phòng cập nhật tức thì
   const close = () => setPanel(null);
 
   const logout = async () => {
@@ -58,6 +61,14 @@ export const AppShell: React.FC = () => {
       <div className="min-h-screen bg-slate-50">
         <Navbar user={user} pendingCount={pendingCount} accountMenu={accountMenu} />
         <Outlet />
+        <LiveToast
+          toast={liveUpdates.toast}
+          onDismiss={liveUpdates.dismiss}
+          onView={() => {
+            window.dispatchEvent(new Event(APARTMENTS_CHANGED));
+            navigate('/apartments');
+          }}
+        />
         {user && !panel && <InstallPrompt />}
         {user && (
           <BottomNav

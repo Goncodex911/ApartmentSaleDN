@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { apartmentApi } from '../../api/apartmentApi.js';
+import { apartmentApi, LeaseInput } from '../../api/apartmentApi.js';
+import { LeaseFormSheet } from './LeaseFormSheet.js';
 import { ChevronDown, CheckCircle2, Clock, AlertCircle, Ban } from 'lucide-react';
 
 interface StatusBadgeProps {
@@ -21,10 +22,12 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [leaseOpen, setLeaseOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(
     availableDate ? new Date(availableDate).toISOString().split('T')[0] : ''
   );
   const popoverRef = useRef<HTMLDivElement>(null);
+  useEffect(() => setCurrentStatus(status), [status]); // Trạng thái đổi từ máy khác (Story 11.4)
 
   // Đóng popover khi click ra ngoài
   useEffect(() => {
@@ -38,27 +41,36 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const save = async (newStatus: 'AVAILABLE' | 'UPCOMING' | 'DEPOSITED' | 'RENTED', date?: string, lease?: LeaseInput) => {
+    setLoading(true);
+    try {
+      await apartmentApi.updateStatus(apartmentId, {
+        status: newStatus,
+        availableDate: date ? new Date(date).toISOString() : undefined,
+        lease,
+      });
+      setCurrentStatus(newStatus);
+      setIsOpen(false);
+      setShowDatePicker(false);
+      setLeaseOpen(false);
+      onStatusUpdated?.(newStatus, date);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleUpdate = async (newStatus: 'AVAILABLE' | 'UPCOMING' | 'DEPOSITED' | 'RENTED', date?: string) => {
     if (newStatus === 'UPCOMING' && !date) {
       setShowDatePicker(true);
       return;
     }
-
-    try {
-      setLoading(true);
-      await apartmentApi.updateStatus(apartmentId, {
-        status: newStatus,
-        availableDate: date ? new Date(date).toISOString() : undefined,
-      });
-      setCurrentStatus(newStatus);
+    // Story 11.5: Đã cho thuê → nhập hợp đồng để hệ thống nhắc tái ký (có thể Bỏ qua)
+    if (newStatus === 'RENTED') {
       setIsOpen(false);
-      setShowDatePicker(false);
-      onStatusUpdated?.(newStatus, date);
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Lỗi cập nhật trạng thái');
-    } finally {
-      setLoading(false);
+      setLeaseOpen(true);
+      return;
     }
+    await save(newStatus, date).catch((err) => alert(err.response?.data?.message || 'Lỗi cập nhật trạng thái'));
   };
 
   const getStatusConfig = (st: string) => {
@@ -199,6 +211,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
           </div>
         </div>
       )}
+      {leaseOpen && <LeaseFormSheet onSubmit={(lease) => save('RENTED', undefined, lease)} onClose={() => setLeaseOpen(false)} />}
     </div>
   );
 };

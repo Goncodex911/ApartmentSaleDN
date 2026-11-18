@@ -3,6 +3,7 @@ import {
   createApartmentSchema,
   updateApartmentSchema,
   updateStatusSchema,
+  renewLeaseSchema,
   addSubListingSchema,
 } from './apartment.validation.js';
 import { AuthRequest } from '../../middlewares/auth.js';
@@ -10,6 +11,7 @@ import { asyncHandler } from '../../utils/async-handler.js';
 import { isPrivilegedRole } from './apartment.model.js';
 import { SUBMISSION_MEDIA_FOLDER } from '../submissions/submission.model.js';
 import { signDirectUpload } from '../../config/cloudinary.js';
+import { usdToVndRate } from '../../config/currency.js';
 
 const APARTMENT_MEDIA_FOLDER = 'apartment_sale/apartments';
 
@@ -47,6 +49,13 @@ export class ApartmentController {
     res.status(200).json({ success: true, message: 'Cập nhật trạng thái phòng thành công', data });
   });
 
+  // Gia hạn hợp đồng thuê (Story 11.5)
+  static renewLease = asyncHandler(async (req, res) => {
+    const { months } = renewLeaseSchema.parse(req.body);
+    const data = await ApartmentService.renewLease(apartmentId(req), months, req.user!);
+    res.status(200).json({ success: true, message: `Đã gia hạn thêm ${months} tháng`, data });
+  });
+
   // Đính kèm Nguồn tham chiếu vào Căn Master (Story 2.3)
   static addSubListing = asyncHandler(async (req, res) => {
     const data = await ApartmentService.addSubListing(apartmentId(req), addSubListingSchema.parse(req.body), req.user!);
@@ -72,6 +81,7 @@ export class ApartmentController {
 
   // Xem chi tiết căn hộ theo ID (Tự động che dữ liệu theo role)
   static getById = asyncHandler(async (req, res) => {
-    res.status(200).json({ success: true, data: await ApartmentService.findById(apartmentId(req), req.user?.role) });
+    // meta.usdRate: bảng so sánh căn quy giá ra USD (Story 11.6)
+    res.status(200).json({ success: true, data: await ApartmentService.findById(apartmentId(req), req.user?.role), meta: { usdRate: usdToVndRate() } });
   });
 }

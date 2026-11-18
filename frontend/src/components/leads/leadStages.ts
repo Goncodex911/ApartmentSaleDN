@@ -17,14 +17,21 @@ export const stageLabel = (stage: LeadStage) => LEAD_STAGES.find((s) => s.key ==
 export const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
 
-/** Tóm tắt nhu cầu khách thành 1 dòng ngắn: "Hải Châu · ≤ 7tr · nuôi pet · ô tô" */
+const AMENITY_SHORT: Record<string, string> = { pool: 'hồ bơi', allowPets: 'nuôi pet', privateWasher: 'máy giặt riêng', elevator: 'thang máy' };
+// "2026-12-01" (ô chọn ngày) → "01/12"; chữ tự do của khách cũ / chat AI giữ nguyên
+const moveInText = (value: string) => (/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value.slice(8, 10)}/${value.slice(5, 7)}` : value);
+const budgetText = (req: LeadRequirements) =>
+  req.budgetCurrency === 'USD' ? `≤ $${req.maxBudget}` : `≤ ${Number((req.maxBudget! / 1_000_000).toFixed(1))}tr`;
+
+/** Tóm tắt nhu cầu khách thành 1 dòng ngắn: "Mỹ An, An Hải · ≤ 7tr · 2PN · hồ bơi · nuôi pet" */
 export function summarizeRequirements(req: LeadRequirements): string {
   return [
-    req.districts?.join(', '),
-    req.maxBudget && `≤ ${Number((req.maxBudget / 1_000_000).toFixed(1))}tr`,
+    [...(req.zones || []), ...(req.districts || [])].join(', '),
+    req.maxBudget && budgetText(req),
     req.bedrooms !== undefined && req.bedrooms !== null && (req.bedrooms === 0 ? 'Studio' : `${req.bedrooms}PN`),
-    req.moveInDate && `vào ở ${req.moveInDate}`,
-    req.allowPets && 'nuôi pet',
+    req.moveInDate && `vào ở ${moveInText(req.moveInDate)}`,
+    ...(req.amenities || []).map((key) => AMENITY_SHORT[key]),
+    req.allowPets && !req.amenities?.includes('allowPets') && 'nuôi pet',
     req.carParking && 'ô tô',
   ]
     .filter(Boolean)

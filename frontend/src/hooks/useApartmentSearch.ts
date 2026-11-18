@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Apartment, apartmentApi, Pagination } from '../api/apartmentApi.js';
+import { APARTMENT_REALTIME, RealtimeMessage } from '../api/realtimeStream.js';
+
+// Nhãn tạm trên thẻ khi căn vừa đổi trong lúc đang xem (Story 11.4) — mất khi tải lại danh sách
+export type LiveTag = 'DEPOSITED' | 'RENTED' | 'PRICE_DROP';
 
 // Phát sự kiện này khi kho căn đổi ở nơi khác (VD Nhập tin AI từ menu đáy) → Bảng hàng tự tải lại
 export const APARTMENTS_CHANGED = 'apartments:changed';
@@ -45,7 +49,7 @@ export const countActiveFilters = (f: ApartmentFilterValues) =>
 const PAGE_SIZE = 12;
 const EMPTY_PAGINATION: Pagination = { total: 0, page: 1, limit: PAGE_SIZE, totalPages: 1 };
 
-function toParams(f: ApartmentFilterValues, page: number) {
+export function toParams(f: ApartmentFilterValues, page: number) {
   const params: Record<string, string | number | boolean> = { page, limit: PAGE_SIZE };
   if (f.priceRange) params.priceRange = f.priceRange;
   if (f.roomType) params.roomType = f.roomType;
@@ -72,6 +76,7 @@ export function useApartmentSearch() {
   const [pagination, setPagination] = useState<Pagination>(EMPTY_PAGINATION);
   const [aiSummary, setAiSummary] = useState('');
   const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
+  const [liveTags, setLiveTags] = useState<Record<string, LiveTag>>({});
 
   useEffect(() => {
     let cancelled = false; // Bỏ kết quả của request cũ khi người dùng đổi điều kiện nhanh
@@ -95,6 +100,7 @@ export function useApartmentSearch() {
         setApartments(res.data || res.items || []);
         setPagination(res.pagination || EMPTY_PAGINATION);
         setAiSummary(summary);
+        setLiveTags({});
         setStatus('ready');
       })
       .catch(() => !cancelled && setStatus('error'));
@@ -123,7 +129,22 @@ export function useApartmentSearch() {
       window.removeEventListener(APARTMENTS_CHANGED, reload);
     };
   }, [reload]);
+  // Story 11.4: căn đang hiện vừa đổi trạng thái / giảm giá ở máy khác → cập nhật đúng thẻ đó, không tải lại cả trang
+  useEffect(() => {
+    const onRealtime = (event: Event) => {
+      const { type, data } = (event as CustomEvent<RealtimeMessage>).detail;
+      if (type !== 'apartment.status' && type !== 'apartment.price') return;
+      const tag: LiveTag | undefined = type === 'apartment.price' ? 'PRICE_DROP' : data.status === 'DEPOSITED' || data.status === 'RENTED' ? data.status : undefined;
+      setLiveTags(({ [data.id]: _previous, ...rest }) => (tag ? { ...rest, [data.id]: tag } : rest));
+      // CTV nhận căn đã cho thuê không kèm giá → chỉ đổi trạng thái
+      const changes = data.price ? { status: data.status, price: data.price, priceUsd: data.priceUsd } : { status: data.status };
+      setApartments((list) => list.map((item) => (item._id === data.id ? { ...item, ...changes } : item)));
+    };
+    window.addEventListener(APARTMENT_REALTIME, onRealtime);
+    return () => window.removeEventListener(APARTMENT_REALTIME, onRealtime);
+  }, []);
+
   const removeApartment = useCallback((id: string) => setApartments((list) => list.filter((item) => item._id !== id)), []);
 
-  return { apartments, pagination, status, query, filters, aiSummary, search, applyFilters, setPage, reload, removeApartment };
+  return { apartments, liveTags, pagination, status, query, filters, aiSummary, search, applyFilters, setPage, reload, removeApartment };
 }

@@ -6,6 +6,38 @@ export type IncludedService = 'WIFI' | 'CLEANING' | 'ELECTRICITY' | 'WATER' | 'L
 // Dữ liệu gửi lên khi tạo/sửa căn: khác bản đọc về (VD gửi null để xóa trường khi sửa — Story 8.1)
 export type ApartmentPayload = Record<string, unknown>;
 
+// Hợp đồng thuê (Story 11.5)
+export interface LeaseInput {
+  startDate: string; // "2026-11-19"
+  durationMonths: number;
+  closedBy?: string;
+  tenantName?: string;
+  tenantPhone?: string;
+}
+export interface Lease {
+  startDate: string;
+  durationMonths: number;
+  endDate: string;
+  closedBy?: string;
+  tenantName?: string;
+  tenantPhone?: string;
+}
+
+export interface MapPin {
+  _id: string;
+  price: number;
+  priceUsd?: number;
+  status: Apartment['status'];
+  coordinates: [number, number]; // [kinh độ, vĩ độ]
+  street?: string;
+  zone?: string;
+  district: string;
+  propertyType?: string;
+  bedrooms: number;
+  image?: string;
+  approximate: boolean; // Toạ độ ước lượng (chưa có link Google Maps)
+}
+
 export interface Apartment {
   _id: string;
   title: string;
@@ -79,6 +111,7 @@ export interface Apartment {
   status: 'AVAILABLE' | 'UPCOMING' | 'DEPOSITED' | 'RENTED';
   availableDate?: string;
   needsReview?: boolean; // Chỉ Quản lý/Admin nhận được (backend ẩn với CTV)
+  lease?: Lease; // Story 11.5 — chỉ Quản lý/Admin nhận được
   reviewReason?: string;
   distanceKm?: number;
   nearestLandmark?: string;
@@ -107,6 +140,12 @@ export const apartmentApi = {
   getApartments: async (params: Record<string, any> = {}) => {
     const res = await apiClient.get('/apartments', { params });
     return res.data;
+  },
+
+  // Story 11.2: ghim bản đồ theo cùng bộ lọc (tối đa 500 căn, dữ liệu nhẹ)
+  getMapPins: async (params: Record<string, any> = {}): Promise<{ pins: MapPin[]; withoutLocation: number }> => {
+    const res = await apiClient.get('/apartments/search/pins', { params });
+    return res.data.data;
   },
 
   searchApartments: async (params: Record<string, any> = {}) => {
@@ -139,9 +178,15 @@ export const apartmentApi = {
     return res.data;
   },
 
-  updateStatus: async (id: string, data: { status: string; availableDate?: string }) => {
+  updateStatus: async (id: string, data: { status: string; availableDate?: string; lease?: LeaseInput }) => {
     const res = await apiClient.patch(`/apartments/${id}/status`, data);
     return res.data;
+  },
+
+  // Story 11.5: gia hạn hợp đồng thêm 1 / 3 / 6 / 12 tháng
+  renewLease: async (id: string, months: number): Promise<Apartment> => {
+    const res = await apiClient.patch(`/apartments/${id}/lease/renew`, { months });
+    return res.data.data;
   },
 
   deleteApartment: async (id: string) => {

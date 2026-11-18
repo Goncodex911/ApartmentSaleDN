@@ -3,6 +3,7 @@ import { IUser } from '../auth/user.model.js';
 import { getVisibleImages } from './photo.service.js';
 import { stripPhoneNumbers } from '../../utils/phone-text.js';
 import { withStreet } from '../apartments/apartment-location.js';
+import { usdToVndRate } from '../../config/currency.js';
 
 /** Slug dễ đọc từ tiêu đề: bỏ dấu tiếng Việt, tối đa 6 từ, không chứa SĐT. */
 export function slugify(title: string): string {
@@ -74,6 +75,7 @@ export function toPublicListing(apartment: IApartment, ctv: PublicCtv) {
     },
     images: getVisibleImages(apartment),
     status: apartment.status,
+    usdRate: usdToVndRate(), // Story 11.6: ước tính chi phí hiện cả USD cho khách nước ngoài
     availableDate: apartment.availableDate,
     ctv: {
       name: ctv.name,
