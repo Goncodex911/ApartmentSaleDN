@@ -35,3 +35,17 @@
   }
 }
 
+
+/* ===== Story 10.1: chuẩn hiển thị trên điện thoại — viết ngoài @layer để thắng các lớp tiện ích của Tailwind ===== */
+/* iPhone tự phóng to (và giữ nguyên mức phóng to) khi bấm vào ô có chữ < 16px → mọi ô nhập trên điện thoại luôn 16px */
+@media (max-width: 639px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+/* Mọi lớp phủ toàn màn hình (form, chi tiết căn, bảng trượt...) bắt đầu dưới tai thỏ / thanh trạng thái */
+.fixed.inset-0 {
+  top: env(safe-area-inset-top);
+}
