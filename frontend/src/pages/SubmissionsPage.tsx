@@ -90,7 +90,7 @@ export const SubmissionsPage: React.FC = () => {
       );
     }
     return (
-      <div className="grid gap-2 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
         {items.map((submission) => (
           <SubmissionCard
             key={submission._id}

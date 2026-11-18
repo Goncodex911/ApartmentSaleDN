@@ -24,6 +24,15 @@ router.post(
   ApartmentController.uploadMedia
 );
 
+// 1b. Story 10.2: chữ ký tải thẳng lên Cloudinary — cùng quyền & giới hạn CTV như /upload-media
+router.post(
+  '/upload-signature',
+  authMiddleware,
+  requireRoles('ADMIN', 'MANAGER', 'COLLABORATOR'),
+  (req: AuthRequest, res, next) => (req.user!.role === 'COLLABORATOR' ? ctvUploadLimit(req, res, next) : next()),
+  ApartmentController.uploadSignature
+);
+
 // 2. Thao tác CRUD Căn hộ (Chỉ Manager / Admin)
 router.post('/', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.create);
 router.put('/:id', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.update);

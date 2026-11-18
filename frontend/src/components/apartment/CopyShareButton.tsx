@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { buildShareText } from '../../utils/shareText.js';
-import { buildShareTextEn } from '../../utils/shareTextEn.js';
 import { Lang, getShareLang } from '../../utils/shareLang.js';
 import { copyText } from '../../utils/clipboard.js';
 import { Copy, Check, Send, X } from 'lucide-react';
@@ -14,13 +13,12 @@ interface CopyShareButtonProps {
   ctv: User | null;
   compact?: boolean; // Chỉ hiện icon (dùng trong thẻ danh sách)
   lang?: Lang; // Không truyền → dùng ngôn ngữ CTV đã chọn gần nhất (Story 7.3)
-  shareUrl?: string; // Link trang xem phòng — gộp vào cuối bài khi đã tạo sẵn (Story 9.4)
 }
 
 /**
  * Nút "Gửi khách" (Story 9.4): điện thoại → mở khay chia sẻ (Zalo, Messenger...); máy tính / không hỗ trợ → copy bài.
  */
-export const CopyShareButton: React.FC<CopyShareButtonProps> = ({ apartment, ctv, compact, lang, shareUrl }) => {
+export const CopyShareButton: React.FC<CopyShareButtonProps> = ({ apartment, ctv, compact, lang }) => {
   const [copied, setCopied] = useState(false);
   const [manualText, setManualText] = useState('');
   const isRented = apartment.status === 'RENTED';
@@ -31,10 +29,8 @@ export const CopyShareButton: React.FC<CopyShareButtonProps> = ({ apartment, ctv
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Nằm trong thẻ căn hộ bấm được → không mở chi tiết khi bấm
     if (!ctv) return;
-    const body = (lang || getShareLang()) === 'en' ? buildShareTextEn(apartment, ctv) : buildShareText(apartment, ctv);
-    const text = shareUrl ? `${body}
-
-🔗 ${shareUrl}` : body;
+    // Story 10.4: mẫu 10 dòng, KHÔNG kèm link hệ thống
+    const text = buildShareText(apartment, ctv, lang || getShareLang());
     const result = await nativeShare(text);
     if (result === 'cancelled') return; // Người dùng tự đóng khay chia sẻ
     if (result === 'shared' || (await copyText(text))) {

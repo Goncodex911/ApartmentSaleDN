@@ -13,6 +13,10 @@ export interface IUser extends Document {
   zaloLink?: string;
   avatarUrl?: string;
   greetingMessage?: string;
+  // Story 10.4: in vào bài gửi khách (dòng 9️⃣ / 🔟)
+  paymentTerms?: string;
+  zaloGroupLink?: string;
+  whatsappGroupLink?: string;
   // Liên kết Telegram nhận thông báo khách mới / ghép căn (Story 6.2 - AC5)
   telegramChatId?: string;
   telegramLinkCode?: string;
@@ -39,6 +43,9 @@ const userSchema = new Schema<IUser>(
     zaloLink: { type: String, trim: true },
     avatarUrl: { type: String, trim: true },
     greetingMessage: { type: String, trim: true, default: 'Xin chào, rất vui được hỗ trợ bạn tìm căn hộ ưng ý!' },
+    paymentTerms: { type: String, trim: true, default: 'deposit 1 month pay 1 month' },
+    zaloGroupLink: { type: String, trim: true },
+    whatsappGroupLink: { type: String, trim: true },
     telegramChatId: { type: String },
     telegramLinkCode: { type: String, index: { sparse: true } },
     telegramLinkExpiresAt: { type: Date },

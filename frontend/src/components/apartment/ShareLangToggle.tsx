@@ -18,7 +18,7 @@ export const ShareLangToggle: React.FC<{ value: Lang; onChange: (lang: Lang) => 
           role="radio"
           aria-checked={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`h-8 px-3 rounded-md font-medium transition-colors ${
+          className={`h-11 px-3 rounded-md font-medium transition-colors ${
             value === option.value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
           }`}
         >

@@ -11,10 +11,16 @@ interface ProfileModalProps {
   onProfileUpdated: (updatedUser: User) => void;
 }
 
+const fieldClass = 'w-full min-h-[44px] px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500';
+
 export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onProfileUpdated }) => {
   const [name, setName] = useState(user.name || '');
   const [zaloPhone, setZaloPhone] = useState(user.zaloPhone || '');
   const [greetingMessage, setGreetingMessage] = useState(user.greetingMessage || '');
+  // Story 10.4: in vào bài gửi khách (dòng 9️⃣ Điều kiện, 🔟 Liên hệ)
+  const [paymentTerms, setPaymentTerms] = useState(user.paymentTerms ?? 'deposit 1 month pay 1 month');
+  const [zaloGroupLink, setZaloGroupLink] = useState(user.zaloGroupLink || '');
+  const [whatsappGroupLink, setWhatsappGroupLink] = useState(user.whatsappGroupLink || '');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +36,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
         name,
         zaloPhone: zaloPhone || undefined,
         greetingMessage: greetingMessage || undefined,
+        paymentTerms, // Chuỗi rỗng = không in dòng điều kiện thanh toán
+        zaloGroupLink,
+        whatsappGroupLink,
       });
 
       onProfileUpdated(res.data);
@@ -44,7 +53,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+      <div className="relative w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-2">
@@ -53,7 +62,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+            aria-label="Đóng"
+            className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -146,6 +156,24 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
             <span className="text-[11px] text-slate-400 block">Hiển thị trên trang xem phòng và là câu chào đầu tiên của trợ lý AI khi khách chat.</span>
           </div>
 
+          {/* Story 10.4: thông tin in cuối bài gửi khách */}
+          <fieldset className="space-y-3 p-3 rounded-xl border border-slate-200">
+            <legend className="px-1 font-semibold text-slate-700">Bài gửi khách</legend>
+            <label className="block space-y-1">
+              <span className="font-medium text-slate-700">Điều kiện thanh toán</span>
+              <input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} maxLength={200} placeholder="deposit 1 month pay 1 month" className={fieldClass} />
+            </label>
+            <label className="block space-y-1">
+              <span className="font-medium text-slate-700">Link nhóm Zalo</span>
+              <input type="url" inputMode="url" value={zaloGroupLink} onChange={(e) => setZaloGroupLink(e.target.value)} placeholder="https://zalo.me/g/..." className={fieldClass} />
+            </label>
+            <label className="block space-y-1">
+              <span className="font-medium text-slate-700">Link nhóm WhatsApp</span>
+              <input type="url" inputMode="url" value={whatsappGroupLink} onChange={(e) => setWhatsappGroupLink(e.target.value)} placeholder="https://chat.whatsapp.com/..." className={fieldClass} />
+            </label>
+            <span className="text-[11px] text-slate-400 block">Để trống ô nào thì bài gửi khách không in dòng đó.</span>
+          </fieldset>
+
           <TelegramLinkSection linked={Boolean(user.telegramChatId)} />
 
           {/* Footer */}
@@ -153,14 +181,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-medium transition-colors"
+              className="h-11 px-4 rounded-xl text-slate-600 hover:bg-slate-100 font-medium transition-colors"
             >
               Đóng
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               Lưu hồ sơ

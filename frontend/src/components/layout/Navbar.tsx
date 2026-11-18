@@ -36,7 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, pendingCount, accountMenu 
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 pt-[env(safe-area-inset-top)]">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          <NavLink to="/apartments" className="flex items-center gap-2 mr-2" aria-label="ApartmentDN — Bảng hàng">
+          <NavLink to="/apartments" className="flex items-center gap-2 min-h-[44px] mr-2" aria-label="ApartmentDN — Bảng hàng">
             <img src="/icons/favicon-64.png" alt="" className="w-8 h-8 rounded-lg" />
             <span className="text-base font-bold text-[#0f2a45]">ApartmentDN</span>
           </NavLink>

@@ -112,7 +112,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
         disabled={!canEdit || loading}
         onClick={() => canEdit && setIsOpen(!isOpen)}
         title={canEdit ? 'Nhấn để đổi nhanh trạng thái phòng (1-Click)' : undefined}
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+        className={`inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-full text-xs font-semibold border transition-all ${
           config.badgeClass
         } ${canEdit ? 'cursor-pointer hover:shadow-sm hover:scale-[1.02]' : 'cursor-default'} ${
           loading ? 'opacity-60' : ''

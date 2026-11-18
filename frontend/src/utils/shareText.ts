@@ -1,15 +1,14 @@
-import { Apartment } from '../api/apartmentApi.js';
+import { Apartment, IncludedService } from '../api/apartmentApi.js';
 import { User } from '../api/authApi.js';
-import { marketLabels, roomParts, usdText, zoneText } from './apartmentLabels.js';
-import { OTHER_ZONE } from './danang.js';
+import { propertyTypeLabel } from './danang.js';
+import { zoneText } from './apartmentLabels.js';
 import { amenityLabels } from './amenities.js';
+import { headlineEn, placeEn, toAscii } from './listingEn.js';
+import { Lang } from './shareLang.js';
 
-type ShareContact = Pick<User, 'name' | 'phone' | 'zaloPhone'>;
+export type ShareContact = Pick<User, 'name' | 'phone' | 'zaloPhone' | 'paymentTerms' | 'zaloGroupLink' | 'whatsappGroupLink'>;
 
-const formatVnd = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
-
-// Xóa chuỗi giống SĐT Việt Nam (0xxx / +84xxx, 9–11 số, cho phép dấu cách/chấm/gạch giữa các số).
-// Không dùng lookbehind để không lỗi cú pháp trên iOS Safari cũ.
+// Xóa chuỗi giống SĐT Việt Nam (0xxx / +84xxx, 9–11 số) khỏi tiêu đề. Không dùng lookbehind để không lỗi trên iOS Safari cũ.
 const stripPhoneNumbers = (text: string) =>
   text
     .replace(/(^|\D)(?:\+84|0)(?:[\s.-]?\d){8,10}(?!\d)/g, '$1')
@@ -17,65 +16,84 @@ const stripPhoneNumbers = (text: string) =>
     .replace(/\s{2,}/g, ' ')
     .trim();
 
-// Khu vực Đà Nẵng không phải "quận" (Story 7.2)
-const DISTRICT_PREFIX: Record<string, string> = { 'Hòa Vang': 'Huyện Hòa Vang', 'Hội An': 'TP Hội An', 'Chưa rõ': 'Đà Nẵng' };
+const NUMBERS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+const CONTACT_APPS = '(Whatsapp, Viber, Zalo, Telegram…)';
 
-const FURNISHING_LABEL: Record<Apartment['attributes']['furnishing'], string> = {
-  FULL: 'Full đồ',
-  BASIC: 'Đồ cơ bản',
-  EMPTY: 'Nhà trống',
+// Dịch vụ bao gồm trong giá — "clean 1 a week" theo mẫu khách dùng (Project Owner chốt, Story 10.4)
+const SERVICE_TEXT: Record<IncludedService, string> = {
+  WIFI: 'Free wifi',
+  CLEANING: 'clean 1 a week',
+  ELECTRICITY: 'Electricity included',
+  WATER: 'Water included',
+  LAUNDRY: 'Laundry',
 };
 
+const LABELS = {
+  en: {
+    type: 'Type', rooms: 'Rooms', size: 'Square meters', address: 'Address', sea: 'Distance to the sea', priceLabel: 'Price for 1 month',
+    lease: 'Minimum rental period', free: 'Free dates', other: 'Other conditions', contact: 'Contact', zalo: 'Zalo group',
+    whatsapp: 'WhatsApp group', now: 'now', near: 'less than 1km', studio: 'studio',
+    bedrooms: (n: number) => `${n} bedroom${n === 1 ? '' : 's'}`,
+    months: (n: number) => `${n} month${n === 1 ? '' : 's'}`,
+    million: (m: string) => `${m} million VND/month`,
+    priceText: (vnd: string, usd?: number) => (usd ? `${usd} USD/month (${vnd})` : vnd),
+  },
+  vi: {
+    type: 'Loại', rooms: 'Phòng', size: 'Diện tích', address: 'Địa chỉ', sea: 'Cách biển', priceLabel: 'Giá thuê 1 tháng',
+    lease: 'Thuê tối thiểu', free: 'Ngày trống', other: 'Điều kiện khác', contact: 'Liên hệ', zalo: 'Nhóm Zalo',
+    whatsapp: 'Nhóm WhatsApp', now: 'ngay', near: 'dưới 1km', studio: 'Studio',
+    bedrooms: (n: number) => `${n} phòng ngủ`,
+    months: (n: number) => `${n} tháng`,
+    million: (m: string) => `${m} triệu/tháng`,
+    priceText: (vnd: string, usd?: number) => (usd ? `${vnd} (${usd} USD)` : vnd),
+  },
+};
+
+// 17000000 → "17"; 6500000 → "6.5" (EN) / "6,5" (VI)
+const millions = (vnd: number, lang: Lang) => String(Math.round(vnd / 100_000) / 10).replace('.', lang === 'vi' ? ',' : '.');
+const titleCase = (text: string) => text.replace(/\S+/g, (word) => word[0].toUpperCase() + word.slice(1));
+const dotDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB').replace(/\//g, '.'); // 23.11.2026
+
 /**
- * Sinh bài tư vấn gửi khách (Story 5.1).
- * Chỉ đọc các trường trong danh sách trắng — KHÔNG dùng ownerContact, subListings,
- * description, location.address để không lộ thông tin chủ nhà/nội bộ.
+ * Bài gửi khách theo mẫu 10 dòng đánh số 1️⃣ → 🔟 (Story 10.4) — VI & EN cùng cấu trúc, chỉ khác nhãn.
+ * Thiếu dữ liệu dòng nào thì bỏ dòng đó nhưng GIỮ NGUYÊN SỐ các dòng còn lại (khách quen vị trí thông tin).
+ * Danh sách trắng (Story 5.1 / 8.3): KHÔNG SĐT chủ nhà, số nhà, link bản đồ, mô tả gốc, link hệ thống.
  */
-export function buildShareText(apartment: Apartment, ctv: ShareContact): string {
-  const { price, location, attributes, fees, status, availableDate } = apartment;
+export function buildShareText(apartment: Apartment, ctv: ShareContact, lang: Lang = 'vi'): string {
+  const L = LABELS[lang];
+  const { attributes: a, location, price, priceUsd, minLeaseMonths, status, availableDate } = apartment;
+  const isStudio = a.propertyType === 'STUDIO' || a.bedrooms === 0;
+  const type = propertyTypeLabel(a.propertyType, lang);
+  const street = location.street && (lang === 'en' ? titleCase(toAscii(location.street)) : location.street);
+  const area = lang === 'en' ? placeEn(apartment) : zoneText(location);
+  const sea = a.distanceToBeachM;
+  const priceText = price >= 1_000_000 ? L.million(millions(price, lang)) : `${new Intl.NumberFormat('vi-VN').format(price)} VND`;
+  const phone = ctv.zaloPhone || ctv.phone;
+  // Tiện ích (không gồm dịch vụ — dịch vụ in dòng riêng), chữ thường như mẫu: "parking, elevator"
+  const amenities = amenityLabels({ attributes: a, includedServices: [] }).map((label) => label.toLowerCase()).join(', ');
+  const services = (apartment.includedServices || []).map((code) => SERVICE_TEXT[code]).join(', ');
+  const conditions = [amenities, services, ctv.paymentTerms].filter(Boolean).map((text) => `- ${text}`);
 
-  const district = location.district.trim();
-  const districtLabel = /^(quận|huyện|thị xã|tp)/i.test(district) ? district : DISTRICT_PREFIX[district] ?? `Quận ${district}`;
-  // Bỏ "Cho thuê" đầu tiêu đề (AI hay đặt vậy) để không thành "CĂN CHO THUÊ CĂN 2PN..."
-  const title = stripPhoneNumbers(apartment.title).replace(/^cho thuê\s+/i, '');
-  const titleWithPrefix = /^căn(\s|$)/i.test(title) ? title : `Căn ${title}`;
-  // Khu vực theo cách gọi của khách (Story 8.4); căn cũ / khu "Khác" → quận
-  const areaLabel = location.zone && location.zone !== OTHER_ZONE ? location.zone : districtLabel;
-  const header = `🏢 [${areaLabel}] - ${titleWithPrefix}`.toLocaleUpperCase('vi-VN');
-
-  const sizeLine = `📐 ${[...roomParts(attributes), attributes.area && `${attributes.area}m²`].filter(Boolean).join(' · ')}`;
-
-  const feeParts = [
-    fees?.electricity ? `Điện ${formatVnd(fees.electricity)}đ/kWh` : '',
-    fees?.water ? `Nước ${formatVnd(fees.water)}đ` : '',
-    fees?.service ? `Dịch vụ ${formatVnd(fees.service)}đ/tháng` : '',
-  ].filter(Boolean);
-
-  const furnishing = [
-    FURNISHING_LABEL[attributes.furnishing],
-  ].filter(Boolean);
-
-  // Tên tiện ích tiếng Anh như mọi nơi khác (Story 8.5) + khoảng cách biển
-  const amenities = [...amenityLabels(apartment), ...marketLabels({ ...apartment, minLeaseMonths: undefined })].join(', ');
-
-  const availableFrom =
-    status === 'UPCOMING' && availableDate
-      ? new Date(availableDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
-      : '';
-
-  const contactPhone = ctv.zaloPhone || ctv.phone;
+  const rows: (string | false | undefined)[] = [
+    type && `${lang === 'en' ? type.toLowerCase() : type}`,
+    isStudio ? L.studio : L.bedrooms(a.bedrooms),
+    !!a.area && `${a.area} m2`,
+    street || area,
+    sea != null && (sea < 1000 ? L.near : `${String(Math.round(sea / 100) / 10).replace('.', lang === 'vi' ? ',' : '.')}km`),
+    L.priceText(priceText, priceUsd),
+    !!minLeaseMonths && L.months(minLeaseMonths),
+    status === 'UPCOMING' && availableDate ? dotDate(availableDate) : L.now,
+  ];
+  const labels = [L.type, L.rooms, L.size, L.address, L.sea, L.priceLabel, L.lease, L.free];
+  const contactPhone = lang === 'en' ? `+84${phone.replace(/\D/g, '').replace(/^(84|0)/, '')}` : phone;
 
   return [
-    header,
-    `📍 Vị trí: ${[location.street, zoneText(location)].filter(Boolean).join(', ')}`, // Chỉ tên đường, không số nhà (Story 8.3)
-    sizeLine,
-    `💵 Giá thuê: ${formatVnd(price)} VNĐ/tháng${apartment.priceUsd ? ` (${usdText(apartment.priceUsd)})` : ''}`,
-    feeParts.length ? `⚡ Phí: ${feeParts.join(' · ')}` : '',
-    `🛋 Nội thất: ${furnishing.join(', ')}`,
-    amenities ? `✨ Tiện ích: ${amenities}` : '',
-    apartment.minLeaseMonths ? `📅 Thuê tối thiểu ${apartment.minLeaseMonths} tháng` : '',
-    availableFrom ? `🗓 Trống từ: ${availableFrom}` : '',
-    `📞 Liên hệ xem phòng trực tiếp: ${ctv.name} - ${contactPhone}${ctv.zaloPhone ? ' (Zalo)' : ''}`,
+    lang === 'en' ? headlineEn(apartment) : stripPhoneNumbers(apartment.title),
+    ...rows.map((value, i) => (value ? `${NUMBERS[i]} ${labels[i]}: ${value}` : '')),
+    conditions.length ? `${NUMBERS[8]} ${L.other}\n${conditions.join('\n')}` : '',
+    `${NUMBERS[9]} ${L.contact} ${contactPhone} ${CONTACT_APPS}`,
+    ctv.zaloGroupLink && `- ${L.zalo}: ${ctv.zaloGroupLink}`,
+    ctv.whatsappGroupLink && `- ${L.whatsapp}: ${ctv.whatsappGroupLink}`,
   ]
     .filter(Boolean)
     .join('\n');

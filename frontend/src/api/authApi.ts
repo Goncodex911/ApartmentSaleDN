@@ -11,6 +11,9 @@ export interface User {
   zaloLink?: string;
   avatarUrl?: string;
   greetingMessage?: string;
+  paymentTerms?: string; // Story 10.4: in vào bài gửi khách
+  zaloGroupLink?: string;
+  whatsappGroupLink?: string;
   telegramChatId?: string; // Có giá trị = đã liên kết Telegram nhận thông báo (Story 6.2)
 }
 

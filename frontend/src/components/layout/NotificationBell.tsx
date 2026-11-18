@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppNotification, notificationApi } from '../../api/notificationApi.js';
 import { User } from '../../api/authApi.js';
 import { MatchShareModal } from '../leads/MatchShareModal.js';
-import { Bell, Sparkles, MessageSquare, ClipboardCheck } from 'lucide-react';
+import { Bell, Sparkles, MessageSquare, ClipboardCheck, X } from 'lucide-react';
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -22,6 +22,20 @@ export const NotificationBell: React.FC<{ user: User }> = ({ user }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [match, setMatch] = useState<{ apartmentId: string; leadId: string } | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Story 10.1: chạm ra ngoài hoặc bấm Esc → đóng khung thông báo
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointer = (e: PointerEvent) => !wrapperRef.current?.contains(e.target as Node) && setIsOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setIsOpen(false);
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isOpen]);
 
   const refresh = useCallback(() => {
     notificationApi
@@ -60,8 +74,8 @@ export const NotificationBell: React.FC<{ user: User }> = ({ user }) => {
   };
 
   return (
-    <div className="relative">
-      <button onClick={() => setIsOpen((open) => !open)} title="Thông báo" className="relative p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg">
+    <div className="relative" ref={wrapperRef}>
+      <button onClick={() => setIsOpen((open) => !open)} title="Thông báo" aria-label="Thông báo" aria-expanded={isOpen} className="relative w-11 h-11 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg">
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">
@@ -71,14 +85,17 @@ export const NotificationBell: React.FC<{ user: User }> = ({ user }) => {
       </button>
 
       {isOpen && (
-        <div className="fixed sm:absolute inset-x-2 sm:inset-x-auto top-16 sm:top-11 sm:right-0 sm:w-96 max-h-[70vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 z-50">
-          <div className="flex items-center justify-between p-3 border-b border-slate-100">
-            <p className="font-bold text-sm text-slate-800">Thông báo</p>
+        <div className="fixed sm:absolute inset-x-2 sm:inset-x-auto top-[calc(4rem+env(safe-area-inset-top))] sm:top-12 sm:right-0 sm:w-96 max-h-[70vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 z-50">
+          <div className="sticky top-0 flex items-center gap-2 pl-3 border-b border-slate-100 bg-white">
+            <p className="flex-1 font-bold text-sm text-slate-800">Thông báo</p>
             {unreadCount > 0 && (
-              <button onClick={() => notificationApi.markAllRead().then(refresh)} className="text-xs text-indigo-600 font-semibold">
-                Đánh dấu đã đọc tất cả
+              <button onClick={() => notificationApi.markAllRead().then(refresh)} className="min-h-[44px] px-2 text-xs text-indigo-600 font-semibold">
+                Đã đọc tất cả
               </button>
             )}
+            <button type="button" onClick={() => setIsOpen(false)} aria-label="Đóng thông báo" className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700">
+              <X className="w-5 h-5" />
+            </button>
           </div>
           {items.length === 0 && <p className="p-6 text-center text-xs text-slate-400">Chưa có thông báo nào.</p>}
           {items.map((item) => (

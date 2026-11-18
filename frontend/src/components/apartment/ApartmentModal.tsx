@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Apartment, ApartmentPayload, apartmentApi } from '../../api/apartmentApi.js';
 import { X, Loader2 } from 'lucide-react';
-import { PhotoUploader } from './PhotoUploader.js';
+import { PhotoUploader, MediaValue } from './PhotoUploader.js';
+import { splitMedia } from '../../utils/media.js';
 import { LocationSection, toLocationForm, fromLocationForm, isLocationComplete } from './LocationSection.js';
 import { MarketFieldsSection, toMarketForm, fromMarketForm } from './MarketFieldsSection.js';
 import { AmenitiesSection } from './AmenitiesSection.js';
@@ -49,7 +50,8 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
   const [ownerName, setOwnerName] = useState(initialData?.ownerContact?.name || '');
   const [ownerPhone, setOwnerPhone] = useState(initialData?.ownerContact?.phone || '');
   const [ownerNote, setOwnerNote] = useState(initialData?.ownerContact?.note || '');
-  const [images, setImages] = useState<string[]>(initialData?.images || []);
+  // Story 10.2: ảnh và video tách riêng (video cũ lỡ nằm trong images được chuyển sang videos)
+  const [media, setMedia] = useState<MediaValue>(() => splitMedia(initialData || {}));
   const [market, setMarket] = useState(() => toMarketForm(initialData)); // Thông tin Đà Nẵng (Story 7.2)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,7 +80,8 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
         ...amenityData.attributes,
       },
       fees: { electricity: numberOr(electricity, empty), water: numberOr(water, empty), service: numberOr(serviceFee, empty) },
-      images,
+      images: media.images,
+      videos: media.videos,
       ownerContact: { name: ownerName, phone: ownerPhone, note: textOr(ownerNote, empty) },
     };
 
@@ -114,10 +117,10 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
           <h2 className="text-base font-semibold text-slate-900">{heading || (isEdit ? 'Sửa căn hộ' : 'Thêm căn hộ')}</h2>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        <div className="flex-1 min-h-0 min-w-0 overflow-y-auto p-4 space-y-6">
           {error && <p role="alert" className="p-3 text-sm bg-rose-50 text-rose-700 rounded-xl">{error}</p>}
 
-          <PhotoUploader images={images} onChange={setImages} onError={setError} />
+          <PhotoUploader value={media} onChange={setMedia} onError={setError} />
 
           <FormSection title="Thông tin chính">
             <Field label="Tiêu đề" required>

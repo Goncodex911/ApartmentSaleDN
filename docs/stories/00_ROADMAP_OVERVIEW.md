@@ -17,6 +17,7 @@ Hệ thống quản lý căn hộ cho Quản lý & Cộng tác viên (CTV) đư�
 | **[EPIC-07](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_07_DANANG_MARKET.md)** | Chuyển đổi sang Thị trường Đà Nẵng | Khu vực/điểm mốc Đà Nẵng, AI hiểu tin tiếng Anh, khoảng cách biển, hồ bơi, giá USD | P1 (Đã xong) |
 | **[EPIC-08](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_08_LISTING_UPLOAD_FEEDBACK.md)** | Chuẩn hóa Nhập tin theo Feedback Khách | Bỏ cọc/hoa hồng, link map + tên đường, loại căn, khu vực & 11 tiện ích theo khách, sửa lỗi nhập tin | P0 (Feedback khách) |
 | **[EPIC-09](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_09_PWA_MOBILE_APP.md)** | Ứng dụng Di động PWA & Mobile-First | Cài app ra màn hình chính không qua App Store, chạy ngoại tuyến (Offline), menu đáy 1 tay, Web Share Zalo | P1 (Tối ưu Mobile) |
+| **[EPIC-10](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_10_MOBILE_FEEDBACK_POLISH.md)** | Sửa lỗi & nâng cấp giao diện theo phản hồi dùng thử | Header bị che trên iPhone, tải video, tải ảnh nhanh, mẫu bài gửi khách 10 dòng, trang đăng nhập mới | P0 (Feedback dùng thử) |
 
 ---
 

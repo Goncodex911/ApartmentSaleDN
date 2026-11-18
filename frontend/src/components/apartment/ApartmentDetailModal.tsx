@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { formatVnd } from '../../utils/format.js';
 import { imageCors } from '../../utils/offlineCache.js';
+import { splitMedia, videoPoster } from '../../utils/media.js';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { StatusBadge } from './StatusBadge.js';
@@ -8,8 +9,7 @@ import { CopyShareButton } from './CopyShareButton.js';
 import { DownloadPhotosButton } from './DownloadPhotosButton.js';
 import { ShareLinkButton } from './ShareLinkButton.js';
 import { ShareLangToggle } from './ShareLangToggle.js';
-import { Lang, getShareLang, setShareLang, withLang } from '../../utils/shareLang.js';
-import { shareApi } from '../../api/shareApi.js';
+import { Lang, getShareLang, setShareLang } from '../../utils/shareLang.js';
 import { X, MapPin } from 'lucide-react';
 import { marketLabels, roomParts, usdText, zoneText } from '../../utils/apartmentLabels.js';
 import { amenityLabels } from '../../utils/amenities.js';
@@ -41,20 +41,15 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
   onDelete,
 }) => {
   // Hook phải gọi trước mọi lệnh return (Rules of Hooks); trang cha đặt key theo _id nên state reset khi đổi căn
-  const [activeImage, setActiveImage] = useState(apartment?.images?.[0] || '');
+  const [activeImage, setActiveImage] = useState(apartment ? splitMedia(apartment).images[0] || '' : '');
   const [shareLang, setShareLangState] = useState<Lang>(getShareLang); // Story 7.3: nhớ lựa chọn cho lần sau
-  const [shareLink, setShareLink] = useState('');
-  // Story 9.4: tạo sẵn link xem phòng khi mở chi tiết — iPhone chỉ cho mở khay chia sẻ ngay trong lần bấm, không chờ API được
-  const canShareLink = !!apartment && apartment.status !== 'RENTED';
-  useEffect(() => {
-    if (canShareLink) shareApi.createLink(apartment!._id).then((link) => setShareLink(link.url)).catch(() => undefined);
-  }, [canShareLink, apartment?._id]);
   if (!apartment) return null;
 
   const { attributes, fees, location, ownerContact } = apartment;
   const isCtv = currentUser?.role === 'COLLABORATOR';
-  const visibleImageCount = apartment.images.filter((url) => !apartment.hiddenImages?.includes(url)).length;
-  const hiddenImageCount = apartment.images.length - visibleImageCount;
+  const { images: photos, videos } = splitMedia(apartment); // Story 10.2: video cũ lỡ nằm trong images → mục Video
+  const sendablePhotos = photos.filter((url) => !apartment.hiddenImages?.includes(url)); // Bỏ ảnh có SĐT nguồn cũ (Story 5.2)
+  const hiddenImageCount = photos.length - sendablePhotos.length;
 
   const facts = [
     ...roomParts(attributes),
@@ -79,28 +74,29 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
         className="h-full sm:h-auto sm:max-h-[90vh] w-full sm:max-w-2xl flex flex-col bg-white sm:rounded-2xl overflow-hidden"
       >
         <div className="flex items-center justify-between gap-2 px-2 h-14 border-b border-slate-100 shrink-0">
-          <button onClick={onClose} aria-label="Đóng" className="p-2.5 text-slate-500 hover:text-slate-800">
+          <button onClick={onClose} aria-label="Đóng" className="w-11 h-11 flex items-center justify-center text-slate-500 hover:text-slate-800">
             <X className="w-5 h-5" />
           </button>
           {isOwnerOrAdmin && (
             <div className="flex items-center">
               {onEdit && (
-                <button onClick={() => onEdit(apartment)} className="h-10 px-3 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100">Sửa</button>
+                <button onClick={() => onEdit(apartment)} className="h-11 px-4 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100">Sửa</button>
               )}
               {onDelete && (
-                <button onClick={() => onDelete(apartment._id)} className="h-10 px-3 rounded-lg text-sm font-medium text-rose-600 hover:bg-rose-50">Xóa</button>
+                <button onClick={() => onDelete(apartment._id)} className="h-11 px-4 rounded-lg text-sm font-medium text-rose-600 hover:bg-rose-50">Xóa</button>
               )}
             </div>
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          {apartment.images.length > 0 && (
+        {/* min-h-0 / min-w-0: không để ảnh, video lớn đẩy khung rộng hơn màn hình hoặc đẩy thanh nút Gửi khách ra ngoài (Story 10.1) */}
+        <div className="flex-1 min-h-0 min-w-0 overflow-y-auto">
+          {photos.length > 0 && (
             <div className="bg-slate-100">
-              <img src={activeImage || apartment.images[0]} alt={apartment.title} crossOrigin={imageCors(activeImage || apartment.images[0])} className="w-full aspect-[4/3] object-cover" />
-              {apartment.images.length > 1 && (
+              <img src={activeImage || photos[0]} alt={apartment.title} crossOrigin={imageCors(activeImage || photos[0])} className="w-full aspect-[4/3] object-cover" />
+              {photos.length > 1 && (
                 <div className="flex gap-2 overflow-x-auto scrollbar-none p-2 bg-white">
-                  {apartment.images.map((img, idx) => (
+                  {photos.map((img, idx) => (
                     <button
                       key={idx}
                       onClick={() => setActiveImage(img)}
@@ -112,6 +108,15 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {videos.length > 0 && (
+            <div className="p-2 space-y-2 bg-white" aria-label="Video căn hộ">
+              {videos.map((url) => (
+                // preload="none": chỉ tải video khi bấm phát — tiết kiệm 4G
+                <video key={url} src={url} poster={videoPoster(url)} controls playsInline preload="none" className="block w-full max-w-full aspect-video rounded-xl bg-black" />
+              ))}
             </div>
           )}
 
@@ -205,8 +210,8 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
         <div key={apartment._id} className="shrink-0 border-t border-slate-100 p-3 pb-badge-safe sm:pb-3 space-y-2">
           <ShareLangToggle value={shareLang} onChange={(lang) => { setShareLang(lang); setShareLangState(lang); }} />
           <div className="grid grid-cols-3 gap-2">
-            <CopyShareButton apartment={apartment} ctv={currentUser} lang={shareLang} shareUrl={shareLink && withLang(shareLink, shareLang)} />
-            <DownloadPhotosButton apartmentId={apartment._id} photoCount={visibleImageCount} />
+            <CopyShareButton apartment={apartment} ctv={currentUser} lang={shareLang} />
+            <DownloadPhotosButton photos={sendablePhotos} fileName={`can-ho-${apartment._id}`} />
             <ShareLinkButton apartmentId={apartment._id} disabled={apartment.status === 'RENTED'} lang={shareLang} />
           </div>
           {hiddenImageCount > 0 && <p className="text-xs text-slate-500">Đã ẩn {hiddenImageCount} ảnh có SĐT nguồn cũ khi gửi khách</p>}

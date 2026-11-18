@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { shareApi, ShareLinkInfo } from '../../api/shareApi.js';
 import { copyText } from '../../utils/clipboard.js';
 import { Lang, getShareLang, withLang } from '../../utils/shareLang.js';
-import { Link2, Loader2, Copy, Check, ExternalLink, Eye } from 'lucide-react';
+import { Link2, Loader2, Copy, Check, ExternalLink, Eye, X } from 'lucide-react';
 
 interface ShareLinkButtonProps {
   apartmentId: string;
@@ -18,9 +18,12 @@ export const ShareLinkButton: React.FC<ShareLinkButtonProps> = ({ apartmentId, d
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [open, setOpen] = useState(false); // Story 10.1: khung link đóng / mở được
 
-  // Bấm lần đầu: tạo link; bấm lại: làm mới số lượt xem (backend luôn trả về cùng 1 link)
+  // Bấm lần đầu: tạo link + mở khung; bấm lại: đóng khung. Mỗi lần mở lại cập nhật số lượt xem (backend luôn trả về cùng 1 link)
   const handleLoadLink = async () => {
+    if (open) return setOpen(false);
+    setOpen(true);
     setLoading(true);
     setError('');
     try {
@@ -54,8 +57,11 @@ export const ShareLinkButton: React.FC<ShareLinkButtonProps> = ({ apartmentId, d
         {link ? 'Lượt xem' : 'Tạo link'}
       </button>
 
-      {(link || error) && (
-        <div className="col-span-3 p-3 rounded-xl bg-slate-50 text-sm space-y-2">
+      {open && (link || error) && (
+        <div className="relative col-span-3 p-3 pr-12 rounded-xl bg-slate-50 text-sm space-y-2">
+          <button type="button" onClick={() => setOpen(false)} aria-label="Đóng khung link" className="absolute top-0 right-0 w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700">
+            <X className="w-4 h-4" />
+          </button>
           {error && <p className="text-rose-600">{error}</p>}
           {link && (
             <>

@@ -35,13 +35,4 @@ export const shareApi = {
     return res.data.data;
   },
 
-  getWatermarkedPhoto: async (apartmentId: string, index: number): Promise<Blob> => {
-    const res = await apiClient.get(`/share/apartments/${apartmentId}/photos/${index}`, { responseType: 'blob' });
-    return res.data;
-  },
-
-  downloadPhotosZip: async (apartmentId: string): Promise<Blob> => {
-    const res = await apiClient.get(`/share/apartments/${apartmentId}/photos.zip`, { responseType: 'blob' });
-    return res.data;
-  },
 };

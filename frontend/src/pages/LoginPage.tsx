@@ -2,51 +2,65 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api/authApi.js';
 import { clearOfflineData } from '../utils/offlineCache.js';
-import { Building2, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Loader2, ArrowRight, Eye, EyeOff, Phone, Lock, UserRound } from 'lucide-react';
 
+type Role = 'MANAGER' | 'COLLABORATOR';
+const ROLES: { value: Role; label: string }[] = [
+  { value: 'COLLABORATOR', label: 'Cộng tác viên' },
+  { value: 'MANAGER', label: 'Quản lý kho' },
+];
+
+// Ô nhập có icon bên trái — cao 48px, chữ 16px trên điện thoại (iPhone không tự phóng to)
+const inputClass =
+  'w-full h-12 pl-11 pr-3 text-base sm:text-sm text-slate-900 bg-slate-50 border border-slate-200 rounded-xl placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-navy/40 focus:border-brand-navy';
+const IconField: React.FC<{ label: string; icon: React.ElementType; children: React.ReactNode }> = ({ label, icon: Icon, children }) => (
+  <label className="block space-y-1.5">
+    <span className="text-sm font-medium text-slate-700">{label}</span>
+    <span className="relative block">
+      <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" aria-hidden />
+      {children}
+    </span>
+  </label>
+);
+
+/**
+ * Trang đăng nhập theo nhận diện ApartmentDN (Story 10.5): nửa trên nền navy + logo DN, thẻ đăng nhập trắng phủ lên.
+ * Chuyển tab có thanh trượt (≤ 200ms, tắt khi người dùng bật "giảm chuyển động"); nút nhấn co nhẹ ngay khi chạm.
+ */
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [isLoginTab, setIsLoginTab] = useState(true);
-
-  // Form states
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<'MANAGER' | 'COLLABORATOR'>('COLLABORATOR');
-
+  const [role, setRole] = useState<Role>('COLLABORATOR');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  const switchTab = (login: boolean) => {
+    setIsLoginTab(login);
+    setError(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setNotice(null);
-
     try {
       setLoading(true);
-      if (isLoginTab) {
-        // Đăng nhập
-        const res = await authApi.login({ phone, password });
-        localStorage.setItem('token', res.data.accessToken);
-        localStorage.setItem('user', JSON.stringify(res.data.user));
-        await clearOfflineData(); // Bỏ dữ liệu offline của tài khoản trước trên máy này (Story 9.1)
-        navigate('/apartments');
-      } else {
-        // Đăng ký
-        const res = await authApi.register({ name, phone, password, role });
-        // Tài khoản Quản lý phải chờ ADMIN duyệt → chưa có token, chuyển về tab đăng nhập
-        if (res.data.pendingApproval) {
-          setNotice(res.message);
-          setIsLoginTab(true);
-          return;
-        }
-        localStorage.setItem('token', res.data.accessToken);
-        localStorage.setItem('user', JSON.stringify(res.data.user));
-        await clearOfflineData(); // Bỏ dữ liệu offline của tài khoản trước trên máy này (Story 9.1)
-        navigate('/apartments');
+      const res = isLoginTab ? await authApi.login({ phone, password }) : await authApi.register({ name, phone, password, role });
+      // Tài khoản Quản lý tự đăng ký phải chờ ADMIN duyệt → chưa có token, quay về tab đăng nhập
+      if (!isLoginTab && res.data.pendingApproval) {
+        setNotice(res.message);
+        setIsLoginTab(true);
+        return;
       }
+      localStorage.setItem('token', res.data.accessToken);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+      await clearOfflineData(); // Bỏ dữ liệu offline của tài khoản trước trên máy này (Story 9.1)
+      navigate('/apartments');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại');
     } finally {
@@ -55,91 +69,51 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50/50 via-slate-50 to-blue-50/40">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-slate-200/80 p-6 sm:p-8 animate-in fade-in">
-        {/* Logo & Slogan */}
-        <div className="text-center mb-6">
-          <div className="inline-flex p-3 bg-indigo-600 rounded-2xl text-white shadow-md mb-3">
-            <Building2 className="w-8 h-8" />
-          </div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">RoomMaster Portal</h1>
-          <p className="text-xs text-slate-500 mt-1">Hệ thống Quản lý Bảng hàng Căn hộ & CTV Môi giới</p>
-        </div>
+    <div className="min-h-[100dvh] flex flex-col bg-slate-100">
+      {/* Phần thương hiệu: nền navy, ánh vàng nhẹ phía sau logo */}
+      <header className="relative overflow-hidden bg-brand-navy pt-[calc(env(safe-area-inset-top)+3rem)] pb-20 px-6 text-center">
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full bg-brand-gold/10 blur-3xl" aria-hidden />
+        <img src="/icons/icon-192.png" alt="" className="relative mx-auto w-20 h-20 rounded-[22px] shadow-lg shadow-black/30 ring-1 ring-brand-gold/40" />
+        <h1 className="relative mt-4 text-3xl font-bold tracking-tight text-white">ApartmentDN</h1>
+        <p className="relative mt-1.5 text-sm text-brand-gold-light">Kho căn hộ cho thuê Đà Nẵng cho CTV & Quản lý</p>
+      </header>
 
-        {/* Tab Switcher */}
-        <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
-          <button
-            type="button"
-            onClick={() => { setIsLoginTab(true); setError(null); }}
-            className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${
-              isLoginTab ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Đăng nhập
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIsLoginTab(false); setError(null); }}
-            className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${
-              !isLoginTab ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Đăng ký mới
-          </button>
-        </div>
-
-        {notice && (
-          <div className="mb-4 p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-medium">
-            {notice}
-          </div>
-        )}
-
-        {/* Error alert */}
-        {error && (
-          <div className="mb-4 p-3 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-medium">
-            {error}
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs sm:text-sm">
-          {!isLoginTab && (
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700 block">Họ và tên *</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  placeholder="VD: Nguyễn Văn Hải"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full h-11 px-3 text-base sm:text-sm border rounded-xl border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-1">
-            <label className="font-semibold text-slate-700 block">Số điện thoại *</label>
-            <div className="relative">
-              <input
-                type="tel"
-                inputMode="tel"
-                name="phone"
-                autoComplete="username"
-                required
-                placeholder="VD: 0912345678"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full h-11 px-3 text-base sm:text-sm border rounded-xl border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
+      <main className="relative -mt-12 flex-1 px-4 pb-badge-safe">
+        <div className="mx-auto w-full max-w-md bg-white rounded-3xl shadow-xl shadow-slate-900/10 p-5 sm:p-7">
+          {/* Tab: thanh trượt nền trắng di chuyển theo lựa chọn */}
+          <div role="tablist" className="relative grid grid-cols-2 p-1 mb-5 bg-slate-100 rounded-xl">
+            <span
+              aria-hidden
+              className={`absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-lg bg-white shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none ${isLoginTab ? '' : 'translate-x-full'}`}
+            />
+            {[true, false].map((login) => (
+              <button
+                key={String(login)}
+                type="button"
+                role="tab"
+                aria-selected={isLoginTab === login}
+                onClick={() => switchTab(login)}
+                className={`relative h-11 text-sm font-semibold rounded-lg transition-colors ${isLoginTab === login ? 'text-brand-navy' : 'text-slate-500'}`}
+              >
+                {login ? 'Đăng nhập' : 'Đăng ký mới'}
+              </button>
+            ))}
           </div>
 
-          <div className="space-y-1">
-            <label className="font-semibold text-slate-700 block">Mật khẩu *</label>
-            <div className="relative">
-              {/* autoComplete đúng loại → iPhone/Chrome điền đúng mật khẩu theo SĐT (không điền nhầm tài khoản khác) */}
+          {notice && <p role="status" className="mb-4 p-3 rounded-xl bg-emerald-50 text-sm text-emerald-800">{notice}</p>}
+          {error && <p role="alert" className="mb-4 p-3 rounded-xl bg-rose-50 text-sm text-rose-700">{error}</p>}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLoginTab && (
+              <IconField label="Họ và tên" icon={UserRound}>
+                <input required autoComplete="name" placeholder="VD: Nguyễn Văn Hải" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+              </IconField>
+            )}
+            <IconField label="Số điện thoại" icon={Phone}>
+              <input type="tel" inputMode="tel" name="phone" autoComplete="username" required placeholder="0912 345 678" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
+            </IconField>
+            <IconField label="Mật khẩu" icon={Lock}>
+              {/* autoComplete đúng loại → iPhone / Chrome điền đúng mật khẩu theo SĐT */}
               <input
                 type={showPassword ? 'text' : 'password'}
                 name="password"
@@ -152,82 +126,56 @@ export const LoginPage: React.FC = () => {
                 placeholder="Tối thiểu 6 ký tự"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full h-11 pl-3 pr-11 text-base sm:text-sm border rounded-xl border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className={`${inputClass} pr-12`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((shown) => !shown)}
                 aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                className="absolute right-1 top-1 p-2 text-slate-400 hover:text-slate-600"
+                className="absolute right-0.5 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
-            </div>
-          </div>
+            </IconField>
 
-          {!isLoginTab && (
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700 block">Vai trò tham gia *</label>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <label
-                  className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
-                    role === 'COLLABORATOR'
-                      ? 'border-indigo-600 bg-indigo-50/60 text-indigo-700 font-bold'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="role"
-                    value="COLLABORATOR"
-                    checked={role === 'COLLABORATOR'}
-                    onChange={() => setRole('COLLABORATOR')}
-                    className="hidden"
-                  />
-                  <span className="text-xs">Cộng tác viên</span>
-                </label>
-
-                <label
-                  className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
-                    role === 'MANAGER'
-                      ? 'border-indigo-600 bg-indigo-50/60 text-indigo-700 font-bold'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="role"
-                    value="MANAGER"
-                    checked={role === 'MANAGER'}
-                    onChange={() => setRole('MANAGER')}
-                    className="hidden"
-                  />
-                  <span className="text-xs">Quản lý kho</span>
-                </label>
-              </div>
-              {role === 'MANAGER' && (
-                <p className="text-[11px] text-amber-700">Tài khoản Quản lý cần ADMIN duyệt trước khi đăng nhập.</p>
-              )}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 mt-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                <span>{isLoginTab ? 'Đăng nhập vào Hệ thống' : 'Tạo tài khoản & Nhận mã CTV'}</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
+            {!isLoginTab && (
+              <fieldset className="space-y-1.5">
+                <legend className="text-sm font-medium text-slate-700">Vai trò</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {ROLES.map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      aria-pressed={role === item.value}
+                      onClick={() => setRole(item.value)}
+                      className={`h-12 rounded-xl border text-sm font-medium transition-colors ${role === item.value ? 'border-brand-navy bg-brand-navy text-white' : 'border-slate-200 text-slate-600'}`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+                {role === 'MANAGER' && <p className="text-xs text-amber-700">Tài khoản Quản lý cần ADMIN duyệt trước khi đăng nhập.</p>}
+              </fieldset>
             )}
-          </button>
-        </form>
-      </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full h-12 mt-2 flex items-center justify-center gap-2 rounded-xl bg-brand-navy text-white text-base font-semibold shadow-md shadow-brand-navy/20 hover:bg-brand-navy-soft active:scale-[0.98] transition-transform duration-100 motion-reduce:transform-none disabled:opacity-60"
+            >
+              {loading ? (
+                <Loader2 className="w-5 h-5 animate-spin" aria-label="Đang xử lý" />
+              ) : (
+                <>
+                  {isLoginTab ? 'Đăng nhập' : 'Tạo tài khoản & nhận mã CTV'}
+                  <ArrowRight className="w-5 h-5 text-brand-gold-light" aria-hidden />
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+        <p className="mt-6 text-center text-xs text-slate-500">© ApartmentDN · Đà Nẵng</p>
+      </main>
     </div>
   );
 };
-

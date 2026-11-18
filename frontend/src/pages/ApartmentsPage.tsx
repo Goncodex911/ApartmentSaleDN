@@ -136,7 +136,7 @@ export const ApartmentsPage: React.FC = () => {
         )}
 
         {status === 'loading' ? (
-          <div className="grid gap-2 lg:grid-cols-2" aria-busy="true">
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2" aria-busy="true">
             {[0, 1, 2, 3].map((i) => <div key={i} className="h-[120px] rounded-2xl bg-slate-200/70 animate-pulse" />)}
           </div>
         ) : status === 'error' ? (
@@ -150,7 +150,7 @@ export const ApartmentsPage: React.FC = () => {
             <p className="text-sm text-slate-500">Thử bỏ bớt bộ lọc hoặc đổi từ khóa.</p>
           </div>
         ) : (
-          <div className="grid gap-2 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
             {apartments.map((apt) => (
               <ApartmentCard key={apt._id} apartment={apt} currentUser={currentUser} onOpen={setSelectedApartment} />
             ))}

@@ -3,6 +3,7 @@ import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { formatVnd } from '../../utils/format.js';
 import { imageCors } from '../../utils/offlineCache.js';
+import { splitMedia } from '../../utils/media.js';
 import { CopyShareButton } from './CopyShareButton.js';
 import { beachDistanceText, roomParts, zoneText } from '../../utils/apartmentLabels.js';
 
@@ -22,7 +23,8 @@ interface ApartmentCardProps {
 // Thẻ căn hộ dạng danh sách gọn: ảnh nhỏ bên trái, thông tin chính bên phải. Bấm cả thẻ để xem chi tiết.
 export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, currentUser, onOpen }) => {
   const { attributes, location } = apartment;
-  const thumbnail = apartment.images.find((url) => !apartment.hiddenImages?.includes(url)) || apartment.images[0];
+  const photos = splitMedia(apartment).images; // Video cũ lỡ nằm trong images không làm ảnh bìa (Story 10.2)
+  const thumbnail = photos.find((url) => !apartment.hiddenImages?.includes(url)) || photos[0];
   const status = STATUS_DISPLAY[apartment.status];
   const facts = [
     ...roomParts(attributes).map((part) => part.replace(' phòng ngủ', 'PN')),
