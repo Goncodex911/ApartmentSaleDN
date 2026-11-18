@@ -56,7 +56,7 @@ export const TelegramLinkSection: React.FC<{ linked: boolean }> = ({ linked }) =
             type="button"
             onClick={handleCreateLink}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 text-white font-semibold disabled:opacity-50"
+            className="flex items-center gap-1.5 min-h-[44px] px-4 rounded-lg bg-sky-600 text-white font-semibold disabled:opacity-50"
           >
             {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Liên kết Telegram
           </button>

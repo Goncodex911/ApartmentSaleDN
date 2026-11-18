@@ -6,11 +6,12 @@ interface UploadSignature {
   folder: string;
   timestamp: number;
   signature: string;
+  allowedFormats: string; // Đã ký cùng chữ ký — phải gửi kèm đúng giá trị
 }
 
 // Giới hạn gói Cloudinary miễn phí — kiểm tra trước khi tải để báo lỗi ngay, không tốn 4G
-export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
-export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 /** Kiểm tra file trước khi tải; trả về câu báo lỗi hoặc null. */
 export function checkMediaFile(file: File): string | null {
@@ -34,6 +35,7 @@ export function uploadToCloudinary(file: File, sig: UploadSignature, onProgress:
     form.append('file', file);
     form.append('api_key', sig.apiKey);
     form.append('folder', sig.folder);
+    form.append('allowed_formats', sig.allowedFormats);
     form.append('timestamp', String(sig.timestamp));
     form.append('signature', sig.signature);
 

@@ -62,7 +62,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+            aria-label="Đóng"
+            className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -180,14 +181,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-medium transition-colors"
+              className="h-11 px-4 rounded-xl text-slate-600 hover:bg-slate-100 font-medium transition-colors"
             >
               Đóng
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               Lưu hồ sơ

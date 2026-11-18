@@ -89,7 +89,8 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        {/* min-h-0 / min-w-0: không để ảnh, video lớn đẩy khung rộng hơn màn hình hoặc đẩy thanh nút Gửi khách ra ngoài (Story 10.1) */}
+        <div className="flex-1 min-h-0 min-w-0 overflow-y-auto">
           {photos.length > 0 && (
             <div className="bg-slate-100">
               <img src={activeImage || photos[0]} alt={apartment.title} crossOrigin={imageCors(activeImage || photos[0])} className="w-full aspect-[4/3] object-cover" />
@@ -114,7 +115,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
             <div className="p-2 space-y-2 bg-white" aria-label="Video căn hộ">
               {videos.map((url) => (
                 // preload="none": chỉ tải video khi bấm phát — tiết kiệm 4G
-                <video key={url} src={url} poster={videoPoster(url)} controls playsInline preload="none" className="w-full aspect-video rounded-xl bg-black" />
+                <video key={url} src={url} poster={videoPoster(url)} controls playsInline preload="none" className="block w-full max-w-full aspect-video rounded-xl bg-black" />
               ))}
             </div>
           )}
