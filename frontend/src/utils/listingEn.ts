@@ -14,12 +14,6 @@ export const toAscii = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/
 
 export const formatVndEn = (value?: number) => `${new Intl.NumberFormat('en-US').format(value || 0)} VND`;
 
-/** "0911000111" → "+84 911 000 111" để khách nước ngoài bấm gọi / WhatsApp được. */
-export const intlPhone = (phone: string) => {
-  const digits = phone.replace(/\D/g, '').replace(/^84/, '0');
-  return /^0\d{9}$/.test(digits) ? `+84 ${digits.slice(1, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}` : phone;
-};
-
 export const placeEn = ({ location }: Pick<ListingInfo, 'location'>) => {
   // Story 8.4: khu vực theo cách gọi của khách; căn cũ / khu "Khác" → phường, quận
   if (location.zone && location.zone !== OTHER_ZONE) return toAscii(location.zone);
