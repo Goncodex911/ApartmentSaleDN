@@ -2,6 +2,7 @@ import React from 'react';
 import { ListingSubmission, SubmissionStatus } from '../../api/submissionApi.js';
 import { formatVnd } from '../../utils/format.js';
 import { roomParts, zoneText } from '../../utils/apartmentLabels.js';
+import { splitMedia } from '../../utils/media.js';
 
 const STATUS_DISPLAY: Record<SubmissionStatus, { label: string; tone: string }> = {
   PENDING: { label: 'Chờ duyệt', tone: 'bg-amber-50 text-amber-800' },
@@ -29,6 +30,7 @@ export const SubmissionCard: React.FC<{ submission: ListingSubmission; busy?: bo
   onReject,
 }) => {
   const { data, status } = submission;
+  const cover = splitMedia(data).images[0];
   const ctv = typeof submission.ctvId === 'object' ? submission.ctvId : null;
   const display = STATUS_DISPLAY[status];
   const facts = [...roomParts(data.attributes), [data.location.street, zoneText(data.location)].filter(Boolean).join(', ')].join(' · ');
@@ -38,7 +40,7 @@ export const SubmissionCard: React.FC<{ submission: ListingSubmission; busy?: bo
     <article className="p-3 bg-white rounded-2xl border border-slate-200 space-y-3">
       <div className="flex gap-3">
         <div className="w-20 h-20 shrink-0 rounded-xl overflow-hidden bg-slate-100">
-          {data.images?.[0] && <img src={data.images[0]} alt="" loading="lazy" className="w-full h-full object-cover" />}
+          {cover && <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover" />}
         </div>
         <div className="min-w-0 flex-1 space-y-1">
           <h3 className="text-sm font-semibold text-slate-900 line-clamp-2">{data.title}</h3>

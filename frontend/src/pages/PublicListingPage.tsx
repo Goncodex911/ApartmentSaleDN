@@ -8,6 +8,7 @@ import { ChatWidget } from '../components/public/ChatWidget.js';
 import { MapPin, LinkIcon } from 'lucide-react';
 import { marketLabels, roomParts, usdText, zoneText } from '../utils/apartmentLabels.js';
 import { amenityLabels } from '../utils/amenities.js';
+import { isVideoUrl } from '../utils/media.js';
 import { usePublicLang } from '../hooks/usePublicLang.js';
 import { PUBLIC_COPY } from '../utils/publicCopy.js';
 import { Lang } from '../utils/shareLang.js';
@@ -136,7 +137,7 @@ export const PublicListingPage: React.FC = () => {
     <div className="min-h-screen bg-slate-50 pb-44">
       <div className="max-w-xl mx-auto bg-white min-h-screen">
         <div className="relative">
-          <PhotoSlider images={listing.images} title={view.title} emptyLabel={copy.noPhotos} photoLabel={copy.photo} />
+          <PhotoSlider images={listing.images.filter((url) => !isVideoUrl(url))} title={view.title} emptyLabel={copy.noPhotos} photoLabel={copy.photo} />
           <LangSwitch lang={lang} onChange={setLang} />
         </div>
 

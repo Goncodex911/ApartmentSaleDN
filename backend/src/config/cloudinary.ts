@@ -47,4 +47,16 @@ export async function deleteCloudinaryMedia(publicIds: string[], resourceType: '
   await cloudinary.api.delete_resources(publicIds, { resource_type: resourceType });
 }
 
+/**
+ * Chữ ký để điện thoại tải ảnh / video THẲNG lên Cloudinary (Story 10.2) — không đi qua Netlify proxy (ngắt sau ~26 giây)
+ * và Render (giới hạn 25MB). Chữ ký cố định thư mục, Cloudinary chỉ chấp nhận trong ~1 giờ. KHÔNG bao giờ trả api_secret.
+ */
+export function signDirectUpload(folder: string) {
+  const { CLOUDINARY_CLOUD_NAME: cloudName, CLOUDINARY_API_KEY: apiKey, CLOUDINARY_API_SECRET: apiSecret } = process.env;
+  if (!cloudName || !apiKey || !apiSecret) throw { status: 503, message: 'Chưa cấu hình Cloudinary trên máy chủ' };
+  const timestamp = Math.round(Date.now() / 1000);
+  const signature = cloudinary.utils.api_sign_request({ folder, timestamp }, apiSecret);
+  return { cloudName, apiKey, folder, timestamp, signature };
+}
+
 export { cloudinary };

@@ -9,6 +9,9 @@ import { AuthRequest } from '../../middlewares/auth.js';
 import { asyncHandler } from '../../utils/async-handler.js';
 import { isPrivilegedRole } from './apartment.model.js';
 import { SUBMISSION_MEDIA_FOLDER } from '../submissions/submission.model.js';
+import { signDirectUpload } from '../../config/cloudinary.js';
+
+const APARTMENT_MEDIA_FOLDER = 'apartment_sale/apartments';
 
 const apartmentId = (req: AuthRequest) => String(req.params.id);
 
@@ -18,6 +21,12 @@ export class ApartmentController {
     const folder = isPrivilegedRole(req.user?.role) ? undefined : SUBMISSION_MEDIA_FOLDER;
     const data = await ApartmentService.uploadMedia(req.files as Express.Multer.File[], folder);
     res.status(200).json({ success: true, message: 'Tải media lên Cloudinary thành công', data });
+  });
+
+  // Story 10.2: chữ ký tải ảnh / video thẳng lên Cloudinary (thư mục theo vai trò như /upload-media)
+  static uploadSignature = asyncHandler(async (req, res) => {
+    const folder = isPrivilegedRole(req.user?.role) ? APARTMENT_MEDIA_FOLDER : SUBMISSION_MEDIA_FOLDER;
+    res.status(200).json({ success: true, data: signDirectUpload(folder) });
   });
 
   // Tạo mới căn hộ (Chỉ Manager/Admin)
