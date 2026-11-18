@@ -55,8 +55,8 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
   const { attributes, fees, location, ownerContact } = apartment;
   const isCtv = currentUser?.role === 'COLLABORATOR';
   const { images: photos, videos } = splitMedia(apartment); // Story 10.2: video cũ lỡ nằm trong images → mục Video
-  const visibleImageCount = photos.filter((url) => !apartment.hiddenImages?.includes(url)).length;
-  const hiddenImageCount = photos.length - visibleImageCount;
+  const sendablePhotos = photos.filter((url) => !apartment.hiddenImages?.includes(url)); // Bỏ ảnh có SĐT nguồn cũ (Story 5.2)
+  const hiddenImageCount = photos.length - sendablePhotos.length;
 
   const facts = [
     ...roomParts(attributes),
@@ -217,7 +217,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
           <ShareLangToggle value={shareLang} onChange={(lang) => { setShareLang(lang); setShareLangState(lang); }} />
           <div className="grid grid-cols-3 gap-2">
             <CopyShareButton apartment={apartment} ctv={currentUser} lang={shareLang} shareUrl={shareLink && withLang(shareLink, shareLang)} />
-            <DownloadPhotosButton apartmentId={apartment._id} photoCount={visibleImageCount} />
+            <DownloadPhotosButton photos={sendablePhotos} fileName={`can-ho-${apartment._id}`} />
             <ShareLinkButton apartmentId={apartment._id} disabled={apartment.status === 'RENTED'} lang={shareLang} />
           </div>
           {hiddenImageCount > 0 && <p className="text-xs text-slate-500">Đã ẩn {hiddenImageCount} ảnh có SĐT nguồn cũ khi gửi khách</p>}

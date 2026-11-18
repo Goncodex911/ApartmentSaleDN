@@ -1,17 +1,22 @@
 import React, { useState } from 'react';
-import { shareApi } from '../../api/shareApi.js';
 import { Download, Loader2, Share2 } from 'lucide-react';
+import { downloadSizeUrl } from '../../utils/cloudinaryImage.js';
+import { createZip } from '../../utils/zip.js';
+import { isTouchDevice } from '../../utils/device.js';
+import { tapFeedback } from '../../utils/haptics.js';
 
 interface DownloadPhotosButtonProps {
-  apartmentId: string;
-  photoCount: number; // Số ảnh được phép gửi khách (đã trừ ảnh có SĐT nguồn cũ)
+  photos: string[]; // Ảnh được phép gửi khách (đã trừ ảnh có SĐT nguồn cũ và video)
+  fileName: string; // Tên file zip trên máy tính
 }
+
+const PARALLEL = 4;
 
 // Điện thoại có bảng chia sẻ file → lưu thẳng vào Thư viện ảnh; máy tính → tải ZIP
 const prefersShareSheet = () => {
   try {
     const probe = new File([''], 'probe.jpg', { type: 'image/jpeg' });
-    return window.matchMedia('(pointer: coarse)').matches && Boolean(navigator.canShare?.({ files: [probe] }));
+    return isTouchDevice() && Boolean(navigator.canShare?.({ files: [probe] }));
   } catch {
     return false;
   }
@@ -26,7 +31,11 @@ const saveBlob = (blob: Blob, fileName: string) => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-export const DownloadPhotosButton: React.FC<DownloadPhotosButtonProps> = ({ apartmentId, photoCount }) => {
+/**
+ * Tải ảnh gửi khách (Story 10.3): tải THẲNG từ Cloudinary (cỡ 1600px), KHÔNG còn in SĐT lên ảnh và không qua server
+ * → nhanh hơn nhiều. Ảnh lỗi thì bỏ qua, các ảnh khác vẫn tải.
+ */
+export const DownloadPhotosButton: React.FC<DownloadPhotosButtonProps> = ({ photos, fileName }) => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [preparedCount, setPreparedCount] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
@@ -34,40 +43,45 @@ export const DownloadPhotosButton: React.FC<DownloadPhotosButtonProps> = ({ apar
   const handlePrepare = async () => {
     setStatus('loading');
     setPreparedCount(0);
-    try {
-      if (!prefersShareSheet()) {
-        saveBlob(await shareApi.downloadPhotosZip(apartmentId), `can-ho-${apartmentId}.zip`);
-        setStatus('idle');
-        return;
-      }
+    const results: File[] = [];
+    const queue = photos.map((url, index) => ({ url, index }));
+    await Promise.all(
+      Array.from({ length: PARALLEL }, async () => {
+        for (let job = queue.shift(); job; job = queue.shift()) {
+          try {
+            const res = await fetch(downloadSizeUrl(job.url));
+            if (!res.ok) continue;
+            results[job.index] = new File([await res.blob()], `anh-${job.index + 1}.jpg`, { type: 'image/jpeg' });
+            setPreparedCount((count) => count + 1);
+          } catch {
+            // Ảnh lỗi → bỏ qua
+          }
+        }
+      })
+    );
+    const readyFiles = results.filter(Boolean); // Giữ đúng thứ tự ảnh
+    if (!readyFiles.length) return setStatus('error');
 
-      // Tải từng ảnh đã watermark; ảnh lỗi thì bỏ qua
-      const results = await Promise.allSettled(
-        Array.from({ length: photoCount }, async (_, index) => {
-          const blob = await shareApi.getWatermarkedPhoto(apartmentId, index);
-          setPreparedCount((count) => count + 1);
-          return new File([blob], `anh-${index + 1}.jpg`, { type: 'image/jpeg' });
-        })
-      );
-      const readyFiles = results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
-      if (readyFiles.length === 0) throw new Error('Không tải được ảnh nào');
+    if (prefersShareSheet()) {
       setFiles(readyFiles);
-      setStatus('ready');
-    } catch {
-      setStatus('error');
+      setStatus('ready'); // iOS chỉ mở bảng chia sẻ trong 1 lần chạm riêng → hiện nút "Lưu N ảnh"
+      return;
     }
+    const entries = await Promise.all(readyFiles.map(async (file) => ({ name: file.name, data: new Uint8Array(await file.arrayBuffer()) })));
+    saveBlob(createZip(entries), `${fileName}.zip`);
+    setStatus('idle');
   };
 
-  // Lần chạm thứ 2: iOS chỉ mở bảng chia sẻ khi gọi trực tiếp trong sự kiện chạm
   const handleShare = async () => {
     try {
       await navigator.share({ files });
+      tapFeedback();
     } catch {
       // Người dùng đóng bảng chia sẻ — giữ nguyên ảnh để chia sẻ lại
     }
   };
 
-  if (photoCount === 0) return null;
+  if (photos.length === 0) return null;
 
   if (status === 'ready') {
     return (
@@ -85,11 +99,7 @@ export const DownloadPhotosButton: React.FC<DownloadPhotosButtonProps> = ({ apar
       className="w-full h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-medium rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 disabled:opacity-60"
     >
       {status === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-      {status === 'loading'
-        ? `${preparedCount}/${photoCount}`
-        : status === 'error'
-          ? 'Thử lại'
-          : 'Tải ảnh'}
+      {status === 'loading' ? `${preparedCount}/${photos.length}` : status === 'error' ? 'Thử lại' : 'Tải ảnh'}
     </button>
   );
 };
