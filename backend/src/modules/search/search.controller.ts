@@ -1,5 +1,6 @@
 import { Response } from 'express';
-import { SearchService } from './search.service.js';
+import { ISearchOptions, SearchService } from './search.service.js';
+import { findMapPins } from './map-pins.service.js';
 import { GeocodingService } from './geocoding.service.js';
 import { AuthRequest } from '../../middlewares/auth.js';
 import { asyncHandler } from '../../utils/async-handler.js';
@@ -35,6 +36,39 @@ async function runNaturalSearch(req: AuthRequest, res: Response) {
   });
 }
 
+/** Tham số bộ lọc dùng chung cho danh sách và bản đồ (Story 11.2). */
+const parseSearchOptions = (req: AuthRequest): ISearchOptions => {
+  const query = req.query;
+  return {
+    q: text(query.q),
+    district: text(query.district),
+    minPrice: num(query.minPrice),
+    maxPrice: num(query.maxPrice),
+    status: text(query.status),
+    bedrooms: num(query.bedrooms),
+    furnishing: text(query.furnishing),
+    zones: list(query.zones, ZONES),
+    propertyTypes: list(query.propertyTypes, PROPERTY_TYPES),
+    page: num(query.page) ?? 1,
+    limit: num(query.limit) ?? 12,
+    userRole: req.user?.role,
+    lat: num(query.lat),
+    lng: num(query.lng),
+    radiusKm: num(query.radiusKm),
+    landmark: text(query.landmark),
+    priceRange: text(query.priceRange),
+    roomType: text(query.roomType),
+    elevator: bool(query.elevator),
+    allowPets: bool(query.allowPets),
+    carParking: bool(query.carParking),
+    balcony: bool(query.balcony),
+    pcccStandard: bool(query.pcccStandard),
+    nearBeach: bool(query.nearBeach),
+    pool: bool(query.pool),
+    ...Object.fromEntries(NEW_AMENITY_KEYS.map((key) => [key, bool(query[key])])), // Story 8.5: gym, seaView, riverView...
+  };
+};
+
 export class SearchController {
   /**
    * GET /api/v1/apartments/search — Tìm kiếm mờ thông minh, hiểu tiếng lóng, bán kính GPS & Bộ lọc 1-chạm
@@ -44,35 +78,13 @@ export class SearchController {
     // Cờ ?natural=true → chuyển sang xử lý câu tự nhiên (lỗi vẫn đi qua asyncHandler của route này)
     if (query.natural === 'true' && text(query.q)) return runNaturalSearch(req, res);
 
-    const result = await SearchService.search({
-      q: text(query.q),
-      district: text(query.district),
-      minPrice: num(query.minPrice),
-      maxPrice: num(query.maxPrice),
-      status: text(query.status),
-      bedrooms: num(query.bedrooms),
-      furnishing: text(query.furnishing),
-      zones: list(query.zones, ZONES),
-      propertyTypes: list(query.propertyTypes, PROPERTY_TYPES),
-      page: num(query.page) ?? 1,
-      limit: num(query.limit) ?? 12,
-      userRole: req.user?.role,
-      lat: num(query.lat),
-      lng: num(query.lng),
-      radiusKm: num(query.radiusKm),
-      landmark: text(query.landmark),
-      priceRange: text(query.priceRange),
-      roomType: text(query.roomType),
-      elevator: bool(query.elevator),
-      allowPets: bool(query.allowPets),
-      carParking: bool(query.carParking),
-      balcony: bool(query.balcony),
-      pcccStandard: bool(query.pcccStandard),
-      nearBeach: bool(query.nearBeach),
-      pool: bool(query.pool),
-      ...Object.fromEntries(NEW_AMENITY_KEYS.map((key) => [key, bool(query[key])])), // Story 8.5: gym, seaView, riverView...
-    });
+    const result = await SearchService.search(parseSearchOptions(req));
     res.status(200).json({ success: true, data: result.items, pagination: result.pagination, meta: result.meta });
+  });
+
+  /** GET /api/v1/apartments/search/pins — ghim bản đồ theo cùng bộ lọc (Story 11.2) */
+  static pins = asyncHandler(async (req, res) => {
+    res.status(200).json({ success: true, data: await findMapPins(parseSearchOptions(req)) });
   });
 
   static searchNatural = asyncHandler(runNaturalSearch);

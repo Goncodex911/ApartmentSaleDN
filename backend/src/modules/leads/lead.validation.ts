@@ -1,11 +1,16 @@
 import { z } from 'zod';
 import { isValidObjectId } from 'mongoose';
 import { vnPhone } from '../../utils/validators.js';
-import { LEAD_STAGES } from './lead.model.js';
+import { LEAD_AMENITIES, LEAD_STAGES } from './lead.model.js';
+import { PROPERTY_TYPES, ZONES } from '../apartments/listing-taxonomy.js';
 
 const requirementsSchema = z.object({
   districts: z.array(z.string().trim().min(1).max(50)).max(10).optional(),
+  zones: z.array(z.enum(ZONES)).max(ZONES.length).optional(),
+  propertyTypes: z.array(z.enum(PROPERTY_TYPES)).max(PROPERTY_TYPES.length).optional(),
   maxBudget: z.number().positive('Ngân sách phải lớn hơn 0').optional(),
+  budgetCurrency: z.enum(['VND', 'USD']).optional(),
+  amenities: z.array(z.enum(LEAD_AMENITIES)).max(LEAD_AMENITIES.length).optional(),
   moveInDate: z.string().trim().max(50).optional(),
   bedrooms: z.number().int().min(0).max(10).optional(),
   allowPets: z.boolean().optional(),

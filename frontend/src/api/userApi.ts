@@ -22,6 +22,12 @@ export const userApi = {
     await apiClient.delete('/users/telegram-link');
   },
 
+  // [Quản lý] CTV đang hoạt động — ô "CTV chốt căn" khi ghi hợp đồng (Story 11.5)
+  listCollaborators: async (): Promise<Pick<User, '_id' | 'name' | 'ctvCode'>[]> => {
+    const res = await apiClient.get('/users/collaborators');
+    return res.data.data;
+  },
+
   // [ADMIN] Danh sách tài khoản theo trạng thái (mặc định: chờ duyệt)
   listUsers: async (status: User['status'] = 'PENDING'): Promise<User[]> => {
     const res = await apiClient.get('/users', { params: { status } });

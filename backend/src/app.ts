@@ -10,6 +10,7 @@ import { shareRoutes } from './modules/share/share.routes.js';
 import { leadRoutes } from './modules/leads/lead.routes.js';
 import { chatRoutes } from './modules/chat/chat.routes.js';
 import { notificationRoutes } from './modules/notifications/notification.routes.js';
+import { realtimeRoutes } from './modules/realtime/realtime.routes.js';
 import { errorHandler } from './middlewares/error.js';
 
 export const app = express();
@@ -41,6 +42,7 @@ app.use('/api/v1/leads', leadRoutes);
 app.use('/api/v1/chat', chatRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/submissions', submissionRoutes);
+app.use('/api/v1/realtime', realtimeRoutes);
 
 // Xử lý lỗi tập trung
 app.use(errorHandler);

@@ -21,6 +21,19 @@ export interface ISubListing {
   postedAt?: Date;
 }
 
+// Hợp đồng thuê (Story 11.5): reminded* = đã gửi nhắc mốc 30 / 15 ngày / hết hạn → không nhắc lặp
+export interface ILease {
+  startDate: Date;
+  durationMonths: number;
+  endDate: Date;
+  closedBy?: Types.ObjectId; // CTV chốt căn — cùng nhận nhắc tái ký
+  tenantName?: string;
+  tenantPhone?: string;
+  reminded30At?: Date;
+  reminded15At?: Date;
+  expiredNotifiedAt?: Date;
+}
+
 export interface IApartment extends Document {
   title: string;
   description?: string;
@@ -84,6 +97,7 @@ export interface IApartment extends Document {
   reviewReason?: string;
   managerId: Types.ObjectId;
   submittedBy?: Types.ObjectId; // CTV đăng tin (Story 8.6) — chỉ Quản lý thấy
+  lease?: ILease; // Hợp đồng thuê khi căn RENTED (Story 11.5) — chỉ Quản lý thấy
   createdAt: Date;
   updatedAt: Date;
 }
@@ -178,9 +192,28 @@ const apartmentSchema = new Schema<IApartment>(
     reviewReason: { type: String, trim: true },
     managerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     submittedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    lease: {
+      type: new Schema<ILease>(
+        {
+          startDate: { type: Date, required: true },
+          durationMonths: { type: Number, required: true, min: 1 },
+          endDate: { type: Date, required: true },
+          closedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+          tenantName: { type: String, trim: true },
+          tenantPhone: { type: String, trim: true },
+          reminded30At: { type: Date },
+          reminded15At: { type: Date },
+          expiredNotifiedAt: { type: Date },
+        },
+        { _id: false }
+      ),
+    },
   },
   { timestamps: true }
 );
+
+// Quét nhắc tái ký mỗi ngày: căn đã thuê sắp hết hạn (Story 11.5)
+apartmentSchema.index({ status: 1, 'lease.endDate': 1 });
 
 export const Apartment = model<IApartment>('Apartment', apartmentSchema);
 

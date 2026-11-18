@@ -37,6 +37,7 @@ router.post(
 router.post('/', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.create);
 router.put('/:id', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.update);
 router.patch('/:id/status', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.updateStatus);
+router.patch('/:id/lease/renew', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.renewLease);
 router.delete('/:id', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.delete);
 
 // 3. Quản lý Nguồn tham chiếu (Sub-listings - Story 2.3)

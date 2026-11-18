@@ -43,13 +43,12 @@ export class SearchService {
   /**
    * Tìm kiếm thông minh: Tìm kiếm mờ, tiếng lóng BĐS, bán kính GPS & Bộ lọc 1-chạm
    */
-  public static async search(options: ISearchOptions) {
-    const startTime = Date.now();
-    const page = Math.max(1, Number(options.page) || 1);
-    const limit = Math.min(50, Math.max(1, Number(options.limit) || 12));
-    const skip = (page - 1) * limit;
+  /**
+   * Bước 1–3 dùng chung cho danh sách và bản đồ (Story 11.2): bóc tiếng lóng, nhận diện điểm mốc / toạ độ,
+   * dựng điều kiện lọc MongoDB.
+   */
+  public static buildContext(options: ISearchOptions) {
     const queryRaw = (options.q || '').trim();
-
     // 1. Bóc tách tiếng lóng, từ đồng nghĩa & lỗi chính tả
     const { expandedConditions, recognizedDistrict } = QueryAnalyzer.analyze(queryRaw);
 
@@ -62,11 +61,19 @@ export class SearchService {
     } else if (queryRaw) {
       resolvedLandmark = GeocodingService.resolveCoordinates(queryRaw, { landmarksOnly: true });
     }
-
-    const radiusKm = options.radiusKm ? Number(options.radiusKm) : (resolvedLandmark ? 2 : undefined);
+    const radiusKm = options.radiusKm ? Number(options.radiusKm) : resolvedLandmark ? 2 : undefined;
 
     // 3. Xây dựng điều kiện lọc bằng FilterBuilder
     const filter = FilterBuilder.build(options, recognizedDistrict, expandedConditions, resolvedLandmark);
+    return { queryRaw, recognizedDistrict, resolvedLandmark, radiusKm, filter };
+  }
+
+  public static async search(options: ISearchOptions) {
+    const startTime = Date.now();
+    const page = Math.max(1, Number(options.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(options.limit) || 12));
+    const skip = (page - 1) * limit;
+    const { queryRaw, recognizedDistrict, resolvedLandmark, radiusKm, filter } = this.buildContext(options);
 
     let items: any[] = [];
     let total = 0;

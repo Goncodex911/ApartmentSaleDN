@@ -10,6 +10,7 @@ import { marketLabels, roomParts, usdText, zoneText } from '../utils/apartmentLa
 import { amenityLabels } from '../utils/amenities.js';
 import { isVideoUrl } from '../utils/media.js';
 import { usePublicLang } from '../hooks/usePublicLang.js';
+import { LivingCostEstimator } from '../components/public/LivingCostEstimator.js';
 import { PUBLIC_COPY } from '../utils/publicCopy.js';
 import { Lang } from '../utils/shareLang.js';
 import { headlineEn, addressEn, formatVndEn, feesEn, amenitiesEn, bedroomsEn, FURNISHING_EN, minStayEn, dateEn } from '../utils/listingEn.js';
@@ -173,6 +174,8 @@ export const PublicListingPage: React.FC = () => {
               </span>
             ))}
           </div>
+
+          {listing.status !== 'RENTED' && <LivingCostEstimator listing={listing} lang={lang} />}
 
           {listing.location.approximateCenter && (
             <div className="space-y-1.5">

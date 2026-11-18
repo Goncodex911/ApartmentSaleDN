@@ -5,6 +5,7 @@ import { fetchImageBuffer } from '../../utils/fetch-image.js';
 import { escapeRegex } from '../../utils/phone-text.js';
 import { removeVietnameseTones } from '../../utils/vietnamese.js';
 import { LeadMatchingService } from '../leads/lead-matching.service.js';
+import { publishApartmentEvent } from '../realtime/realtime.bus.js';
 import { GeocodingService } from '../search/geocoding.service.js';
 import { PHashUtil } from './phash.util.js';
 import { IProcessListingInput } from './dedup.types.js';
@@ -226,6 +227,7 @@ export class DedupService {
     });
 
     LeadMatchingService.runInBackground(newApartment); // Story 6.3: báo CTV có khách phù hợp
+    publishApartmentEvent('apartment.created', newApartment); // Story 11.4: CTV đang mở app thấy căn mới ngay
     return {
       isRentalListing: true,
       isDuplicate: false,

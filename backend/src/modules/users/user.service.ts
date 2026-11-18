@@ -53,6 +53,11 @@ export class UserService {
     return User.find({ status, role: { $ne: 'ADMIN' } }).select('name phone role ctvCode status createdAt').sort({ createdAt: -1 }).lean();
   }
 
+  // [Quản lý] CTV đang hoạt động — chọn "CTV chốt căn" khi ghi hợp đồng thuê (Story 11.5); chỉ trả tên + mã CTV
+  static async listCollaborators() {
+    return User.find({ role: 'COLLABORATOR', status: 'ACTIVE' }).select('name ctvCode').sort({ name: 1 }).limit(500).lean();
+  }
+
   // [ADMIN] Duyệt / khóa tài khoản — không cho đổi trạng thái tài khoản ADMIN khác qua API
   static async updateStatus(userId: string, status: 'ACTIVE' | 'BLOCKED') {
     const user = await User.findById(userId);

@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { formatVnd } from '../../utils/format.js';
 import { Apartment, apartmentApi } from '../../api/apartmentApi.js';
-import { Lead, leadApi } from '../../api/leadApi.js';
+import { Lead, LeadMatch, leadApi } from '../../api/leadApi.js';
+import { ScoreBadge } from './LeadMatchesSection.js';
 import { User } from '../../api/authApi.js';
 import { CopyShareButton } from '../apartment/CopyShareButton.js';
 import { ShareLinkButton } from '../apartment/ShareLinkButton.js';
 import { summarizeRequirements } from './leadStages.js';
-import { X, MessageCircle, Loader2, Sparkles } from 'lucide-react';
+import { X, MessageCircle, Loader2, Target } from 'lucide-react';
 
 interface MatchShareModalProps {
   apartmentId: string;
@@ -17,13 +18,14 @@ interface MatchShareModalProps {
 
 // Bấm thông báo ghép căn → gửi căn cho khách trong 1 chạm (Story 6.3 - AC3)
 export const MatchShareModal: React.FC<MatchShareModalProps> = ({ apartmentId, leadId, currentUser, onClose }) => {
-  const [data, setData] = useState<{ apartment: Apartment; lead: Lead } | null>(null);
+  const [data, setData] = useState<{ apartment: Apartment; lead: Lead; match: LeadMatch | null } | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    Promise.all([apartmentApi.getApartmentById(apartmentId), leadApi.getById(leadId)])
-      .then(([apartmentRes, lead]) => {
-        setData({ apartment: apartmentRes.data, lead });
+    // Story 11.1: kèm điểm phù hợp + lý do khớp (lỗi chấm điểm không chặn việc gửi căn)
+    Promise.all([apartmentApi.getApartmentById(apartmentId), leadApi.getById(leadId), leadApi.getMatchScore(leadId, apartmentId).catch(() => null)])
+      .then(([apartmentRes, lead, match]) => {
+        setData({ apartment: apartmentRes.data, lead, match });
         // Ghi lại vào lịch sử khách để CTV biết đã xem/gửi căn nào (không chặn giao diện nếu lỗi)
         leadApi.addNote(leadId, `Đã xem căn gợi ý: ${apartmentRes.data.title}`).catch(() => undefined);
       })
@@ -37,7 +39,7 @@ export const MatchShareModal: React.FC<MatchShareModalProps> = ({ apartmentId, l
       <div className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl p-4 space-y-3 text-sm">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-slate-900 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-amber-500" /> Căn mới hợp với khách
+            <Target className="w-5 h-5 text-emerald-600" aria-hidden /> Căn mới hợp với khách
           </h2>
           <button type="button" onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700">
             <X className="w-5 h-5" />
@@ -59,8 +61,12 @@ export const MatchShareModal: React.FC<MatchShareModalProps> = ({ apartmentId, l
             </div>
 
             <div className="p-3 rounded-xl bg-amber-50 border border-amber-100 text-xs">
-              <p className="font-semibold text-slate-800">Khách: {data.lead.name}</p>
+              <p className="flex items-center justify-between gap-2 font-semibold text-slate-800">
+                Khách: {data.lead.name}
+                {data.match && data.match.score > 0 && <ScoreBadge score={data.match.score} />}
+              </p>
               <p className="text-slate-600">{summarizeRequirements(data.lead.requirements) || 'Chưa có nhu cầu chi tiết'}</p>
+              {!!data.match?.reasons.length && <p className="mt-1 text-emerald-800">{data.match.reasons.join(' · ')}</p>}
             </div>
 
             <div className="grid gap-2">

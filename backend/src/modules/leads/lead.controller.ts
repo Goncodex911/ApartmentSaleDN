@@ -16,6 +16,16 @@ export class LeadController {
     res.status(200).json({ success: true, data: await LeadService.getById(leadId(req), req.user!.id) });
   });
 
+  // GET /api/v1/leads/:id/matches — căn phù hợp ≥ 80% (Story 11.1)
+  static matches = handle(async (req, res) => {
+    res.status(200).json({ success: true, data: await LeadService.matches(leadId(req), req.user!.id, req.user!.role) });
+  });
+
+  // GET /api/v1/leads/:id/matches/:apartmentId — điểm phù hợp với 1 căn (mở từ thông báo)
+  static matchScore = handle(async (req, res) => {
+    res.status(200).json({ success: true, data: await LeadService.matchScore(leadId(req), req.user!.id, String(req.params.apartmentId)) });
+  });
+
   // POST /api/v1/leads — thêm khách thủ công
   static create = handle(async (req, res) => {
     const input = createLeadSchema.parse(req.body);

@@ -26,6 +26,11 @@ export class UserController {
   });
 
   // [ADMIN] GET /api/v1/users?status=PENDING — danh sách tài khoản chờ duyệt
+  // [Quản lý] GET /api/v1/users/collaborators — danh sách CTV đang hoạt động (Story 11.5)
+  static listCollaborators = asyncHandler(async (_req, res) => {
+    res.status(200).json({ success: true, data: await UserService.listCollaborators() });
+  });
+
   static listUsers = asyncHandler(async (req, res) => {
     const { status } = listUsersQuerySchema.parse(req.query);
     res.status(200).json({ success: true, data: await UserService.listByStatus(status) });

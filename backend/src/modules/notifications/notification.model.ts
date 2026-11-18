@@ -1,7 +1,8 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
 // LISTING_*: tin CTV đăng chờ duyệt (Story 8.6)
-export const NOTIFICATION_TYPES = ['NEW_CHAT_LEAD', 'APARTMENT_MATCH', 'LISTING_SUBMITTED', 'LISTING_APPROVED', 'LISTING_REJECTED'] as const;
+// LEASE_EXPIRING: nhắc tái ký hợp đồng thuê (Story 11.5)
+export const NOTIFICATION_TYPES = ['NEW_CHAT_LEAD', 'APARTMENT_MATCH', 'LISTING_SUBMITTED', 'LISTING_APPROVED', 'LISTING_REJECTED', 'LEASE_EXPIRING'] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 // Thông báo trong app (Story 6.2, 6.3) — tự xóa sau 30 ngày

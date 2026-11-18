@@ -27,6 +27,17 @@
       padding-bottom: calc(64px + 16px + env(safe-area-inset-bottom));
     }
   }
+  /* Story 11.2: bản đồ vừa khít phần còn lại của màn hình — trừ đầu trang + ô tìm (~190px), huy hiệu + menu đáy (120px),
+     hàng chip lọc nếu có (--map-extra) → dòng ghi nguồn OSM ở góc dưới luôn nhìn thấy */
+  .h-map {
+    height: calc(100dvh - 318px - var(--map-extra, 0px) - env(safe-area-inset-bottom));
+    min-height: 320px;
+  }
+  @media (min-width: 768px) {
+    .h-map {
+      height: calc(100dvh - 270px - var(--map-extra, 0px) - env(safe-area-inset-bottom));
+    }
+  }
 }
 
 @layer base {

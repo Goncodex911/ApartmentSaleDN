@@ -3,7 +3,6 @@ import { Apartment } from '../apartments/apartment.model.js';
 import { deleteCloudinaryMedia } from '../../config/cloudinary.js';
 
 const RETENTION_DAYS = 30;
-const RUN_EVERY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Link Cloudinary → { loại, public_id }; chỉ nhận file trong thư mục ảnh tin CTV (không bao giờ xóa ảnh căn trong kho).
@@ -46,12 +45,4 @@ export async function cleanupSubmissionMedia(now = new Date()) {
     await ListingSubmission.updateOne({ _id: submission._id }, { $set: { mediaCleanedAt: now } }, { timestamps: false });
   }
   return stale.length;
-}
-
-/** Chạy khi server khởi động và mỗi 24 giờ; không cấu hình Cloudinary thì bỏ qua. */
-export function startSubmissionCleanup() {
-  if (!process.env.CLOUDINARY_API_KEY) return;
-  const run = () => cleanupSubmissionMedia().catch((err) => console.error('[Dọn ảnh tin CTV] Lỗi:', err.message));
-  run();
-  setInterval(run, RUN_EVERY_MS).unref();
 }

@@ -16,6 +16,7 @@ Tài liệu này tổng hợp toàn bộ các dịch vụ bên ngoài, API Key v
 | **[EPIC-05](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_05_ONE_CLICK_SHARE.md)** | Domain Frontend (Link xem phòng công khai) | `CLIENT_URL` | ⏸️ Chưa đến hạn |
 | **[EPIC-06](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_06_CUSTOMER_CRM_AND_AUTO_CHAT.md)** | AI Auto-Chat Assistant, Zalo OA / Webhook | `GEMINI_API_KEY`, `ZALO_OA_ACCESS_TOKEN` (Tùy chọn) | ⏸️ Chưa đến hạn |
 | **[EPIC-09](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_09_PWA_MOBILE_APP.md)** | Logo/icon app, Netlify (header cache), điện thoại thật để thử | Không có biến môi trường mới | ✅ **Đã đủ — chỉ còn thử trên điện thoại thật (mục 6.3)** |
+| **[EPIC-11](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_11_SMART_BROKER_TOOLS_AND_REALTIME.md)** | Bản đồ OSM, SSE Real-time, Google Maps Waypoints, Cron | Không có biến môi trường bắt buộc (0 VND) | ⏸️ **Sẵn sàng (0 VND - xem mục 7)** |
 
 ---
 
@@ -109,3 +110,46 @@ Epic này **không cần API key hay biến môi trường mới**, không đổ
 #### 6.4. Gói thư viện mới — ✅ ĐÃ ĐỒNG Ý (cách A)
 * `vite-plugin-pwa` (chỉ dùng khi build — devDependency, miễn phí, mã nguồn mở): tự sinh Service Worker (Workbox), manifest và cơ chế cập nhật bản mới.
 * Không cài thư viện nào chạy trong app (kéo để làm mới, chia sẻ, rung đều dùng API có sẵn của trình duyệt).
+
+---
+
+### 7. EPIC-11: Bộ Công cụ Môi giới Nâng cao & Kho phòng Thời gian thực
+
+Epic 11 được thiết kế theo triết lý **Ponytail (Tối giản, 0 đồng, không phát sinh chi phí vận hành hàng tháng)**. Hệ thống tận dụng tối đa hạ tầng sẵn có và các giao thức mở, **KHÔNG BẮT BUỘC** phải mua API Key trả phí:
+
+#### 7.1. Bản đồ Tương tác & Bong bóng giá (Leaflet & OpenStreetMap)
+* **Mục đích:** Hiển thị vị trí căn hộ trên bản đồ Đà Nẵng, bong bóng giá (Price Pills) và gom cụm số lượng căn theo khu vực (Marker Clustering).
+* **Chi phí:** **0 VND (Miễn phí 100%)**.
+* **Giải pháp (✅ đã chốt Cách A — Story 11.2):** Thư viện `leaflet` (đã cài) + tile OpenStreetMap chuẩn `https://tile.openstreetmap.org/{z}/{x}/{y}.png` (kiểu cũ `{s}.tile...` không dùng nữa). Bản đồ chỉ có trong app (đã đăng nhập).
+* **Bắt buộc theo [chính sách tile OSM](https://operations.osmfoundation.org/policies/tiles/):** luôn ghi nguồn "© OpenStreetMap" (đã làm), không dùng tải nặng, **không** cho service worker lưu tile để xem offline (đã đảm bảo).
+* **Không cần Google Maps JavaScript API:** Tiết kiệm ít nhất $200/tháng chi phí Maps API của Google.
+* **Tùy chọn nâng cao (Không bắt buộc):** Khi đông người dùng hoặc muốn giao diện bản đồ khác → MapTiler / Mapbox (gói miễn phí), cần thêm biến `VITE_MAP_TILE_KEY` trên Netlify (key phải giới hạn theo tên miền vì nằm ở frontend). Chỉ đổi 1 dòng URL tile trong `ApartmentMap.tsx`.
+
+#### 7.2. Lập Lộ trình Dẫn khách (Google Maps Deep-link)
+* **Mục đích:** Sau khi CTV tick chọn 3-4 căn, hệ thống tự động sắp xếp thứ tự đường đi ngắn nhất theo GPS và mở ứng dụng Google Maps trên điện thoại để dẫn đường xe máy.
+* **Chi phí:** **0 VND (Miễn phí 100%)**.
+* **Giải pháp:** Sử dụng chuẩn URL Scheme Universal Deep-link của Google Maps:
+  `https://www.google.com/maps/dir/?api=1&origin=...&destination=...&waypoints=...`
+* **Không tốn phí Google Directions API:** Toàn bộ việc render bản đồ và dẫn đường chuyển sang ứng dụng Google Maps có sẵn trên điện thoại của CTV.
+* **Giới hạn (✅ đã chốt Cách A — Story 11.3):** link mở bằng trình duyệt điện thoại chỉ nhận 3 điểm dừng giữa đường (`waypoints`) và URL tối đa 2.048 ký tự → **tối đa 4 căn mỗi lộ trình** (vị trí CTV → 3 căn dừng → 1 căn đích). Đi xe máy: `travelmode=two-wheeler`. Không cần cấu hình.
+
+#### 7.3. Cập nhật Kho phòng Thời gian thực (Server-Sent Events - SSE)
+* **Mục đích:** Khi có căn vừa cọc hoặc đổi giá, màn hình điện thoại của CTV tự đổi màu ngay lập tức mà không cần F5.
+* **Chi phí:** **0 VND (Miễn phí 100%)**.
+* **Giải pháp:** Sử dụng Server-Sent Events (SSE) thuần trên Node.js/Express, không dùng Socket.io hay dịch vụ ngoài đắt đỏ như Pusher ($49+/tháng).
+* **Lưu ý triển khai trên Netlify / Render (✅ đã chốt Cách A — Story 11.4):**
+  * Proxy `/api/*` của Netlify cắt request sau khoảng 26–30 giây **dù có heartbeat** (không đổi được) → máy chủ **tự đóng luồng sau 25 giây**, app nối lại ngay và gửi `Last-Event-ID` để nhận bù sự kiện bị lỡ. Vẫn gửi `: ping` mỗi 15 giây.
+  * App ẩn / mất mạng thì ngắt luồng (tiết kiệm pin, 4G); máy chủ khởi động lại thì app tự tải lại danh sách.
+  * Đăng nhập bằng header `Authorization` (dùng `fetch` thay `EventSource`), đi qua proxy như mọi API khác → **không cần cấu hình CORS hay biến mới**.
+  * Cần thử trên Netlify thật (Deploy Preview) xem proxy có gom (buffer) luồng không; nếu có → chuyển sang app tự hỏi server mỗi 30 giây.
+
+#### 7.4. Quản lý Vòng đời Hợp đồng & Nhắc Tái ký (Lease Renewal Tracker)
+* **Mục đích:** Tự động đếm ngược ngày hết hạn thuê và gửi cảnh báo trước 30 ngày & 15 ngày cho Quản lý và CTV.
+* **Chi phí:** **0 VND (Miễn phí 100%)**.
+* **Giải pháp (✅ đã chốt Cách A — Story 11.5):** **Không dùng `node-cron`** — Render gói free ngủ sau 15 phút không có truy cập nên lịch 08:00 sẽ không chạy. Thay vào đó máy chủ **quét khi có người mở app lần đầu trong ngày** (giờ Việt Nam, khoá trong collection `job_runs` để chỉ chạy 1 lần), tạo thông báo trong app. Quét theo "còn ≤ 30 / ≤ 15 ngày" nên hôm nào không ai mở app thì hôm sau nhắc bù. Việc dọn ảnh tin CTV (Story 8.6) cũng chạy theo cơ chế này.
+* **Telegram:** người đã liên kết Telegram (Epic 6) tự nhận kèm lời nhắc lúc quét — không cần cấu hình thêm.
+* **Tùy chọn (Cách B, chưa làm):** muốn nhắc **đúng 08:00** kể cả khi không ai mở app → dùng dịch vụ hẹn giờ ngoài miễn phí (cron-job.org / GitHub Actions) gọi 1 API riêng, cần thêm biến `CRON_SECRET` trên Render.
+
+#### 7.5. Biến môi trường của Epic 11
+* **Bắt buộc:** không có.
+* **Tùy chọn:** `USD_VND_RATE` trên Render (đã có trong `.env.example`, mặc định 25.000) — tỷ giá cho bảng so sánh căn, ước tính chi phí trên trang khách (Story 11.6) và ghép khách theo ngân sách USD (Story 11.1). `VITE_MAP_TILE_KEY` / `CRON_SECRET` chỉ cần khi chọn các Cách B ở trên.

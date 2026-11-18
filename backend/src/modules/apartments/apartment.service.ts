@@ -5,6 +5,9 @@ import { prepareLocation, withStreet } from './apartment-location.js';
 import { Types } from 'mongoose';
 import { maskPhonesInText, escapeRegex } from '../../utils/phone-text.js';
 import { LeadMatchingService } from '../leads/lead-matching.service.js';
+import { publishApartmentEvent } from '../realtime/realtime.bus.js';
+import { buildLease, extendLease } from './apartment-lease.js';
+
 
 // Chỉ nhận giá trị chuỗi: qs cho phép ?status[$ne]=X tạo object → chèn toán tử MongoDB vào filter
 const queryText = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
@@ -46,6 +49,7 @@ export class ApartmentService {
     delete item.imageHashes; // Dữ liệu nội bộ của bộ khử trùng, không cần gửi ra ngoài
     delete item.needsReview; // Cờ kiểm duyệt nội bộ của Quản lý
     delete item.submittedBy;
+    delete item.lease; // Hợp đồng + thông tin khách thuê chỉ Quản lý xem (Story 11.5)
     delete item.reviewReason;
     item.subListings = (item.subListings || []).map((sub: any) => ({
       ...sub,
@@ -84,6 +88,8 @@ export class ApartmentService {
       managerId: new Types.ObjectId(managerId),
     });
     LeadMatchingService.runInBackground(apartment); // Story 6.3: báo CTV có khách phù hợp
+    // Story 11.4: báo CTV đang mở app có căn mới (bỏ qua căn nhập thẳng trạng thái Đã cọc / Đã thuê)
+    if (apartment.status === 'AVAILABLE' || apartment.status === 'UPCOMING') publishApartmentEvent('apartment.created', apartment, managerId);
     return apartment;
   }
 
@@ -95,6 +101,7 @@ export class ApartmentService {
       throw { status: 403, message: 'Bạn không có quyền chỉnh sửa căn hộ này' };
     }
     if (data.location) await prepareLocation(data.location, apartment.location);
+    const before = { status: apartment.status, price: apartment.price };
     // Gán từng trường con (VD: attributes.elevator) thay vì ghi đè cả object (Object.assign)
     // → gửi một phần attributes/location/ownerContact không làm mất các trường còn lại
     // null = Quản lý xóa trắng ô trên form → gán undefined để Mongoose xóa hẳn trường ($unset) (Story 8.1)
@@ -110,6 +117,11 @@ export class ApartmentService {
     // Quản lý đã mở form và lưu lại → coi như đã kiểm tra tin AI
     apartment.set({ needsReview: false, reviewReason: undefined });
     await apartment.save();
+    // Story 11.4: báo CTV đang mở app khi đổi trạng thái hoặc giảm giá (tăng giá không báo)
+    if (apartment.status !== before.status) {
+      publishApartmentEvent('apartment.status', apartment, user.id);
+      if (apartment.status === 'AVAILABLE') LeadMatchingService.runInBackground(apartment); // Story 11.1
+    } else if (apartment.price < before.price) publishApartmentEvent('apartment.price', apartment, user.id);
     return this.maskApartment(apartment, user.role);
   }
 
@@ -126,6 +138,23 @@ export class ApartmentService {
     } else if (input.status === 'AVAILABLE') {
       apartment.availableDate = undefined;
     }
+    if (input.lease) apartment.lease = buildLease(input.lease); // Story 11.5 (cũng dùng để bổ sung hợp đồng cho căn cũ)
+    const statusChanged = apartment.isModified('status');
+    await apartment.save();
+    if (statusChanged) publishApartmentEvent('apartment.status', apartment, user.id); // Story 11.4
+    // Story 11.1: căn trống lại (VD Sắp trống → Trống, mở bán lại) cũng ghép với khách đang tìm
+    if (statusChanged && apartment.status === 'AVAILABLE') LeadMatchingService.runInBackground(apartment);
+    return this.maskApartment(apartment, user.role);
+  }
+
+  // Gia hạn hợp đồng thuê thêm 1 / 3 / 6 / 12 tháng (Story 11.5)
+  static async renewLease(id: string, months: number, user: { id: string; role: string }) {
+    const apartment = await Apartment.findById(id);
+    if (!apartment) throw { status: 404, message: 'Không tìm thấy căn hộ' };
+    if (user.role !== 'ADMIN' && apartment.managerId.toString() !== user.id) {
+      throw { status: 403, message: 'Bạn không có quyền gia hạn hợp đồng căn hộ này' };
+    }
+    extendLease(apartment, months);
     await apartment.save();
     return this.maskApartment(apartment, user.role);
   }
@@ -138,11 +167,13 @@ export class ApartmentService {
       throw { status: 403, message: 'Bạn không có quyền thêm nguồn tham chiếu cho căn hộ này' };
     }
     const { setAsMasterPrice, ...subListingData } = input;
+    const previousPrice = apartment.price;
     if (setAsMasterPrice && subListingData.price) {
       apartment.price = subListingData.price;
     }
     apartment.subListings.push(subListingData as any);
     await apartment.save();
+    if (apartment.price < previousPrice) publishApartmentEvent('apartment.price', apartment, user.id); // Story 11.4
     return this.maskApartment(apartment, user.role);
   }
 

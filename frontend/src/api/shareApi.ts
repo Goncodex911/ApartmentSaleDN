@@ -21,6 +21,7 @@ export interface PublicListing {
   images: string[];
   status: Apartment['status'];
   availableDate?: string;
+  usdRate?: number; // Story 11.6: tỷ giá cho ước tính chi phí
   ctv: { name: string; phone: string; zaloLink?: string; avatarUrl?: string; greetingMessage?: string };
 }
 

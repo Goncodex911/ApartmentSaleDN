@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidObjectId } from 'mongoose';
 import { vnPhone, toPatchSchema, DeepPartial } from '../../utils/validators.js';
 import { INCLUDED_SERVICES } from './apartment.model.js';
 import { isGoogleMapsUrl } from '../../utils/google-maps.js';
@@ -78,14 +79,29 @@ export const updateApartmentSchema = toPatchSchema(createApartmentSchema) as z.Z
 export type UpdateApartmentInput = DeepPartial<CreateApartmentInput>;
 
 // Schema cập nhật nhanh 1-Click trạng thái phòng
+const leaseMonths = z.number().int().refine((value) => (LEASE_STEPS as readonly number[]).includes(value), 'Thời hạn chỉ nhận 1, 3, 6 hoặc 12 tháng');
+
+// Hợp đồng nhập khi chuyển sang Đã cho thuê (Story 11.5)
+const leaseSchema = z.object({
+  startDate: z.iso.date('Ngày bắt đầu không hợp lệ'),
+  durationMonths: leaseMonths,
+  closedBy: z.string().refine(isValidObjectId, 'CTV chốt căn không hợp lệ').optional(),
+  tenantName: z.string().trim().max(100).optional(),
+  tenantPhone: vnPhone('SĐT khách thuê không đúng định dạng VN').optional().or(z.literal('')),
+});
+
 export const updateStatusSchema = z
   .object({
     status: statusEnum,
     availableDate: z.iso.datetime().optional(),
+    lease: leaseSchema.optional(),
   })
   .refine((data) => (data.status === 'UPCOMING' ? !!data.availableDate : true), {
     message: 'Vui lòng chọn ngày dự kiến phòng sẽ trống khi chuyển sang trạng thái Sắp trống (UPCOMING)',
-  });
+  })
+  .refine((data) => !data.lease || data.status === 'RENTED', { message: 'Chỉ nhập hợp đồng khi căn Đã cho thuê' });
+
+export const renewLeaseSchema = z.object({ months: leaseMonths });
 
 export type UpdateStatusInput = z.infer<typeof updateStatusSchema>;
 

@@ -4,6 +4,7 @@ import {
 } from './gemini.prompt.js';
 import { resolveListingLocation, deriveZone, UNKNOWN_DISTRICT } from '../search/district.js';
 import { fetchWithRetry } from '../../utils/fetch-retry.js';
+import { usdToVndRate } from '../../config/currency.js';
 import { splitAddress, ADDRESS_PLACEHOLDER } from '../../utils/street.js';
 import { NEW_AMENITY_KEYS } from '../search/slang.dictionary.js';
 import { OTHER_ZONE, PROPERTY_TYPES, PropertyType, Zone, inferPropertyType, roundLeaseMonths } from '../apartments/listing-taxonomy.js';
@@ -15,8 +16,6 @@ const positiveInt = (value: unknown, max: number) => {
   return Number.isFinite(num) && num > 0 && num <= max ? num : undefined;
 };
 
-// Tỷ giá quy đổi giá USD → VNĐ khi tin chỉ ghi USD (mặc định 25.000, đổi qua biến môi trường USD_VND_RATE)
-const usdToVndRate = () => positiveInt(process.env.USD_VND_RATE, 1000000) || 25000;
 
 /** Trường đặc thù Đà Nẵng (Story 7.2): chỉ nhận đúng kiểu & mã hợp lệ. */
 function sanitizeMarketFields(ext: any) {

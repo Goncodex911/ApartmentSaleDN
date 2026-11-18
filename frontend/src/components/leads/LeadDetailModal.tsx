@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Lead, LeadStage, leadApi } from '../../api/leadApi.js';
 import { LEAD_STAGES, STAGES_NEED_INPUT, summarizeRequirements, formatDateTime } from './leadStages.js';
+import { LeadMatchesSection } from './LeadMatchesSection.js';
 import { X, Phone, MessageCircle, Loader2, Trash2, Send } from 'lucide-react';
 
 interface LeadDetailModalProps {
@@ -91,6 +92,8 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, pendingS
         )}
 
         {error && <p className="p-2.5 rounded-xl bg-rose-50 text-rose-700 text-xs">{error}</p>}
+
+        {lead.stage !== 'DEPOSITED' && lead.stage !== 'LOST' && <LeadMatchesSection leadId={lead._id} />}
 
         {/* Chuyển giai đoạn 1 chạm */}
         <div className="space-y-2">

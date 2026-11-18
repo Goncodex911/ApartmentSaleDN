@@ -8,6 +8,8 @@ router.use(authMiddleware);
 
 router.get('/', LeadController.list);
 router.get('/:id', LeadController.getById);
+router.get('/:id/matches', LeadController.matches);
+router.get('/:id/matches/:apartmentId', LeadController.matchScore);
 router.post('/', LeadController.create);
 router.patch('/:id', LeadController.update);
 router.patch('/:id/stage', LeadController.changeStage);

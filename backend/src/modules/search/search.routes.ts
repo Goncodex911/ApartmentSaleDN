@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { SearchController } from './search.controller.js';
 import { optionalAuthMiddleware } from '../../middlewares/rbac.js';
+import { authMiddleware } from '../../middlewares/auth.js';
 import { rateLimit } from '../../middlewares/rate-limit.js';
 
 export const searchRoutes = Router();
@@ -13,6 +14,9 @@ searchRoutes.get('/landmarks', optionalAuthMiddleware, SearchController.getLandm
 const naturalLimiter = rateLimit({ windowMs: 60_000, max: 20, message: 'Bạn tìm kiếm quá nhanh, vui lòng chờ một chút' });
 searchRoutes.post('/natural', naturalLimiter, optionalAuthMiddleware, SearchController.searchNatural);
 searchRoutes.get('/natural', naturalLimiter, optionalAuthMiddleware, SearchController.searchNatural);
+
+// GET /api/v1/apartments/search/pins - Ghim bản đồ trong app (Story 11.2), chỉ người đã đăng nhập
+searchRoutes.get('/pins', authMiddleware, SearchController.pins);
 
 // GET /api/v1/apartments/search - Tìm kiếm mờ, tiếng lóng, bán kính GPS & Faceted
 searchRoutes.get('/', optionalAuthMiddleware, SearchController.search);

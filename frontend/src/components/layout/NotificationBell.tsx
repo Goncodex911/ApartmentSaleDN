@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AppNotification, notificationApi } from '../../api/notificationApi.js';
 import { User } from '../../api/authApi.js';
 import { MatchShareModal } from '../leads/MatchShareModal.js';
-import { Bell, Sparkles, MessageSquare, ClipboardCheck, X } from 'lucide-react';
+import { Bell, Target, MessageSquare, ClipboardCheck, CalendarClock, X } from 'lucide-react';
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -66,6 +66,8 @@ export const NotificationBell: React.FC<{ user: User }> = ({ user }) => {
     }
     if (item.type === 'APARTMENT_MATCH' && item.apartmentId && item.leadId) {
       setMatch({ apartmentId: item.apartmentId, leadId: item.leadId });
+    } else if (item.type === 'LEASE_EXPIRING' && item.apartmentId) {
+      navigate('/apartments', { state: { openApartmentId: item.apartmentId } }); // Mở chi tiết căn sắp hết hạn (Story 11.5)
     } else if (item.type.startsWith('LISTING_')) {
       navigate('/submissions'); // Tin đăng chờ duyệt / kết quả duyệt (Story 8.6)
     } else {
@@ -105,7 +107,9 @@ export const NotificationBell: React.FC<{ user: User }> = ({ user }) => {
               className={`w-full text-left p-3 flex gap-2.5 border-b border-slate-50 hover:bg-slate-50 ${item.readAt ? '' : 'bg-indigo-50/50'}`}
             >
               {item.type === 'APARTMENT_MATCH' ? (
-                <Sparkles className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <Target className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" aria-hidden />
+              ) : item.type === 'LEASE_EXPIRING' ? (
+                <CalendarClock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" aria-hidden />
               ) : item.type.startsWith('LISTING_') ? (
                 <ClipboardCheck className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
               ) : (
