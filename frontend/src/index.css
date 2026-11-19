@@ -27,6 +27,26 @@
       padding-bottom: calc(64px + 16px + env(safe-area-inset-bottom));
     }
   }
+  /* Story 12.5: khung chờ có vệt sáng lướt qua (shimmer); "giảm chuyển động" → khối xám đứng yên */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: #e2e8f0;
+  }
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+    animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton::after {
+      animation: none;
+      display: none;
+    }
+  }
   /* Story 11.2: bản đồ vừa khít phần còn lại của màn hình — trừ đầu trang + ô tìm (~190px), huy hiệu + menu đáy (120px),
      hàng chip lọc nếu có (--map-extra) → dòng ghi nguồn OSM ở góc dưới luôn nhìn thấy */
   .h-map {
@@ -59,4 +79,10 @@
 /* Mọi lớp phủ toàn màn hình (form, chi tiết căn, bảng trượt...) bắt đầu dưới tai thỏ / thanh trạng thái */
 .fixed.inset-0 {
   top: env(safe-area-inset-top);
+}
+
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
 }

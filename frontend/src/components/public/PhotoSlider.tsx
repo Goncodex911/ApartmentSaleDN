@@ -6,15 +6,16 @@ interface PhotoSliderProps {
   title: string;
   emptyLabel?: string; // Story 7.3: chữ theo ngôn ngữ trang
   photoLabel?: string;
+  onOpen?: (index: number) => void; // Story 12.4: chạm ảnh → xem toàn màn hình
 }
 
 // Slide ảnh vuốt ngang bằng CSS scroll-snap (native, không cần thư viện)
-export const PhotoSlider: React.FC<PhotoSliderProps> = ({ images, title, emptyLabel = 'Chưa có ảnh', photoLabel = 'ảnh' }) => {
+export const PhotoSlider: React.FC<PhotoSliderProps> = ({ images, title, emptyLabel = 'Chưa có ảnh', photoLabel = 'ảnh', onOpen }) => {
   const [activeIndex, setActiveIndex] = useState(0);
 
   if (images.length === 0) {
     return (
-      <div className="aspect-[4/3] bg-slate-200 flex flex-col items-center justify-center text-slate-400 text-sm gap-2">
+      <div className="aspect-[4/3] bg-slate-200 flex flex-col items-center justify-center text-slate-600 text-sm gap-2">
         <ImageOff className="w-8 h-8" /> {emptyLabel}
       </div>
     );
@@ -32,7 +33,8 @@ export const PhotoSlider: React.FC<PhotoSliderProps> = ({ images, title, emptyLa
             src={src}
             alt={`${title} - ${photoLabel} ${index + 1}`}
             loading={index === 0 ? 'eager' : 'lazy'}
-            className="w-full h-full object-cover shrink-0 snap-center"
+            onClick={() => onOpen?.(index)} // Vuốt cuộn không sinh click → chỉ chạm mới mở
+            className={`w-full h-full object-cover shrink-0 snap-center ${onOpen ? 'cursor-zoom-in' : ''}`}
           />
         ))}
       </div>

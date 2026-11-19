@@ -4,6 +4,7 @@ import { useApp } from '../layout/AppShell.js';
 import { formatVnd } from '../../utils/format.js';
 import { MatchShareModal } from './MatchShareModal.js';
 import { ChevronRight } from 'lucide-react';
+import { EmptyState } from '../ui/EmptyState.js';
 
 /** Huy hiệu điểm phù hợp: ≥ 90% xanh đậm, còn lại xanh nhạt (Story 11.1). */
 export const ScoreBadge: React.FC<{ score: number }> = ({ score }) => (
@@ -28,15 +29,15 @@ export const LeadMatchesSection: React.FC<{ leadId: string }> = ({ leadId }) => 
 
   return (
     <section className="space-y-2" aria-busy={!matches && !failed}>
-      <p className="text-xs font-bold uppercase text-slate-400">Căn phù hợp</p>
-      {!matches && !failed && [0, 1].map((key) => <div key={key} className="h-16 rounded-xl bg-slate-100 animate-pulse motion-reduce:animate-none" />)}
+      <p className="text-xs font-bold uppercase text-slate-600">Căn phù hợp</p>
+      {!matches && !failed && [0, 1].map((key) => <div key={key} className="skeleton h-16 rounded-xl" />)}
       {failed && (
         <p className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-rose-50 text-xs text-rose-700">
           Không tải được căn phù hợp
           <button type="button" onClick={load} className="h-9 px-3 rounded-lg bg-white font-semibold">Thử lại</button>
         </p>
       )}
-      {matches?.length === 0 && <p className="text-xs text-slate-500">Chưa có căn nào phù hợp từ 80%. Có căn mới hợp, bạn sẽ nhận thông báo.</p>}
+      {matches?.length === 0 && <EmptyState compact title="Chưa có căn nào phù hợp từ 80%" description="Có căn mới hợp, bạn sẽ nhận thông báo." />}
       {matches?.map(({ apartment, score, reasons }) => (
         <button
           key={apartment._id}
@@ -49,7 +50,7 @@ export const LeadMatchesSection: React.FC<{ leadId: string }> = ({ leadId }) => 
             <p className="text-xs text-slate-500 truncate">{formatVnd(apartment.price)} · {reasons.join(' · ')}</p>
           </div>
           <ScoreBadge score={score} />
-          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden />
+          <ChevronRight className="w-4 h-4 text-slate-600 shrink-0" aria-hidden />
         </button>
       ))}
       {openId && <MatchShareModal apartmentId={openId} leadId={leadId} currentUser={user} onClose={() => setOpenId(null)} />}

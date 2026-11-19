@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { formatVnd } from '../../utils/format.js';
 import { imageCors } from '../../utils/offlineCache.js';
 import { splitMedia, videoPoster } from '../../utils/media.js';
@@ -6,12 +6,10 @@ import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { StatusBadge } from './StatusBadge.js';
 import { LeaseSection } from './LeaseSection.js';
-import { CopyShareButton } from './CopyShareButton.js';
-import { DownloadPhotosButton } from './DownloadPhotosButton.js';
-import { ShareLinkButton } from './ShareLinkButton.js';
-import { ShareLangToggle } from './ShareLangToggle.js';
+import { DetailActionBar } from './DetailActionBar.js';
 import { Lang, getShareLang, setShareLang } from '../../utils/shareLang.js';
-import { X, MapPin } from 'lucide-react';
+import { X, MapPin, Maximize2 } from 'lucide-react';
+import { Button } from '../ui/Button.js';
 import { marketLabels, roomParts, usdText, zoneText } from '../../utils/apartmentLabels.js';
 import { amenityLabels } from '../../utils/amenities.js';
 
@@ -24,6 +22,9 @@ interface ApartmentDetailModalProps {
   onEdit?: (apartment: Apartment) => void; // Quản lý/Admin: sửa & xóa (đã chuyển từ thẻ danh sách vào đây)
   onDelete?: (apartmentId: string) => void;
 }
+
+// Story 12.4: trình xem ảnh toàn màn hình tải riêng khi chạm ảnh lần đầu
+const MediaLightbox = lazy(() => import('../media/MediaLightbox.js'));
 
 const FURNISHING_LABEL = { FULL: 'Full đồ', BASIC: 'Đồ cơ bản', EMPTY: 'Nhà trống' } as const;
 
@@ -44,6 +45,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
   // Hook phải gọi trước mọi lệnh return (Rules of Hooks); trang cha đặt key theo _id nên state reset khi đổi căn
   const [activeImage, setActiveImage] = useState(apartment ? splitMedia(apartment).images[0] || '' : '');
   const [shareLang, setShareLangState] = useState<Lang>(getShareLang); // Story 7.3: nhớ lựa chọn cho lần sau
+  const [lightboxAt, setLightboxAt] = useState<number | null>(null); // Story 12.4: ảnh đang mở toàn màn hình
   if (!apartment) return null;
 
   const { attributes, fees, location, ownerContact } = apartment;
@@ -81,10 +83,10 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
           {isOwnerOrAdmin && (
             <div className="flex items-center">
               {onEdit && (
-                <button onClick={() => onEdit(apartment)} className="h-11 px-4 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100">Sửa</button>
+                <Button variant="ghost" onClick={() => onEdit(apartment)}>Sửa</Button>
               )}
               {onDelete && (
-                <button onClick={() => onDelete(apartment._id)} className="h-11 px-4 rounded-lg text-sm font-medium text-rose-600 hover:bg-rose-50">Xóa</button>
+                <Button variant="ghost" onClick={() => onDelete(apartment._id)} className="text-rose-700 hover:bg-rose-50">Xóa</Button>
               )}
             </div>
           )}
@@ -94,7 +96,13 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
         <div className="flex-1 min-h-0 min-w-0 overflow-y-auto">
           {photos.length > 0 && (
             <div className="bg-slate-100">
-              <img src={activeImage || photos[0]} alt={apartment.title} crossOrigin={imageCors(activeImage || photos[0])} className="w-full aspect-[4/3] object-cover" />
+              {/* Chạm ảnh → xem toàn màn hình, vuốt / phóng to 2 ngón (Story 12.4) */}
+              <button type="button" onClick={() => setLightboxAt(Math.max(0, photos.indexOf(activeImage || photos[0])))} aria-label="Xem ảnh toàn màn hình" className="relative block w-full cursor-zoom-in">
+                <img src={activeImage || photos[0]} alt={apartment.title} crossOrigin={imageCors(activeImage || photos[0])} className="w-full aspect-[4/3] object-cover" />
+                <span className="absolute right-2 bottom-2 w-9 h-9 flex items-center justify-center rounded-full bg-black/55 text-white" aria-hidden>
+                  <Maximize2 className="w-4 h-4" />
+                </span>
+              </button>
               {photos.length > 1 && (
                 <div className="flex gap-2 overflow-x-auto scrollbar-none p-2 bg-white">
                   {photos.map((img, idx) => (
@@ -102,7 +110,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
                       key={idx}
                       onClick={() => setActiveImage(img)}
                       aria-label={`Ảnh ${idx + 1}`}
-                      className={`w-14 h-14 shrink-0 rounded-lg overflow-hidden ring-2 ${activeImage === img ? 'ring-indigo-600' : 'ring-transparent opacity-70'}`}
+                      className={`w-14 h-14 shrink-0 rounded-lg overflow-hidden ring-2 ${activeImage === img ? 'ring-brand-accent' : 'ring-transparent opacity-70'}`}
                     >
                       <img src={img} alt="" crossOrigin={imageCors(img)} className="w-full h-full object-cover" />
                     </button>
@@ -209,16 +217,22 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
           </div>
         </div>
 
-        {/* Chia sẻ 1-Click cho CTV (Epic 5) — ghim cuối màn hình để luôn bấm được */}
-        <div key={apartment._id} className="shrink-0 border-t border-slate-100 p-3 pb-badge-safe sm:pb-3 space-y-2">
-          <ShareLangToggle value={shareLang} onChange={(lang) => { setShareLang(lang); setShareLangState(lang); }} />
-          <div className="grid grid-cols-3 gap-2">
-            <CopyShareButton apartment={apartment} ctv={currentUser} lang={shareLang} />
-            <DownloadPhotosButton photos={sendablePhotos} fileName={`can-ho-${apartment._id}`} />
-            <ShareLinkButton apartmentId={apartment._id} disabled={apartment.status === 'RENTED'} lang={shareLang} />
-          </div>
-          {hiddenImageCount > 0 && <p className="text-xs text-slate-500">Đã ẩn {hiddenImageCount} ảnh có SĐT nguồn cũ khi gửi khách</p>}
-        </div>
+        {/* Chia sẻ 1-Click cho CTV (Epic 5) — thanh ghim đáy kính mờ (Story 12.6) */}
+        <DetailActionBar
+          apartment={apartment}
+          currentUser={currentUser}
+          sendablePhotos={sendablePhotos}
+          hiddenImageCount={hiddenImageCount}
+          canCallOwner={isOwnerOrAdmin}
+          shareLang={shareLang}
+          onShareLangChange={(lang) => { setShareLang(lang); setShareLangState(lang); }}
+        />
+        {/* Đặt trong khung có stopPropagation: click trong portal vẫn lan theo cây React → không đóng chi tiết căn */}
+        {lightboxAt !== null && (
+          <Suspense fallback={null}>
+            <MediaLightbox items={[...photos, ...videos]} startIndex={lightboxAt} title={apartment.title} onClose={() => setLightboxAt(null)} />
+          </Suspense>
+        )}
       </div>
     </div>
   );

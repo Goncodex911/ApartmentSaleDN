@@ -7,7 +7,7 @@ import { amenityLabel } from '../../utils/amenities.js';
 import { DEFAULT_COST_OPTIONS, estimateMonthlyCost } from '../../utils/livingCost.js';
 import { Lang } from '../../utils/shareLang.js';
 import { isVideoUrl } from '../../utils/media.js';
-import { Loader2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 const COPY = {
   vi: { title: 'So sánh căn', price: 'Giá thuê', place: 'Khu vực', beach: 'Cách biển', area: 'Diện tích', rooms: 'Loại căn', baths: 'Phòng tắm', fees: 'Điện / Nước', service: 'Dịch vụ / Gửi xe', included: 'Đã bao gồm', total: 'Tổng ước tính*', best: 'Tốt nhất', yes: 'Có', no: 'Không', shared: 'Dùng chung', unknown: 'Chưa rõ', none: '—', note: '* 2 người, điều hoà mức Vừa (8–10h/ngày) — ước tính tham khảo.', error: 'Không tải được thông tin căn.', retry: 'Thử lại' },
@@ -100,7 +100,13 @@ export const CompareSheet: React.FC<{ ids: string[]; onClose: () => void }> = ({
         </div>
       </header>
 
-      {!data && !failed && <Loader2 className="w-6 h-6 m-auto animate-spin text-slate-400" aria-label="Đang tải" />}
+      {!data && !failed && (
+        // Story 12.5: khung chờ hình bảng so sánh (cột tiêu chí + 2 cột căn)
+        <div className="flex gap-2 p-2" aria-busy="true" aria-label="Đang tải bảng so sánh">
+          <div className="w-28 space-y-2">{[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="skeleton h-10 rounded" />)}</div>
+          {[0, 1].map((col) => <div key={col} className="flex-1 space-y-2"><div className="skeleton h-32 rounded-lg" />{[0, 1, 2, 3].map((i) => <div key={i} className="skeleton h-10 rounded" />)}</div>)}
+        </div>
+      )}
       {failed && (
         <div className="m-auto text-center space-y-3">
           <p className="text-sm text-slate-600">{copy.error}</p>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Lead } from '../../api/leadApi.js';
 import { summarizeRequirements, formatDateTime } from './leadStages.js';
-import { Phone, Bot, CalendarClock } from 'lucide-react';
+import { Phone, Bot, CalendarClock, MessageSquareText } from 'lucide-react';
 
 interface LeadCardProps {
   lead: Lead;
@@ -52,7 +52,11 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, onOpen, onDragStart })
       )}
       {lead.stage === 'LOST' && lead.lostReason && <p className="text-xs text-slate-500 italic line-clamp-1">{lead.lostReason}</p>}
 
-      {latestNote && <p className="text-[11px] text-slate-400 line-clamp-1">💬 {latestNote.content}</p>}
+      {latestNote && (
+        <p className="flex items-center gap-1 text-xs text-slate-600 line-clamp-1">
+          <MessageSquareText className="w-3.5 h-3.5 shrink-0" aria-hidden /> {latestNote.content}
+        </p>
+      )}
     </div>
   );
 };

@@ -95,11 +95,11 @@ export const NotificationBell: React.FC<{ user: User }> = ({ user }) => {
                 Đã đọc tất cả
               </button>
             )}
-            <button type="button" onClick={() => setIsOpen(false)} aria-label="Đóng thông báo" className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700">
+            <button type="button" onClick={() => setIsOpen(false)} aria-label="Đóng thông báo" className="w-11 h-11 flex items-center justify-center text-slate-600 hover:text-slate-700">
               <X className="w-5 h-5" />
             </button>
           </div>
-          {items.length === 0 && <p className="p-6 text-center text-xs text-slate-400">Chưa có thông báo nào.</p>}
+          {items.length === 0 && <p className="p-6 text-center text-xs text-slate-600">Chưa có thông báo nào.</p>}
           {items.map((item) => (
             <button
               key={item._id}
@@ -118,7 +118,7 @@ export const NotificationBell: React.FC<{ user: User }> = ({ user }) => {
               <span className="min-w-0">
                 <span className="block text-xs font-bold text-slate-800">{item.title}</span>
                 <span className="block text-xs text-slate-600">{item.body}</span>
-                <span className="block text-[10px] text-slate-400 mt-0.5">{timeAgo(item.createdAt)}</span>
+                <span className="block text-[10px] text-slate-600 mt-0.5">{timeAgo(item.createdAt)}</span>
               </span>
             </button>
           ))}

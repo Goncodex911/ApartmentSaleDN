@@ -4,19 +4,13 @@ import 'leaflet/dist/leaflet.css';
 import { MapPin } from '../../api/apartmentApi.js';
 import { priceShort } from '../../utils/priceShort.js';
 import { clusterPoints } from '../../utils/mapCluster.js';
+import { STATUS_STYLE } from '../../utils/statusStyle.js'; // Màu bong bóng theo trạng thái — dùng chung toàn app (Story 12.1)
 
 const DANANG_CENTER: L.LatLngTuple = [16.0544, 108.2022];
 // Tile OSM chuẩn (không dùng kiểu cũ {s}.tile...) — chính sách OSM bắt buộc ghi nguồn; service worker KHÔNG cache tile này
 const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
 const NO_CLUSTER_ZOOM = 17; // Phóng to tới mức này thì hiện từng ghim
-// Màu theo trạng thái, chữ tương phản ≥ 4.5:1 (xanh = Trống, cam = Sắp trống, xám = Đã cọc)
-const PILL_TONE: Record<MapPin['status'], string> = {
-  AVAILABLE: 'bg-emerald-700 text-white',
-  UPCOMING: 'bg-amber-400 text-slate-900',
-  DEPOSITED: 'bg-slate-500 text-white',
-  RENTED: 'bg-slate-500 text-white',
-};
 
 const toLatLng = (pin: MapPin): L.LatLngTuple => [pin.coordinates[1], pin.coordinates[0]];
 
@@ -26,7 +20,7 @@ function pillIcon(pin: MapPin, selected: boolean) {
   return L.divIcon({
     className: '',
     iconSize: [0, 0], // Kích thước theo nội dung; dịch lên để mũi bong bóng chạm đúng vị trí
-    html: `<div class="w-max -translate-x-1/2 -translate-y-full pb-1"><span class="inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-[13px] font-bold shadow-md shadow-slate-900/25 transition-transform duration-150 ${outline} ${lift} ${PILL_TONE[pin.status]}">${priceShort(pin.price, pin.priceUsd)}</span></div>`,
+    html: `<div class="w-max -translate-x-1/2 -translate-y-full pb-1"><span class="inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-[13px] font-bold shadow-md shadow-slate-900/25 transition-transform duration-150 ${outline} ${lift} ${STATUS_STYLE[pin.status].solid}">${priceShort(pin.price, pin.priceUsd)}</span></div>`,
   });
 }
 

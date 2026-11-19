@@ -63,7 +63,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
           <button
             onClick={onClose}
             aria-label="Đóng"
-            className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+            className="w-11 h-11 flex items-center justify-center text-slate-600 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -129,7 +129,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
           {/* Link Zalo tự sinh */}
           {user.zaloLink && (
             <div className="text-xs text-slate-500 flex items-center gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-100">
-              <span className="text-slate-400">Link Zalo rút gọn:</span>
+              <span className="text-slate-600">Link Zalo rút gọn:</span>
               <a
                 href={user.zaloLink}
                 target="_blank"
@@ -153,7 +153,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
               placeholder="VD: Em Hải chuyên viên căn hộ Sơn Trà xin chào anh/chị!"
               className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
             />
-            <span className="text-[11px] text-slate-400 block">Hiển thị trên trang xem phòng và là câu chào đầu tiên của trợ lý AI khi khách chat.</span>
+            <span className="text-[11px] text-slate-600 block">Hiển thị trên trang xem phòng và là câu chào đầu tiên của trợ lý AI khi khách chat.</span>
           </div>
 
           {/* Story 10.4: thông tin in cuối bài gửi khách */}
@@ -171,7 +171,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
               <span className="font-medium text-slate-700">Link nhóm WhatsApp</span>
               <input type="url" inputMode="url" value={whatsappGroupLink} onChange={(e) => setWhatsappGroupLink(e.target.value)} placeholder="https://chat.whatsapp.com/..." className={fieldClass} />
             </label>
-            <span className="text-[11px] text-slate-400 block">Để trống ô nào thì bài gửi khách không in dòng đó.</span>
+            <span className="text-[11px] text-slate-600 block">Để trống ô nào thì bài gửi khách không in dòng đó.</span>
           </fieldset>
 
           <TelegramLinkSection linked={Boolean(user.telegramChatId)} />

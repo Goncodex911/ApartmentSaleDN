@@ -48,7 +48,7 @@ export const LeaseSection: React.FC<{ apartment: Apartment; onChanged: () => voi
 
   return (
     <section className="p-3 rounded-xl border border-slate-200 space-y-2 text-sm">
-      <p className="text-xs font-bold uppercase text-slate-400">Hợp đồng thuê</p>
+      <p className="text-xs font-bold uppercase text-slate-600">Hợp đồng thuê</p>
       {!lease ? (
         <div className="flex items-center justify-between gap-2">
           <p className="text-slate-600">Chưa có hợp đồng — không được nhắc tái ký.</p>

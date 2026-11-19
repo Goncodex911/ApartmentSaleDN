@@ -44,7 +44,7 @@ const Segment = <T extends string | number>({ value, options, onChange, label }:
         type="button"
         aria-pressed={value === option.value}
         onClick={() => onChange(option.value)}
-        className={`flex-1 min-h-[44px] px-1 rounded-lg text-sm font-semibold transition-colors ${value === option.value ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}
+        className={`flex-1 min-h-[44px] px-1 rounded-lg text-sm font-semibold transition-colors ${value === option.value ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
       >
         {option.label}
       </button>
@@ -98,13 +98,13 @@ export const LivingCostEstimator: React.FC<{ listing: PublicListing; lang: Lang 
           <div key={item} className="flex justify-between gap-3">
             <dt className="text-slate-600">
               {copy.items[item]}
-              {estimate.referenceItems.includes(item) && <span className="text-slate-500"> ({copy.reference})</span>}
+              {estimate.referenceItems.includes(item) && <span className="text-slate-600"> ({copy.reference})</span>}
             </dt>
             <dd className="font-semibold text-slate-800 tabular-nums">{isIncluded(item) ? copy.included : money(estimate.items[item])}</dd>
           </div>
         ))}
       </dl>
-      <p className="text-xs text-slate-500">{copy.note}</p>
+      <p className="text-xs text-slate-600">{copy.note}</p>
     </section>
   );
 };
