@@ -9,6 +9,8 @@ import { publishApartmentEvent } from '../realtime/realtime.bus.js';
 import { GeocodingService } from '../search/geocoding.service.js';
 import { PHashUtil } from './phash.util.js';
 import { IProcessListingInput } from './dedup.types.js';
+import { recordIngestion } from '../ingestion/ingestion-event.model.js';
+import { applyReviewPolicy } from './review-policy.js';
 
 export class DedupService {
   /**
@@ -97,10 +99,22 @@ export class DedupService {
     return null;
   }
 
+  /** Nhập 1 tin (mọi cổng: Telegram, webhook, extension, dán nhanh) + ghi thống kê cho Dashboard (Story 13.1). */
+  public static async processListing(input: IProcessListingInput): Promise<any> {
+    try {
+      const result = await this.runPipeline(input);
+      recordIngestion(!result.isRentalListing ? 'NOT_RENTAL' : result.isDuplicate ? 'MERGED_DUPLICATE' : 'CREATED', input.sourceType, input.sourceChatId);
+      return result;
+    } catch (err) {
+      recordIngestion('FAILED', input.sourceType, input.sourceChatId);
+      throw err;
+    }
+  }
+
   /**
    * Toàn bộ Pipeline: Nhận tin -> Gemini Parse -> Lọc Rác -> Khử trùng 2 tầng -> Gộp Sub hoặc Tạo Master
    */
-  public static async processListing(input: IProcessListingInput): Promise<any> {
+  private static async runPipeline(input: IProcessListingInput): Promise<any> {
     // Bước 1: Gemini AI bóc tách và phân loại ý định
     const parseResult = await GeminiService.parseRealEstatePost(input.rawText);
 
@@ -221,8 +235,7 @@ export class DedupService {
       ],
       // Tin cần kiểm tra vẫn là "Trống" — chỉ gắn cờ cho Quản lý (trước đây bị đổi sai thành "Sắp trống")
       status: 'AVAILABLE',
-      needsReview: ext.needsReview,
-      reviewReason: ext.needsReview ? ext.reviewReason || undefined : undefined,
+      ...(await applyReviewPolicy(ext)), // Story 13.5: cờ "cần kiểm tra" theo chính sách Admin chọn
       managerId: input.managerId,
     });
 

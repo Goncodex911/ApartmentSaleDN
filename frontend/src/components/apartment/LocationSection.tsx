@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Link2, MapPin } from 'lucide-react';
 import { Apartment } from '../../api/apartmentApi.js';
 import { OTHER_DISTRICTS, OTHER_ZONE, ZONES, Zone } from '../../utils/danang.js';
 import { Field, FormSection, ToggleChip, inputClass, textOr } from './formFields.js';
@@ -38,12 +39,50 @@ export const fromLocationForm = (form: LocationFormValues, empty: null | undefin
   city,
 });
 
+type InputMode = 'DIRECT' | 'MAP_LINK';
+const MODES = [
+  { value: 'DIRECT', label: 'Nhập địa chỉ', Icon: MapPin },
+  { value: 'MAP_LINK', label: 'Dán link Maps', Icon: Link2 },
+] as const;
+
 // Nhóm "Vị trí": khách chỉ thấy tên đường + khu vực; số nhà & link map chỉ nội bộ
+// Story 13.8: 2 chế độ nhập — đổi chế độ chỉ ẩn/hiện ô link, không xóa dữ liệu đã gõ (link cũ vẫn giữ khi sửa căn)
 export const LocationSection: React.FC<{ value: LocationFormValues; onChange: (next: LocationFormValues) => void }> = ({ value, onChange }) => {
   const set = (patch: Partial<LocationFormValues>) => onChange({ ...value, ...patch });
+  const [mode, setMode] = useState<InputMode>(() => (value.mapUrl ? 'MAP_LINK' : 'DIRECT'));
 
   return (
     <FormSection title="Vị trí">
+      <div role="radiogroup" aria-label="Cách nhập vị trí" className="grid grid-cols-2 p-0.5 rounded-xl bg-slate-100">
+        {MODES.map(({ value: option, label, Icon }) => (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={mode === option}
+            onClick={() => setMode(option)}
+            className={`h-11 inline-flex items-center justify-center gap-1.5 rounded-lg text-sm font-semibold cursor-pointer transition-colors ${
+              mode === option ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Icon className="w-4 h-4" aria-hidden />
+            {label}
+          </button>
+        ))}
+      </div>
+      {mode === 'MAP_LINK' && (
+        <Field label="Link Google Maps (nội bộ)">
+          <input
+            type="url"
+            inputMode="url"
+            value={value.mapUrl}
+            onChange={(e) => set({ mapUrl: e.target.value })}
+            placeholder="https://maps.app.goo.gl/..."
+            autoComplete="off"
+            className={inputClass}
+          />
+        </Field>
+      )}
       <div className="space-y-1">
         <span className="text-sm font-medium text-slate-700">
           Khu vực<span className="text-rose-600"> *</span>
@@ -64,31 +103,21 @@ export const LocationSection: React.FC<{ value: LocationFormValues; onChange: (n
           </select>
         </Field>
       )}
-      <div className="grid grid-cols-3 gap-3 items-end">
-        <Field label="Tên đường" required className="col-span-2">
-          <input value={value.street} onChange={(e) => set({ street: e.target.value })} placeholder="Bà Huyện Thanh Quan" className={inputClass} />
-        </Field>
+      <Field label="Tên đường" required>
+        <input value={value.street} onChange={(e) => set({ street: e.target.value })} placeholder="Hoàng Kế Viêm" className={inputClass} />
+      </Field>
+      <div className="grid grid-cols-2 gap-3 items-end">
         <Field label="Số nhà / kiệt">
-          <input value={value.houseNumber} onChange={(e) => set({ houseNumber: e.target.value })} placeholder="K12/3" autoComplete="off" className={inputClass} />
-        </Field>
-      </div>
-      <div className="grid grid-cols-3 gap-3 items-end">
-        <Field label="Link Google Maps (nội bộ)" className="col-span-2">
-          <input
-            type="url"
-            inputMode="url"
-            value={value.mapUrl}
-            onChange={(e) => set({ mapUrl: e.target.value })}
-            placeholder="https://maps.app.goo.gl/..."
-            autoComplete="off"
-            className={inputClass}
-          />
+          <input value={value.houseNumber} onChange={(e) => set({ houseNumber: e.target.value })} placeholder="K12/4" autoComplete="off" className={inputClass} />
         </Field>
         <Field label="Phường">
           <input value={value.ward} onChange={(e) => set({ ward: e.target.value })} placeholder="Mỹ An" className={inputClass} />
         </Field>
       </div>
-      <p className="-mt-1 text-xs text-slate-500">Khách chỉ thấy tên đường và khu vực. Số nhà, link bản đồ chỉ Quản lý, CTV xem được.</p>
+      <p className="-mt-1 text-xs text-slate-600">
+        {mode === 'DIRECT' && 'Không cần link: chi tiết căn tự mở Google Maps theo địa chỉ. '}
+        Khách chỉ thấy tên đường và khu vực. Số nhà, link bản đồ chỉ Quản lý, CTV xem được.
+      </p>
     </FormSection>
   );
 };

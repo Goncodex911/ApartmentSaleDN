@@ -23,6 +23,7 @@ export interface PublicListing {
   availableDate?: string;
   usdRate?: number; // Story 11.6: tỷ giá cho ước tính chi phí
   ctv: { name: string; phone: string; zaloLink?: string; avatarUrl?: string; greetingMessage?: string };
+  company?: { hotline?: string; zaloOaUrl?: string }; // Story 13.5: liên hệ công ty (Admin cấu hình)
 }
 
 export const shareApi = {

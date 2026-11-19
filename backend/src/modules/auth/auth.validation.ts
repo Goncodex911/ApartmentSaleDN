@@ -14,5 +14,14 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
 });
 
+// Story 13.9: tự đổi mật khẩu (độ dài tối thiểu giống lúc đăng ký)
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Vui lòng nhập mật khẩu hiện tại'),
+    newPassword: z.string().min(6, 'Mật khẩu mới phải có tối thiểu 6 ký tự').max(100),
+  })
+  .refine((data) => data.newPassword !== data.currentPassword, { message: 'Mật khẩu mới phải khác mật khẩu hiện tại', path: ['newPassword'] });
+
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { User, authApi } from '../../api/authApi.js';
 import { submissionApi } from '../../api/submissionApi.js';
@@ -10,9 +10,9 @@ import { Navbar } from './Navbar.js';
 import { BottomNav } from './BottomNav.js';
 import { AccountMenu } from './AccountMenu.js';
 import { BottomSheet } from './BottomSheet.js';
-import { PendingUsersModal } from './PendingUsersModal.js';
 import { InstallPrompt } from './InstallPrompt.js';
 import { ProfileModal } from '../profile/ProfileModal.js';
+import { ChangePasswordSheet } from '../profile/ChangePasswordSheet.js';
 import { QuickPasteModal } from '../apartment/QuickPasteModal.js';
 import { ApartmentModal } from '../apartment/ApartmentModal.js';
 import { LiveToast } from './LiveToast.js';
@@ -26,11 +26,11 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue>({ user: null, openQuickPaste: () => undefined, openSubmit: () => undefined });
 export const useApp = () => useContext(AppContext);
 
-type Panel = 'account' | 'profile' | 'approvals' | 'quickPaste' | 'submit' | null;
+type Panel = 'account' | 'profile' | 'password' | 'quickPaste' | 'submit' | null;
 
 /**
  * Khung chung của các trang sau đăng nhập (Story 9.3): tải người dùng 1 lần, thanh trên, menu đáy (điện thoại)
- * và các hộp dùng chung — Tài khoản, Hồ sơ, Duyệt tài khoản, Nhập tin AI (Quản lý), Đăng tin (CTV).
+ * và các hộp dùng chung — Tài khoản, Hồ sơ, Nhập tin AI (Quản lý), Đăng tin (CTV).
  */
 export const AppShell: React.FC = () => {
   const navigate = useNavigate();
@@ -40,6 +40,11 @@ export const AppShell: React.FC = () => {
   const pendingCount = usePendingSubmissionCount(isManager);
   const liveUpdates = useRealtimeInventory(user); // Story 11.4: kho phòng cập nhật tức thì
   const close = () => setPanel(null);
+  // Story 13.9: đang dùng mật khẩu tạm Admin cấp → mỗi lần mở app tự mở bảng Đổi mật khẩu (đóng tạm được, không khóa app)
+  const mustChangePassword = Boolean(user?.mustChangePassword);
+  useEffect(() => {
+    if (mustChangePassword) setPanel('password');
+  }, [mustChangePassword]);
 
   const logout = async () => {
     await authApi.logout().catch(() => undefined); // Lỗi mạng khi đăng xuất thì vẫn xóa phiên ở máy
@@ -53,7 +58,10 @@ export const AppShell: React.FC = () => {
     [user]
   );
   const accountMenu = user && (
-    <AccountMenu user={user} onProfile={() => setPanel('profile')} onApprovals={() => setPanel('approvals')} onLogout={logout} />
+    <AccountMenu user={user} onProfile={() => setPanel('profile')} onNavigate={(path) => {
+        close();
+        navigate(path);
+      }} onLogout={logout} />
   );
 
   return (
@@ -81,8 +89,8 @@ export const AppShell: React.FC = () => {
       </div>
 
       {panel === 'account' && accountMenu && <BottomSheet title="Tài khoản" onClose={close}>{accountMenu}</BottomSheet>}
-      {panel === 'profile' && user && <ProfileModal user={user} onClose={close} onProfileUpdated={setUser} />}
-      {panel === 'approvals' && <PendingUsersModal onClose={close} />}
+      {panel === 'profile' && user && <ProfileModal user={user} onClose={close} onProfileUpdated={setUser} onChangePassword={() => setPanel('password')} />}
+      {panel === 'password' && <ChangePasswordSheet forced={mustChangePassword} onDone={setUser} onClose={close} />}
       {panel === 'quickPaste' && (
         <QuickPasteModal
           onClose={close}

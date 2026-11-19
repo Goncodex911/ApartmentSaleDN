@@ -73,6 +73,7 @@ export interface IParsedApartmentData {
   };
   needsReview: boolean;
   reviewReason?: string | null;
+  confidence?: number | null; // Điểm tin cậy AI tự chấm 0–100 (Story 13.5)
 }
 
 export interface IParsedResult {
@@ -236,6 +237,8 @@ ${rawText.trim()}
         },
         needsReview,
         reviewReason,
+        // AI trả sai kiểu / ngoài khoảng → null (chế độ Bán tự động coi như chưa đủ tin cậy)
+        confidence: typeof ext.confidence === 'number' && Number.isFinite(ext.confidence) ? Math.min(100, Math.max(0, Math.round(ext.confidence))) : null,
       },
     };
   }

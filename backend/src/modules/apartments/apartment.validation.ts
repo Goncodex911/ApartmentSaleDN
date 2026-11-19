@@ -63,11 +63,14 @@ export const createApartmentSchema = z.object({
     .optional(),
   images: z.array(z.url('Link ảnh không hợp lệ')).default([]),
   videos: z.array(z.url('Link video không hợp lệ')).optional(),
-  ownerContact: z.object({
-    name: z.string().min(2, 'Tên chủ nhà không được để trống'),
-    phone: vnPhone('Số điện thoại chủ nhà không đúng định dạng VN'),
-    note: z.string().optional(),
-  }),
+  // Story 13.7: căn nguồn liên kết / chủ chỉ liên hệ qua Zalo → tên và SĐT chủ được bỏ trống; có nhập SĐT thì vẫn kiểm tra định dạng
+  ownerContact: z
+    .object({
+      name: z.string().trim().max(100).optional(),
+      phone: vnPhone('Số điện thoại chủ nhà không đúng định dạng VN').or(z.literal('')).optional(),
+      note: z.string().optional(),
+    })
+    .optional(),
   status: statusEnum.default('AVAILABLE'),
   availableDate: z.iso.datetime().optional(),
 });

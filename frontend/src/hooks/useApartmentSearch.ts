@@ -138,12 +138,14 @@ export function useApartmentSearch() {
   useEffect(() => {
     const onRealtime = (event: Event) => {
       const { type, data } = (event as CustomEvent<RealtimeMessage>).detail;
-      if (type !== 'apartment.status' && type !== 'apartment.price') return;
+      if (type !== 'apartment.status' && type !== 'apartment.price' && type !== 'apartment.flagged') return;
+      // Story 13.6: mọi sự kiện mang cờ "Chờ xác minh" hiện tại (gắn khi đủ 2 người báo, gỡ khi Quản lý xử lý)
+      const withFlag = (item: Apartment) => ({ ...item, verification: data.flagged ? item.verification ?? { flaggedAt: new Date().toISOString(), reasons: [] } : undefined });
       const tag: LiveTag | undefined = type === 'apartment.price' ? 'PRICE_DROP' : data.status === 'DEPOSITED' || data.status === 'RENTED' ? data.status : undefined;
-      setLiveTags(({ [data.id]: _previous, ...rest }) => (tag ? { ...rest, [data.id]: tag } : rest));
+      if (type !== 'apartment.flagged') setLiveTags(({ [data.id]: _previous, ...rest }) => (tag ? { ...rest, [data.id]: tag } : rest));
       // CTV nhận căn đã cho thuê không kèm giá → chỉ đổi trạng thái
       const changes = data.price ? { status: data.status, price: data.price, priceUsd: data.priceUsd } : { status: data.status };
-      setApartments((list) => list.map((item) => (item._id === data.id ? { ...item, ...changes } : item)));
+      setApartments((list) => list.map((item) => (item._id === data.id ? { ...withFlag(item), ...changes } : item)));
     };
     window.addEventListener(APARTMENT_REALTIME, onRealtime);
     return () => window.removeEventListener(APARTMENT_REALTIME, onRealtime);

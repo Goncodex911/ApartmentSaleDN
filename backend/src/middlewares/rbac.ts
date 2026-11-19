@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { AuthRequest, readAccessToken } from './auth.js';
+import { AuthRequest, resolveSession } from './auth.js';
 
 /**
  * Middleware phân quyền theo vai trò (RBAC - Role-Based Access Control)
@@ -28,10 +28,15 @@ export function requireRoles(...allowedRoles: string[]) {
  * Middleware xác thực tùy chọn (Optional Auth):
  * Nếu có Bearer token thì giải mã lấy thông tin `req.user`,
  * nếu không có token vẫn cho đi tiếp (dành cho public API nhưng cần phân biệt khách vs CTV vs Quản lý).
- * Token lỗi hoặc hết hạn thì coi như khách vãng lai.
+ * Token lỗi, hết hạn hoặc tài khoản đã bị khóa (Story 13.2) thì coi như khách vãng lai.
  */
 export function optionalAuthMiddleware(req: AuthRequest, _res: Response, next: NextFunction): void {
-  req.user = readAccessToken(req) ?? undefined;
-  next();
+  if (!req.headers.authorization) return next();
+  resolveSession(req)
+    .then(({ user }) => {
+      req.user = user;
+      next();
+    })
+    .catch(next);
 }
 

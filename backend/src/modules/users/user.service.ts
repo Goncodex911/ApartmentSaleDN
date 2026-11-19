@@ -1,7 +1,23 @@
-import { User, IUser } from '../auth/user.model.js';
+import { randomInt } from 'node:crypto';
+import { isValidObjectId } from 'mongoose';
+import { User } from '../auth/user.model.js';
 import { TelegramService } from '../ingestion/telegram.service.js';
 import { randomCode } from '../../utils/random-code.js';
-import { UpdateProfileInput } from './user.validation.js';
+import { escapeRegex } from '../../utils/phone-text.js';
+import { forgetSession } from '../../middlewares/auth.js';
+import { AuditActor, AuditService } from '../audit/audit.service.js';
+import { ListUsersQuery, UpdateProfileInput } from './user.validation.js';
+
+// Mật khẩu tạm: bỏ ký tự dễ nhầm khi đọc qua điện thoại (0/O, 1/l/I)
+const PASSWORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+
+const userTarget = (user: { _id: unknown; name: string; ctvCode: string }) => ({ type: 'USER' as const, id: user._id, title: `${user.name} (${user.ctvCode})` });
+
+const findTarget = async (userId: string) => {
+  const user = isValidObjectId(userId) ? await User.findById(userId) : null;
+  if (!user) throw { status: 404, message: 'Không tìm thấy người dùng' };
+  return user;
+};
 
 export class UserService {
   // Lấy hồ sơ cá nhân đầy đủ của user hiện tại
@@ -48,9 +64,20 @@ export class UserService {
     return String(manager._id);
   }
 
-  // [ADMIN] Danh sách tài khoản theo trạng thái (mặc định: đang chờ duyệt)
-  static async listByStatus(status: IUser['status']) {
-    return User.find({ status, role: { $ne: 'ADMIN' } }).select('name phone role ctvCode status createdAt').sort({ createdAt: -1 }).lean();
+  // [ADMIN] Danh sách thành viên (Story 13.2): lọc trạng thái / vai trò, tìm tên – SĐT – mã CTV, phân trang
+  static async list({ status, role, search, page, limit }: ListUsersQuery) {
+    const filter: Record<string, unknown> = {};
+    if (status) filter.status = status;
+    if (role) filter.role = role;
+    if (search) {
+      const pattern = new RegExp(escapeRegex(search), 'i');
+      filter.$or = [{ name: pattern }, { phone: pattern }, { ctvCode: pattern }];
+    }
+    const [items, total] = await Promise.all([
+      User.find(filter).select('name phone role ctvCode status createdAt trustScore canReport').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      User.countDocuments(filter),
+    ]);
+    return { items, total, page, limit };
   }
 
   // [Quản lý] CTV đang hoạt động — chọn "CTV chốt căn" khi ghi hợp đồng thuê (Story 11.5); chỉ trả tên + mã CTV
@@ -58,14 +85,64 @@ export class UserService {
     return User.find({ role: 'COLLABORATOR', status: 'ACTIVE' }).select('name ctvCode').sort({ name: 1 }).limit(500).lean();
   }
 
-  // [ADMIN] Duyệt / khóa tài khoản — không cho đổi trạng thái tài khoản ADMIN khác qua API
-  static async updateStatus(userId: string, status: 'ACTIVE' | 'BLOCKED') {
-    const user = await User.findById(userId);
-    if (!user) throw { status: 404, message: 'Không tìm thấy người dùng' };
+  /**
+   * [ADMIN] Duyệt / khóa / mở khóa — không đổi trạng thái tài khoản ADMIN qua API (gồm cả tự khóa mình).
+   * Khóa → tăng tokenVersion: phiên đang mở bị từ chối ngay, refresh token cũ cũng hết hiệu lực (Story 13.2).
+   */
+  static async updateStatus(actor: AuditActor, userId: string, status: 'ACTIVE' | 'BLOCKED') {
+    const user = await findTarget(userId);
     if (user.role === 'ADMIN') throw { status: 403, message: 'Không thể thay đổi trạng thái tài khoản ADMIN' };
+    const previousStatus = user.status;
     user.status = status;
+    if (status === 'BLOCKED') user.tokenVersion = (user.tokenVersion ?? 0) + 1;
     await user.save();
+    forgetSession(userId);
+    AuditService.log(actor, 'CHANGE_USER_STATUS', userTarget(user), { from: previousStatus, to: status });
     return user;
+  }
+
+  /**
+   * [ADMIN] Thăng cấp CTV → Quản lý hoặc hạ Quản lý → CTV (Story 13.2).
+   * Không tự đổi vai trò của mình, không hạ ADMIN qua API. Phiên của người được đổi tự làm mới token theo vai trò mới.
+   */
+  static async updateRole(actor: AuditActor, userId: string, role: 'MANAGER' | 'COLLABORATOR') {
+    if (actor.id === userId) throw { status: 400, message: 'Không thể tự đổi vai trò của chính mình' };
+    const user = await findTarget(userId);
+    if (user.role === 'ADMIN') throw { status: 403, message: 'Không thể đổi vai trò tài khoản ADMIN' };
+    const previousRole = user.role;
+    user.role = role;
+    await user.save();
+    forgetSession(userId);
+    AuditService.log(actor, 'CHANGE_ROLE', userTarget(user), { from: previousRole, to: role });
+    return user;
+  }
+
+  // [ADMIN] Khóa / mở quyền báo lỗi tin (Story 13.6) — mở lại thì đưa điểm tín nhiệm âm về 0 để không bị khóa ngay lần sau
+  static async setCanReport(actor: AuditActor, userId: string, canReport: boolean) {
+    const user = await findTarget(userId);
+    user.canReport = canReport;
+    if (canReport && user.trustScore < 0) user.trustScore = 0;
+    await user.save();
+    AuditService.log(actor, 'CHANGE_USER_STATUS', userTarget(user), { canReport });
+    return user;
+  }
+
+  /**
+   * [ADMIN] Đặt mật khẩu tạm cho thành viên quên mật khẩu (Story 13.2). Mật khẩu rõ chỉ trả về 1 lần cho Admin,
+   * không ghi log. Tăng tokenVersion → các thiết bị đang đăng nhập bằng mật khẩu cũ bị đăng xuất.
+   */
+  static async resetPassword(actor: AuditActor, userId: string) {
+    if (actor.id === userId) throw { status: 400, message: 'Đổi mật khẩu của chính mình trong Hồ sơ cá nhân' };
+    const user = await findTarget(userId);
+    if (user.role === 'ADMIN') throw { status: 403, message: 'Không thể đặt lại mật khẩu tài khoản ADMIN' };
+    const tempPassword = Array.from({ length: 12 }, () => PASSWORD_ALPHABET[randomInt(PASSWORD_ALPHABET.length)]).join('');
+    user.password = tempPassword; // pre('save') băm bcrypt
+    user.mustChangePassword = true; // Story 13.9: lần đăng nhập tới app nhắc đổi mật khẩu
+    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
+    await user.save();
+    forgetSession(userId);
+    AuditService.log(actor, 'RESET_PASSWORD', userTarget(user)); // Không ghi mật khẩu tạm vào nhật ký
+    return { user, tempPassword };
   }
 
   /**

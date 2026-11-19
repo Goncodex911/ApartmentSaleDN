@@ -5,4 +5,5 @@ export interface IProcessListingInput {
   rawText: string;
   mediaUrls?: string[];
   managerId: string;
+  sourceChatId?: string; // Nhóm Telegram nguồn (Story 13.5 — thống kê theo nhóm)
 }

@@ -2,18 +2,19 @@ import React, { useState } from 'react';
 import { User } from '../../api/authApi.js';
 import { userApi } from '../../api/userApi.js';
 import { TelegramLinkSection } from './TelegramLinkSection.js';
-import { X, UserCircle, Phone, MessageSquare, ExternalLink, Loader2, Check } from 'lucide-react';
+import { X, UserCircle, Phone, MessageSquare, ExternalLink, Loader2, Check, KeyRound } from 'lucide-react';
 
 // Trang cha chỉ render modal khi đang mở → mỗi lần mở là một lần mount mới, state tự lấy theo user hiện tại
 interface ProfileModalProps {
   user: User;
   onClose: () => void;
   onProfileUpdated: (updatedUser: User) => void;
+  onChangePassword: () => void; // Story 13.9: mở bảng Đổi mật khẩu
 }
 
 const fieldClass = 'w-full min-h-[44px] px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500';
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onProfileUpdated }) => {
+export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onProfileUpdated, onChangePassword }) => {
   const [name, setName] = useState(user.name || '');
   const [zaloPhone, setZaloPhone] = useState(user.zaloPhone || '');
   const [greetingMessage, setGreetingMessage] = useState(user.greetingMessage || '');
@@ -175,6 +176,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
           </fieldset>
 
           <TelegramLinkSection linked={Boolean(user.telegramChatId)} />
+
+          <button type="button" onClick={onChangePassword} className="w-full min-h-[44px] flex items-center gap-2 px-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 hover:bg-slate-50 cursor-pointer">
+            <KeyRound className="w-4 h-4 text-indigo-600" aria-hidden />
+            Đổi mật khẩu
+          </button>
 
           {/* Footer */}
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">

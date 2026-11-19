@@ -85,9 +85,9 @@ export interface IApartment extends Document {
   imageHashes?: string[];
   hiddenImages?: string[]; // Ảnh có SĐT nguồn cũ (Gemini Vision phát hiện) — không gửi cho khách (Story 5.2)
   videos?: string[];
-  ownerContact: {
-    name: string;
-    phone: string;
+  ownerContact?: {
+    name?: string; // Story 13.7: tùy chọn — căn nguồn liên kết có thể chưa có tên/SĐT chủ
+    phone?: string;
     note?: string;
   };
   subListings: ISubListing[]; // Mảng các nguồn tham chiếu (Story 2.3)
@@ -98,6 +98,7 @@ export interface IApartment extends Document {
   managerId: Types.ObjectId;
   submittedBy?: Types.ObjectId; // CTV đăng tin (Story 8.6) — chỉ Quản lý thấy
   lease?: ILease; // Hợp đồng thuê khi căn RENTED (Story 11.5) — chỉ Quản lý thấy
+  verification?: { flaggedAt: Date; reasons: string[] }; // ≥ 2 người khác nhau báo lỗi → "Chờ xác minh" (Story 13.6)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -176,8 +177,8 @@ const apartmentSchema = new Schema<IApartment>(
     hiddenImages: [{ type: String }],
     videos: [{ type: String }],
     ownerContact: {
-      name: { type: String, required: true, trim: true },
-      phone: { type: String, required: true, trim: true },
+      name: { type: String, trim: true },
+      phone: { type: String, trim: true },
       note: { type: String, trim: true },
     },
     subListings: { type: [subListingSchema], default: [] },
@@ -192,6 +193,7 @@ const apartmentSchema = new Schema<IApartment>(
     reviewReason: { type: String, trim: true },
     managerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     submittedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    verification: { type: { _id: false, flaggedAt: Date, reasons: [String] }, default: undefined },
     lease: {
       type: new Schema<ILease>(
         {

@@ -3,6 +3,7 @@ import { SubmissionService } from './submission.service.js';
 import { approveSubmissionSchema, listSubmissionsQuerySchema, rejectSubmissionSchema, submissionDataSchema } from './submission.validation.js';
 import { AuthRequest } from '../../middlewares/auth.js';
 import { asyncHandler } from '../../utils/async-handler.js';
+import { auditActor } from '../audit/audit.service.js';
 
 const submissionId = (req: AuthRequest) => {
   const id = String(req.params.id);
@@ -49,12 +50,12 @@ export class SubmissionController {
 
   static approve = asyncHandler(async (req, res) => {
     const { mergeInto } = approveSubmissionSchema.parse(req.body ?? {});
-    const data = await SubmissionService.approve(submissionId(req), req.user!, mergeInto);
+    const data = await SubmissionService.approve(submissionId(req), auditActor(req), mergeInto);
     res.status(200).json({ success: true, message: mergeInto ? 'Đã duyệt và gộp vào căn có sẵn' : 'Đã duyệt, căn đã vào kho', data });
   });
 
   static reject = asyncHandler(async (req, res) => {
-    const data = await SubmissionService.reject(submissionId(req), req.user!, rejectSubmissionSchema.parse(req.body).reason);
+    const data = await SubmissionService.reject(submissionId(req), auditActor(req), rejectSubmissionSchema.parse(req.body).reason);
     res.status(200).json({ success: true, message: 'Đã từ chối tin', data });
   });
 }

@@ -11,9 +11,9 @@ const itemClass = 'w-full min-h-[44px] text-left px-4 py-3 text-sm hover:bg-slat
 export const AccountMenu: React.FC<{
   user: User;
   onProfile: () => void;
-  onApprovals: () => void;
+  onNavigate: (path: string) => void; // Trang Quản trị (13.1, ADMIN), Kiểm duyệt báo lỗi (13.6, Quản lý + ADMIN)
   onLogout: () => void;
-}> = ({ user, onProfile, onApprovals, onLogout }) => {
+}> = ({ user, onProfile, onNavigate, onLogout }) => {
   const [codeCopied, setCodeCopied] = useState(false);
 
   const handleCopyCode = async (e: React.MouseEvent) => {
@@ -34,7 +34,10 @@ export const AccountMenu: React.FC<{
       </div>
       <button type="button" className={`${itemClass} text-slate-700`} onClick={onProfile}>Hồ sơ cá nhân</button>
       {user.role === 'ADMIN' && (
-        <button type="button" className={`${itemClass} text-slate-700`} onClick={onApprovals}>Duyệt tài khoản</button>
+        <button type="button" className={`${itemClass} text-slate-700`} onClick={() => onNavigate('/admin')}>Quản trị</button>
+      )}
+      {user.role !== 'COLLABORATOR' && (
+        <button type="button" className={`${itemClass} text-slate-700`} onClick={() => onNavigate('/moderation')}>Kiểm duyệt báo lỗi</button>
       )}
       <button type="button" className={`${itemClass} text-rose-600`} onClick={onLogout}>Đăng xuất</button>
     </div>

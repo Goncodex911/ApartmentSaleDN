@@ -62,6 +62,15 @@ export const ApartmentsPage: React.FC = () => {
       .getApartmentById(id)
       .then((res) => setSelectedApartment(res.data))
       .catch(() => alert('Không mở được căn hộ, vui lòng thử lại'));
+  // Story 13.3: Quản lý mở thẻ → hiện ngay dữ liệu đang có, tải nền bản chi tiết (máy chủ ghi nhật ký xem SĐT chủ nhà)
+  const openApartment = (apartment: Apartment) => {
+    setSelectedApartment(apartment);
+    if (!isManager) return;
+    apartmentApi
+      .getApartmentById(apartment._id)
+      .then((res) => setSelectedApartment((current) => (current?._id === apartment._id ? res.data : current)))
+      .catch(() => undefined); // Mất mạng: vẫn xem bản trong danh sách
+  };
   // Story 11.5: bấm thông báo nhắc tái ký → về Bảng hàng kèm mã căn cần mở
   const openApartmentId = (location.state as { openApartmentId?: string } | null)?.openApartmentId;
   useEffect(() => {
@@ -188,7 +197,7 @@ export const ApartmentsPage: React.FC = () => {
                 key={apt._id}
                 apartment={apt}
                 currentUser={currentUser}
-                onOpen={setSelectedApartment}
+                onOpen={openApartment}
                 layout={view === 'cards' ? 'card' : 'list'}
                 liveTag={liveTags[apt._id]}
                 selection={

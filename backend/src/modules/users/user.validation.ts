@@ -20,4 +20,18 @@ export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
 // ADMIN duyệt (ACTIVE) / khóa (BLOCKED) tài khoản
 export const updateUserStatusSchema = z.object({ status: z.enum(['ACTIVE', 'BLOCKED']) });
-export const listUsersQuerySchema = z.object({ status: z.enum(['ACTIVE', 'PENDING', 'BLOCKED']).default('PENDING') });
+// Story 13.2: lọc theo trạng thái / vai trò, tìm theo tên, SĐT, mã CTV; không gửi gì = tất cả
+export const listUsersQuerySchema = z.object({
+  status: z.enum(['ACTIVE', 'PENDING', 'BLOCKED']).optional(),
+  role: z.enum(['ADMIN', 'MANAGER', 'COLLABORATOR']).optional(),
+  search: z.string().trim().max(50).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
+
+// Admin chỉ chuyển qua lại Quản lý ↔ CTV; không cấp quyền ADMIN qua API
+export const updateUserRoleSchema = z.object({ role: z.enum(['MANAGER', 'COLLABORATOR']) });
+
+// Story 13.6: Admin khóa / mở quyền báo lỗi tin
+export const updateCanReportSchema = z.object({ canReport: z.boolean() });

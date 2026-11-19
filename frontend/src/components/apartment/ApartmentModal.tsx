@@ -57,7 +57,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !price || !isLocationComplete(location) || !propertyType || bedrooms === '' || !furnishing || !ownerName || !ownerPhone) {
+    if (!title || !price || !isLocationComplete(location) || !propertyType || bedrooms === '' || !furnishing) {
       setError('Vui lòng điền đủ các ô có dấu *');
       return;
     }
@@ -83,7 +83,8 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
       fees: { electricity: numberOr(electricity, empty), water: numberOr(water, empty), service: numberOr(serviceFee, empty) },
       images: media.images,
       videos: media.videos,
-      ownerContact: { name: ownerName, phone: ownerPhone, note: textOr(ownerNote, empty) },
+      // Story 13.7: tên/SĐT chủ tùy chọn (căn nguồn liên kết) — ô trống không gửi, khi sửa thì xóa giá trị cũ
+      ownerContact: { name: textOr(ownerName, empty), phone: textOr(ownerPhone, empty), note: textOr(ownerNote, empty) },
     };
 
     try {
@@ -181,16 +182,16 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
           </FormSection>
 
           <FormSection title="Chủ nhà / đầu mối (chỉ Quản lý xem được)" tone="private">
-            <div className="grid grid-cols-2 gap-3 items-end">
-              <Field label="Tên" required>
+            <div className="grid sm:grid-cols-2 gap-3 items-end">
+              <Field label="Tên">
                 <input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} autoComplete="off" className={inputClass} />
               </Field>
-              <Field label="Số điện thoại" required>
-                <input type="tel" inputMode="tel" value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} autoComplete="off" placeholder="0905123456" className={inputClass} />
+              <Field label="Số điện thoại">
+                <input type="tel" inputMode="tel" value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} autoComplete="off" placeholder="0905... (để trống nếu là nguồn liên kết)" className={inputClass} />
               </Field>
             </div>
             <Field label="Ghi chú riêng">
-              <input value={ownerNote} onChange={(e) => setOwnerNote(e.target.value)} placeholder="Chủ nhà dễ tính, hẹn xem sau 17h..." className={inputClass} />
+              <input value={ownerNote} onChange={(e) => setOwnerNote(e.target.value)} placeholder="VD: Liên hệ qua Zalo bạn Minh đối tác" className={inputClass} />
             </Field>
           </FormSection>
         </div>

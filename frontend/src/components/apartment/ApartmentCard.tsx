@@ -58,6 +58,7 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
         </>
       )}
       {apartment.needsReview && <span className="text-amber-800">· Cần kiểm tra</span>}
+      {apartment.verification && <span className="text-amber-800 font-semibold">· Chờ xác minh</span>}
       {liveTag === 'PRICE_DROP' && <span className="text-rose-700 font-semibold">· {LIVE_LABEL.PRICE_DROP}</span>}
       {daysLeft !== null && daysLeft <= 30 && (
         // Story 11.5: căn đã thuê sắp hết hạn hợp đồng (chỉ Quản lý nhận được lease)

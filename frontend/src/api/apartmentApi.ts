@@ -88,11 +88,12 @@ export interface Apartment {
   images: string[];
   hiddenImages?: string[]; // Ảnh có SĐT nguồn cũ — không gửi khách (Story 5.2)
   videos?: string[];
-  ownerContact: {
-    name: string;
-    phone: string;
+  ownerContact?: {
+    name?: string; // Story 13.7: tùy chọn — căn nguồn liên kết
+    phone?: string;
     note?: string;
   };
+  verification?: { flaggedAt: string; reasons: string[] }; // Story 13.6: ≥ 2 người báo lỗi → "Chờ xác minh"
   subListings?: Array<{
     _id?: string;
     sourceType: 'TELEGRAM' | 'WHATSAPP' | 'ZALO' | 'FACEBOOK' | 'MANUAL';

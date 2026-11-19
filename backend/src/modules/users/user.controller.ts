@@ -1,6 +1,7 @@
 import { UserService } from './user.service.js';
-import { updateProfileSchema, updateUserStatusSchema, listUsersQuerySchema } from './user.validation.js';
+import { updateProfileSchema, updateUserStatusSchema, listUsersQuerySchema, updateUserRoleSchema, updateCanReportSchema } from './user.validation.js';
 import { asyncHandler } from '../../utils/async-handler.js';
+import { auditActor } from '../audit/audit.service.js';
 
 export class UserController {
   // Xem hồ sơ cá nhân hiện tại
@@ -31,16 +32,36 @@ export class UserController {
     res.status(200).json({ success: true, data: await UserService.listCollaborators() });
   });
 
+  // [ADMIN] GET /api/v1/users?status=&role=&search=&page= — danh sách thành viên (Story 13.2)
   static listUsers = asyncHandler(async (req, res) => {
-    const { status } = listUsersQuerySchema.parse(req.query);
-    res.status(200).json({ success: true, data: await UserService.listByStatus(status) });
+    const { items, ...meta } = await UserService.list(listUsersQuerySchema.parse(req.query));
+    res.status(200).json({ success: true, data: items, meta });
   });
 
   // [ADMIN] PATCH /api/v1/users/:id/status — duyệt (ACTIVE) hoặc khóa (BLOCKED) tài khoản
   static updateStatus = asyncHandler(async (req, res) => {
     const { status } = updateUserStatusSchema.parse(req.body);
-    const data = await UserService.updateStatus(String(req.params.id), status);
+    const data = await UserService.updateStatus(auditActor(req), String(req.params.id), status);
     res.status(200).json({ success: true, message: 'Cập nhật trạng thái tài khoản thành công', data });
+  });
+
+  // [ADMIN] PATCH /api/v1/users/:id/role — Quản lý ↔ CTV (Story 13.2)
+  static updateRole = asyncHandler(async (req, res) => {
+    const { role } = updateUserRoleSchema.parse(req.body);
+    const data = await UserService.updateRole(auditActor(req), String(req.params.id), role);
+    res.status(200).json({ success: true, message: 'Đã đổi vai trò', data });
+  });
+
+  // [ADMIN] PATCH /api/v1/users/:id/can-report — khóa / mở quyền báo lỗi tin (Story 13.6)
+  static updateCanReport = asyncHandler(async (req, res) => {
+    const { canReport } = updateCanReportSchema.parse(req.body);
+    res.status(200).json({ success: true, data: await UserService.setCanReport(auditActor(req), String(req.params.id), canReport) });
+  });
+
+  // [ADMIN] POST /api/v1/users/:id/reset-password — trả mật khẩu tạm đúng 1 lần (Story 13.2)
+  static resetPassword = asyncHandler(async (req, res) => {
+    const { tempPassword } = await UserService.resetPassword(auditActor(req), String(req.params.id));
+    res.set('Cache-Control', 'no-store').status(200).json({ success: true, data: { tempPassword } });
   });
 
   // Lấy thông tin công khai của CTV theo ctvCode (Public)

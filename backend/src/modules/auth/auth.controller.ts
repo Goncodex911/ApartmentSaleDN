@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from './auth.service.js';
-import { registerSchema, loginSchema } from './auth.validation.js';
+import { registerSchema, loginSchema, changePasswordSchema } from './auth.validation.js';
+import { auditActor } from '../audit/audit.service.js';
 import { AuthRequest } from '../../middlewares/auth.js';
 import { runDailyJobsIfDue } from '../jobs/daily-jobs.js';
 
@@ -74,6 +75,17 @@ export class AuthController {
     try {
       res.clearCookie('refreshToken');
       res.status(200).json({ success: true, message: 'Đăng xuất thành công' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // POST /api/v1/auth/change-password — tự đổi mật khẩu (Story 13.9)
+  static async changePassword(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { user, accessToken, refreshToken } = await AuthService.changePassword(auditActor(req), changePasswordSchema.parse(req.body));
+      res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS);
+      res.status(200).json({ success: true, message: 'Đã đổi mật khẩu', data: { user, accessToken } });
     } catch (error) {
       next(error);
     }

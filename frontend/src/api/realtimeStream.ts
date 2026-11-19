@@ -1,6 +1,6 @@
 import { apiClient } from './client.js';
 
-export type RealtimeType = 'apartment.created' | 'apartment.status' | 'apartment.price' | 'reset';
+export type RealtimeType = 'apartment.created' | 'apartment.status' | 'apartment.price' | 'apartment.flagged' | 'reset';
 export interface RealtimeData {
   id: string;
   status: 'AVAILABLE' | 'UPCOMING' | 'DEPOSITED' | 'RENTED';
@@ -8,6 +8,7 @@ export interface RealtimeData {
   priceUsd?: number;
   label?: string;
   by?: string;
+  flagged?: boolean; // Story 13.6: căn đang "Chờ xác minh"
 }
 export interface RealtimeMessage {
   type: RealtimeType;
@@ -92,7 +93,8 @@ export function connectRealtime(onMessage: (message: RealtimeMessage) => void): 
         const headers: Record<string, string> = { Authorization: `Bearer ${token}`, Accept: 'text/event-stream' };
         if (lastEventId) headers['Last-Event-ID'] = lastEventId;
         const res = await fetch(STREAM_URL, { headers, signal: controller.signal, cache: 'no-store' });
-        if (res.status === 401) {
+        // 403 = tài khoản vừa bị khóa (Story 13.2) → /auth/me cũng 403 → apiClient đưa về trang đăng nhập
+        if (res.status === 401 || res.status === 403) {
           // Vừa refresh mà vẫn 401 → coi là lỗi để giãn thời gian thử, không gọi dồn dập
           if (refreshed) throw new Error('Vẫn 401 sau khi làm mới token');
           // Token hết hạn → gọi 1 API thường để bộ chặn của apiClient tự refresh (lỗi refresh = tự về trang đăng nhập)

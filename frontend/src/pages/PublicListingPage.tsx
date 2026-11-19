@@ -199,6 +199,23 @@ export const PublicListingPage: React.FC = () => {
           {lang === 'vi' && listing.ctv.greetingMessage && (
             <p className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-sm text-slate-600 italic">“{listing.ctv.greetingMessage}”</p>
           )}
+
+          {/* Story 13.5: hotline / Zalo OA công ty do Admin cấu hình */}
+          {(listing.company?.hotline || listing.company?.zaloOaUrl) && (
+            <footer className="pt-4 border-t border-slate-100 text-sm text-slate-600 flex flex-wrap items-center gap-x-3">
+              <span>{copy.companyContact}:</span>
+              {listing.company.hotline && (
+                <a href={`tel:${listing.company.hotline}`} className="inline-flex items-center min-h-[44px] font-semibold text-indigo-700">
+                  {listing.company.hotline}
+                </a>
+              )}
+              {listing.company.zaloOaUrl && (
+                <a href={listing.company.zaloOaUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-[44px] font-semibold text-indigo-700">
+                  Zalo OA
+                </a>
+              )}
+            </footer>
+          )}
         </div>
       </div>
 

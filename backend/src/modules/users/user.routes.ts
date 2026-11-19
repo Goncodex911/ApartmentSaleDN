@@ -15,6 +15,9 @@ router.delete('/telegram-link', authMiddleware, UserController.unlinkTelegram);
 router.get('/collaborators', authMiddleware, requireRoles('ADMIN', 'MANAGER'), UserController.listCollaborators);
 router.get('/', authMiddleware, requireRoles('ADMIN'), UserController.listUsers);
 router.patch('/:id/status', authMiddleware, requireRoles('ADMIN'), UserController.updateStatus);
+router.patch('/:id/role', authMiddleware, requireRoles('ADMIN'), UserController.updateRole); // Story 13.2
+router.post('/:id/reset-password', authMiddleware, requireRoles('ADMIN'), UserController.resetPassword);
+router.patch('/:id/can-report', authMiddleware, requireRoles('ADMIN'), UserController.updateCanReport); // Story 13.6
 
 // Route công khai (dành cho khách hàng xem landing page qua ctvCode)
 router.get('/ctv/:ctvCode', UserController.getPublicCtv);

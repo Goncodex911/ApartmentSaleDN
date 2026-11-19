@@ -15,6 +15,7 @@ export interface User {
   zaloGroupLink?: string;
   whatsappGroupLink?: string;
   telegramChatId?: string; // Có giá trị = đã liên kết Telegram nhận thông báo (Story 6.2)
+  mustChangePassword?: boolean; // Story 13.9: đang dùng mật khẩu tạm Admin cấp
 }
 
 export const authApi = {
@@ -36,6 +37,13 @@ export const authApi = {
   getMe: async (): Promise<{ success: boolean; data: User }> => {
     const res = await apiClient.get('/auth/me');
     return res.data;
+  },
+
+  // Story 13.9: đổi mật khẩu — máy chủ cấp token mới cho thiết bị này (thiết bị khác bị đăng xuất)
+  changePassword: async (data: { currentPassword: string; newPassword: string }): Promise<User> => {
+    const res = await apiClient.post('/auth/change-password', data);
+    localStorage.setItem('token', res.data.data.accessToken);
+    return res.data.data.user;
   },
 
   logout: async () => {
