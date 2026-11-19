@@ -33,6 +33,8 @@ Hiện tại, tài khoản Admin đang dùng chung giao diện với Quản lý 
 | **Story 13.6** | Trung Tâm Xử Lý Báo Cáo Vi Phạm & Làm Sạch Bảng Hàng (Listing Moderation) | Hàng đợi báo lỗi từ CTV (Story 11.4), 1-click gỡ/sửa tin, Điểm tín nhiệm | P1 |
 | **Story 13.7** | Chuyển Số Điện Thoại & Tên Chủ Nhà Thành Tùy Chọn (Optional Landlord Contact) | Nới lỏng validation backend, Form nhập liệu linh hoạt, Quản lý nguồn liên kết | P0 |
 | **Story 13.8** | Hai Lựa Chọn Nhập Vị Trí: Địa Chỉ Trực Tiếp hoặc Link Maps (Dual Location Input) | 2 chế độ nhập vị trí (Gõ địa chỉ vs Dán link Google Maps), Không ép buộc dán link | P0 |
+| **Story 13.9** | Đổi Mật Khẩu Trong Hồ Sơ Cá Nhân (Self-Service Change Password) | Tự đổi mật khẩu trong Hồ sơ cá nhân, tăng tokenVersion đăng xuất phiên cũ, AuditLog | P0 |
+| **Story 13.10** | Cảnh Báo & Khử Trùng Phân Tách Cho Quản Lý & CTV (Smart Duplicate Flow) | CTV (Cảnh báo mềm trên form, không chặn) vs Quản lý (Hộp thoại xác nhận 3 lựa chọn) | P0 |
 
 ---
 
@@ -195,3 +197,53 @@ Hiện tại, tài khoản Admin đang dùng chung giao diện với Quản lý 
      * Người dùng vẫn có thể chọn Khu vực và gõ Tên đường hiển thị cho khách thuê.
   4. **Thống Nhất Dữ Liệu & Bảo Vệ Quyền Lợi:**
      * Cả 2 cách đều đảm bảo tuân thủ nguyên tắc 2 tầng địa chỉ: Khách thuê trên landing page công khai chỉ thấy Tên đường + Khu vực; còn địa chỉ chi tiết (số nhà) hoặc link Google Maps chỉ Quản lý và CTV có quyền mới xem được.
+
+---
+
+### User Story 13.9: Đổi Mật Khẩu Trong Hồ Sơ Cá Nhân (Self-Service Change Password)
+* **Là một:** CTV, Quản lý hoặc Admin đã đăng nhập hệ thống.
+* **Tôi muốn:** Tự đổi mật khẩu trong mục Hồ sơ cá nhân bằng cách nhập mật khẩu hiện tại và mật khẩu mới.
+* **Để:** Thay thế mật khẩu tạm thời do Admin cấp hoặc chủ động bảo vệ tài khoản khi nghi ngờ bị lộ thông tin.
+* **Tiêu chí chấp nhận (Acceptance Criteria):**
+  1. **Form Đổi Mật Khẩu Trong Hồ Sơ (`ProfileModal.tsx`):**
+     * Nhập 3 trường: Mật khẩu hiện tại, Mật khẩu mới ($\ge 6$ ký tự), Xác nhận mật khẩu mới.
+     * Kiểm tra khớp mật khẩu ngay trên giao diện client.
+  2. **Bảo Mật Phiên Đăng Nhập (Backend Security):**
+     * Endpoint `POST /api/v1/auth/change-password` (yêu cầu `authMiddleware`).
+     * Kiểm tra đúng mật khẩu hiện tại bằng `bcrypt.compare`.
+     * Tăng `tokenVersion` trong database để lập tức thu hồi token và đăng xuất khỏi mọi thiết bị khác đang dùng tài khoản này (trừ thiết bị hiện tại).
+     * Ghi nhận một bản ghi `AuditLog`: `action: 'CHANGE_PASSWORD'`.
+  3. **Cảnh Báo Đổi Mật Khẩu Tạm:**
+     * Với người dùng vừa được Admin reset mật khẩu tạm: Khi đăng nhập, hệ thống hiển thị banner nhắc nhở đổi mật khẩu ngay để bảo mật.
+
+---
+
+### User Story 13.10: Cảnh Báo & Khử Trùng Căn Hộ Phân Tách Cho Quản Lý & CTV (Smart Duplicate Flow)
+* **Là một:** Quản lý (Manager) hoặc CTV đang nạp/duyệt thông tin căn hộ vào hệ thống.
+* **Tôi muốn:** Hệ thống có **cơ chế xử lý phân tách rõ ràng và phù hợp với từng vai trò**: CTV nhận cảnh báo mềm trên form để tự rà soát mà không bị chặn gửi, còn Quản lý nhận hộp thoại xác nhận 3 lựa chọn khi lưu căn để không bị nhầm lẫn và không bị chặn cứng.
+* **Để:** Tối ưu hóa trải nghiệm thực tế cho từng đối tượng người dùng, giữ kho hàng luôn sạch, không bao giờ tạo trùng lặp do sơ ý.
+* **Tiêu chí chấp nhận (Acceptance Criteria):**
+  1. **Cơ Chế 1 — Dành Cho CTV Khi Đăng Tin (`Submissions`):**
+     * **Cảnh báo mềm trực tiếp trên Form (Soft Warning Banner):**
+       * Khi CTV điền Tên đường + Giá thuê hoặc bấm `[Gửi tin đăng]`:
+       * Nếu hệ thống phát hiện trong kho đã có căn tương tự (theo bộ 3 hoặc ảnh) $\rightarrow$ Form xuất hiện một **khung cảnh báo mềm màu vàng** ngay trên form:
+         > *"⚠️ Lưu ý: Trong kho đã có 1 căn tương tự tại địa chỉ này ([Tiêu đề căn] · [Giá] · [Khu vực]). Vui lòng kiểm tra lại số phòng/tầng trước khi gửi để tránh trùng lặp."*
+       * **KHÔNG CHẶN CỨNG:** Nút `[Gửi tin đăng]` **vẫn sáng bình thường**, không bị disable, không bật popup chặn. CTV đọc cảnh báo, nếu xác nhận là phòng khác thì vẫn bấm gửi tin bình thường.
+  2. **Cơ Chế 2 — Dành Cho Quản Lý Khi Tự Tạo Căn Bằng Tay (`ApartmentModal.tsx`):**
+     * **Hộp thoại xác nhận trước khi lưu (Pre-Submit Confirmation Dialog):**
+       * Khi Quản lý điền form và bấm `[Lưu căn hộ]`:
+       * Hệ thống chạy kiểm tra ngầm:
+         * **Nếu không trùng:** Lưu căn hộ thành công ngay lập tức.
+         * **Nếu phát hiện có căn tương tự trong kho:** Hệ thống **chưa lưu ngay**, mà **bật Hộp thoại xác nhận `DuplicateConfirmDialog`**:
+           * Tiêu đề: *"⚠️ Căn hộ này có thể đã có trong kho!"*
+           * Hiển thị căn hộ nghi trùng: Ảnh đại diện, tiêu đề, giá thuê, địa chỉ, người tạo, lý do nghi trùng (`Trùng Tên đường, Giá thuê và Loại căn`).
+           * **Cung cấp 3 lựa chọn rõ ràng cho Quản lý:**
+             * `[✅ Vẫn tạo căn mới]`: Quản lý xác nhận đây là phòng khác (ví dụ: tầng khác) trong cùng tòa nhà $\rightarrow$ Tiến hành lưu căn mới bình thường (không bị chặn cứng).
+             * `[👁️ Xem căn đã có]`: Mở xem chi tiết căn cũ trong tab mới để Quản lý đối chiếu kiểm tra.
+             * `[❌ Hủy bỏ]`: Đóng hộp thoại, giữ nguyên form để Quản lý chỉnh sửa hoặc hủy lưu nếu nhận ra nhập trùng.
+  3. **Cơ Chế 3 — Dành Cho Quản Lý Khi Duyệt Tin CTV (`SubmissionsPage`):**
+     * Khi Quản lý bấm nút Duyệt tin CTV gửi lên:
+     * Hệ thống tự động áp dụng thuật toán bộ 3 mới để kiểm tra trùng (kể cả khi CTV không có SĐT chủ nhà).
+     * Nếu phát hiện trùng $\rightarrow$ Bật `DuplicateDialog` cho Quản lý chọn:
+       * `[Gộp làm nguồn phụ]`: Lưu thông tin CTV gửi vào mảng `subListings` của căn gốc có sẵn.
+       * `[Vẫn tạo căn mới]`: Phê duyệt tạo căn mới độc lập trên bảng hàng.

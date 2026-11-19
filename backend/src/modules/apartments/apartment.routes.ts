@@ -33,7 +33,15 @@ router.post(
   ApartmentController.uploadSignature
 );
 
-// 2. Thao tác CRUD Căn hộ (Chỉ Manager / Admin)
+// 2. Kiểm tra căn hộ nghi trùng (Story 13.10 — CTV & Quản lý)
+router.post(
+  '/check-duplicate',
+  authMiddleware,
+  requireRoles('ADMIN', 'MANAGER', 'COLLABORATOR'),
+  ApartmentController.checkDuplicate
+);
+
+// 3. Thao tác CRUD Căn hộ (Chỉ Manager / Admin)
 router.post('/', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.create);
 router.put('/:id', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.update);
 router.patch('/:id/status', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.updateStatus);

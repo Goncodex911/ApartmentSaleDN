@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Apartment, ApartmentPayload, apartmentApi } from '../../api/apartmentApi.js';
-import { X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Apartment, ApartmentPayload, MatchedApartment, apartmentApi } from '../../api/apartmentApi.js';
+import { X, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/Button.js';
 import { PhotoUploader, MediaValue } from './PhotoUploader.js';
 import { splitMedia } from '../../utils/media.js';
@@ -10,6 +10,9 @@ import { AmenitiesSection } from './AmenitiesSection.js';
 import { Field, FormSection, inputClass, numberOr, textOr } from './formFields.js';
 import { AmenityKey, amenityKeysOf, amenityPayload } from '../../utils/amenities.js';
 import { PROPERTY_TYPES, PropertyType } from '../../utils/danang.js';
+import { formatVnd } from '../../utils/format.js';
+import { useApp } from '../layout/AppShell.js';
+import { DuplicateConfirmDialog } from './DuplicateConfirmDialog.js';
 
 interface ApartmentModalProps {
   initialData?: Apartment | null;
@@ -30,10 +33,17 @@ const toText = (value?: number) => (value !== undefined && value !== null ? Stri
  * Trang cha chỉ render modal khi đang mở → mỗi lần mở là một lần mount mới, form lấy lại initialData.
  */
 export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onClose, onSuccess, onSave, heading, submitLabel }) => {
+  const { user } = useApp();
+  const isManager = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const isEdit = Boolean(initialData?._id);
   const attrs = initialData?.attributes;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Story 13.10: Trùng lặp căn hộ phân tách cho Quản lý & CTV
+  const [softWarning, setSoftWarning] = useState<MatchedApartment | null>(null); // AC1: CTV cảnh báo mềm
+  const [duplicateCandidate, setDuplicateCandidate] = useState<MatchedApartment | null>(null); // AC3: Quản lý hộp thoại xác nhận
+  const [pendingPayload, setPendingPayload] = useState<ApartmentPayload | null>(null);
 
   const [title, setTitle] = useState(initialData?.title || '');
   const [price, setPrice] = useState(toText(initialData?.price));
@@ -54,6 +64,56 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
   // Story 10.2: ảnh và video tách riêng (video cũ lỡ nằm trong images được chuyển sang videos)
   const [media, setMedia] = useState<MediaValue>(() => splitMedia(initialData || {}));
   const [market, setMarket] = useState(() => toMarketForm(initialData)); // Thông tin Đà Nẵng (Story 7.2)
+
+  // Story 13.10 — AC1: CTV đang điền form -> kiểm tra trùng lặp ngầm và hiện cảnh báo mềm
+  useEffect(() => {
+    if (isManager || isEdit) {
+      setSoftWarning(null);
+      return;
+    }
+    const street = location.street.trim();
+    const numPrice = Number(price);
+    if (!street || !numPrice || numPrice <= 0) {
+      setSoftWarning(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apartmentApi.checkDuplicate({
+          title: title.trim() || undefined,
+          price: numPrice,
+          location: fromLocationForm(location, undefined),
+          attributes: { propertyType: propertyType || undefined, bedrooms: bedrooms !== '' ? Number(bedrooms) : undefined },
+          ownerContact: { phone: ownerPhone.trim() || undefined },
+        });
+        setSoftWarning(res.isDuplicate && res.matchedApartment ? res.matchedApartment : null);
+      } catch (_e) {
+        // Lỗi kiểm tra ngầm không ảnh hưởng form
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [isManager, isEdit, location.street, location.houseNumber, location.zone, location.district, price, propertyType, bedrooms, title, ownerPhone]);
+
+  const executeSave = async (payload: ApartmentPayload) => {
+    try {
+      setLoading(true);
+      setError(null);
+      if (onSave) await onSave(payload);
+      else {
+        const result = isEdit
+          ? await apartmentApi.updateApartment(initialData!._id, payload)
+          : await apartmentApi.createApartment(payload);
+        onSuccess?.(result.data);
+      }
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Có lỗi xảy ra khi lưu căn hộ');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,22 +147,47 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
       ownerContact: { name: textOr(ownerName, empty), phone: textOr(ownerPhone, empty), note: textOr(ownerNote, empty) },
     };
 
-    try {
-      setLoading(true);
-      setError(null);
-      if (onSave) await onSave(payload);
-      else {
-        const result = isEdit
-          ? await apartmentApi.updateApartment(initialData!._id, payload)
-          : await apartmentApi.createApartment(payload);
-        onSuccess?.(result.data);
+    // Story 13.10 — AC3: Quản lý tạo căn mới kiểm tra trùng lặp ngầm trước khi lưu
+    if (isManager && !isEdit && !onSave) {
+      try {
+        setLoading(true);
+        setError(null);
+        const dup = await apartmentApi.checkDuplicate({
+          title,
+          price: Number(price),
+          location: payload.location as any,
+          attributes: { propertyType, bedrooms: Math.max(0, Math.trunc(Number(bedrooms))) },
+          ownerContact: { phone: ownerPhone.trim() || undefined },
+        });
+        if (dup.isDuplicate && dup.matchedApartment) {
+          setDuplicateCandidate(dup.matchedApartment);
+          setPendingPayload(payload);
+          return;
+        }
+      } catch (_e) {
+        // Lỗi kiểm tra mạng không làm hỏng thao tác lưu
+      } finally {
+        setLoading(false);
       }
-      onClose();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Có lỗi xảy ra khi lưu căn hộ');
-    } finally {
-      setLoading(false);
     }
+
+    await executeSave(payload);
+  };
+
+  const handleConfirmCreate = async () => {
+    const toSave = pendingPayload;
+    setDuplicateCandidate(null);
+    setPendingPayload(null);
+    if (toSave) await executeSave(toSave);
+  };
+
+  const handleViewExisting = () => {
+    if (duplicateCandidate) window.open(`/apartments?id=${duplicateCandidate._id}`, '_blank');
+  };
+
+  const handleCancelDuplicate = () => {
+    setDuplicateCandidate(null);
+    setPendingPayload(null);
   };
 
   return (
@@ -196,6 +281,19 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
           </FormSection>
         </div>
 
+        {/* Story 13.10 — AC1: Cảnh báo mềm cho CTV khi phát hiện căn tương tự (không chặn gửi) */}
+        {softWarning && (
+          <div className="shrink-0 mx-3 sm:mx-4 mb-2 p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs sm:text-sm flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 leading-relaxed">
+              <span className="font-semibold text-amber-950">⚠️ Lưu ý:</span> Trong kho đã có 1 căn tương tự tại địa chỉ này (
+              <span className="font-medium text-amber-950">{softWarning.title}</span> ·{' '}
+              <span className="font-medium text-amber-950">{formatVnd(softWarning.price)}/tháng</span>
+              {softWarning.area ? ` · ${softWarning.area}` : ''}). Vui lòng kiểm tra lại số phòng/tầng trước khi gửi để tránh gửi trùng.
+            </div>
+          </div>
+        )}
+
         {/* Nút Lưu ghim cuối màn hình, chừa chỗ huy hiệu Netlify */}
         <div className="shrink-0 flex gap-2 p-3 pb-badge-safe sm:pb-3 border-t border-slate-100">
           <Button variant="ghost" onClick={onClose}>Hủy</Button>
@@ -204,6 +302,17 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
           </Button>
         </div>
       </form>
+
+      {/* Story 13.10 — AC3: Hộp thoại xác nhận 3 lựa chọn cho Quản lý khi lưu căn nghi trùng */}
+      {duplicateCandidate && (
+        <DuplicateConfirmDialog
+          matched={duplicateCandidate}
+          busy={loading}
+          onConfirmCreate={handleConfirmCreate}
+          onViewExisting={handleViewExisting}
+          onCancel={handleCancelDuplicate}
+        />
+      )}
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import { ApartmentService } from './apartment.service.js';
+import { findSimilarApartment, summarizeDuplicate } from '../dedup/similar-apartment.js';
 import {
   createApartmentSchema,
   updateApartmentSchema,
@@ -30,6 +31,40 @@ export class ApartmentController {
   static uploadSignature = asyncHandler(async (req, res) => {
     const folder = isPrivilegedRole(req.user?.role) ? APARTMENT_MEDIA_FOLDER : SUBMISSION_MEDIA_FOLDER;
     res.status(200).json({ success: true, data: signDirectUpload(folder) });
+  });
+
+  // Kiểm tra căn hộ nghi trùng trong kho (Story 13.10)
+  static checkDuplicate = asyncHandler(async (req, res) => {
+    const { title, price, location, attributes, ownerContact, excludeId } = req.body || {};
+    if (!price || (!location?.street && !location?.address)) {
+      res.status(200).json({ success: true, isDuplicate: false });
+      return;
+    }
+    const match = await findSimilarApartment(
+      {
+        title,
+        price: Number(price),
+        location: location || {},
+        attributes,
+        ownerContact,
+      },
+      undefined,
+      typeof excludeId === 'string' ? excludeId : undefined
+    );
+
+    if (!match) {
+      res.status(200).json({ success: true, isDuplicate: false });
+      return;
+    }
+
+    const privileged = isPrivilegedRole(req.user?.role);
+    const matchedApartment = await summarizeDuplicate(match, privileged);
+    res.status(200).json({
+      success: true,
+      isDuplicate: true,
+      matchedApartment,
+      reason: match.reason,
+    });
   });
 
   // Tạo mới căn hộ (Chỉ Manager/Admin)
