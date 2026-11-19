@@ -3,6 +3,25 @@ import type { PropertyType, Zone } from '../utils/danang.js';
 
 export type IncludedService = 'WIFI' | 'CLEANING' | 'ELECTRICITY' | 'WATER' | 'LAUNDRY';
 
+export interface MatchedApartment {
+  _id: string;
+  title: string;
+  price: number;
+  area?: string;
+  address?: string;
+  image?: string;
+  createdAt?: string;
+  createdBy?: string;
+  reason?: string;
+}
+
+export interface CheckDuplicateResponse {
+  success: boolean;
+  isDuplicate: boolean;
+  matchedApartment?: MatchedApartment;
+  reason?: string;
+}
+
 // Dữ liệu gửi lên khi tạo/sửa căn: khác bản đọc về (VD gửi null để xóa trường khi sửa — Story 8.1)
 export type ApartmentPayload = Record<string, unknown>;
 
@@ -211,6 +230,19 @@ export const apartmentApi = {
 
   removeSubListing: async (apartmentId: string, subId: string) => {
     const res = await apiClient.delete(`/apartments/${apartmentId}/sub-listings/${subId}`);
+    return res.data;
+  },
+
+  // Story 13.10: Kiểm tra căn hộ nghi trùng trong kho
+  checkDuplicate: async (payload: {
+    title?: string;
+    price: number;
+    location: { street?: string; houseNumber?: string | null; address?: string; zone?: string; district?: string };
+    attributes?: { propertyType?: string; bedrooms?: number };
+    ownerContact?: { phone?: string };
+    excludeId?: string;
+  }): Promise<CheckDuplicateResponse> => {
+    const res = await apiClient.post<CheckDuplicateResponse>('/apartments/check-duplicate', payload);
     return res.data;
   },
 };

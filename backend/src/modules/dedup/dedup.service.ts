@@ -28,18 +28,22 @@ export class DedupService {
   public static async checkDeterministicMatch(
     phone: string,
     address: string,
-    district: string
+    district: string,
+    excludeId?: string
   ): Promise<IApartment | null> {
     const cleanPhone = (phone || '').replace(/\D/g, '');
     if (cleanPhone.length < 8) return null;
 
     // Tìm các căn hộ có SĐT đầu mối trùng khớp (trong Master hoặc SubListings)
-    const candidates = await Apartment.find({
+    const query: any = {
       $or: [
         { 'ownerContact.phone': cleanPhone },
         { 'subListings.ownerContact.phone': cleanPhone },
       ],
-    });
+    };
+    if (excludeId) query._id = { $ne: excludeId };
+
+    const candidates = await Apartment.find(query);
 
     if (candidates.length === 0) return null;
 

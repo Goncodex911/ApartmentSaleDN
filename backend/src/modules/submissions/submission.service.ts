@@ -2,8 +2,8 @@ import { ListingSubmission, MAX_PENDING_PER_CTV } from './submission.model.js';
 import { Apartment, isPrivilegedRole } from '../apartments/apartment.model.js';
 import { ApartmentService } from '../apartments/apartment.service.js';
 import type { SubmissionData } from './submission.validation.js';
-import { districtOfZone } from '../apartments/listing-taxonomy.js';
 import { DedupService } from '../dedup/dedup.service.js';
+import { findSimilarApartment, summarizeDuplicate } from '../dedup/similar-apartment.js';
 import { PHashUtil } from '../dedup/phash.util.js';
 import { NotificationService } from '../notifications/notification.service.js';
 import { User } from '../auth/user.model.js';
@@ -86,19 +86,12 @@ export class SubmissionService {
     return updated;
   }
 
-  /** Căn trong kho có thể trùng tin này: cùng SĐT chủ + tên đường + quận, hoặc trùng ảnh (giống luồng tin Telegram). */
+  /** Căn trong kho có thể trùng tin này: SĐT chủ + tên đường → bộ 3 (Story 13.10) → ảnh. */
   static async findDuplicates(id: string) {
     const submission = await ListingSubmission.findById(id).lean();
     if (!submission) throw NOT_FOUND;
-    const { location, ownerContact, images } = submission.data;
-    const district = (location.zone && districtOfZone(location.zone)) || location.district || '';
-    const address = [location.houseNumber, location.street].filter(Boolean).join(' ') || location.address || '';
-
-    const byContact = await DedupService.checkDeterministicMatch(ownerContact?.phone || '', address, district);
-    const byPhoto = byContact ? null : await DedupService.checkVisualMatch(await hashImages(images), district);
-    const match = byContact || byPhoto?.matchedApartment;
-    if (!match) return [];
-    return [{ _id: match._id, title: match.title, price: match.price, address: match.location.address, reason: byContact ? 'Trùng SĐT chủ nhà và tên đường' : 'Trùng ảnh' }];
+    const match = await findSimilarApartment(submission.data, () => hashImages(submission.data.images));
+    return match ? [await summarizeDuplicate(match, true)] : [];
   }
 
   /**
