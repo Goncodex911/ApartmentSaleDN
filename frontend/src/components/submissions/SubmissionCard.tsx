@@ -56,7 +56,7 @@ export const SubmissionCard: React.FC<{ submission: ListingSubmission; busy?: bo
         <span className={`px-2 py-1 rounded-full font-medium ${display.tone}`}>{display.label}</span>
         {submission.merged && <span className="text-slate-500">Gộp vào căn có sẵn</span>}
         {ctv && <span className="text-slate-600">CTV {ctv.name} · {ctv.phone}</span>}
-        <span className="text-slate-400">{new Date(submission.createdAt).toLocaleDateString('vi-VN')}</span>
+        <span className="text-slate-600">{new Date(submission.createdAt).toLocaleDateString('vi-VN')}</span>
       </div>
       {submission.rejectReason && <p className="p-2 rounded-lg bg-rose-50 text-sm text-rose-700">Lý do: {submission.rejectReason}</p>}
 

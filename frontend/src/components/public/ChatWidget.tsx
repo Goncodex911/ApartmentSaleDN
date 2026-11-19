@@ -76,7 +76,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ code, ctvName, greeting,
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-36 right-4 z-40 flex items-center gap-2 pl-3 pr-4 py-3 rounded-full bg-violet-600 text-white text-sm font-bold shadow-lg"
+        className="fixed bottom-[calc(190px+env(safe-area-inset-bottom))] right-4 z-40 flex items-center gap-2 h-12 pl-3 pr-4 rounded-full bg-violet-700 text-white text-sm font-bold shadow-lg" // Story 12.6: nằm trên thanh liên hệ, không đè nút
       >
         <MessageCircle className="w-5 h-5" /> {copy.askNow}
       </button>
@@ -121,7 +121,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ code, ctvName, greeting,
             ))}
           </div>
         ))}
-        {sending && <p className="w-14 p-2.5 rounded-2xl bg-white border border-slate-200 text-slate-400 animate-pulse">•••</p>}
+        {sending && <p className="w-14 p-2.5 rounded-2xl bg-white border border-slate-200 text-slate-600 animate-pulse">•••</p>}
         <div ref={bottomRef} />
       </div>
 

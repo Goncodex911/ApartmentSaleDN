@@ -12,13 +12,14 @@ interface CopyShareButtonProps {
   apartment: Apartment;
   ctv: User | null;
   compact?: boolean; // Chỉ hiện icon (dùng trong thẻ danh sách)
+  primary?: boolean; // Story 12.6: nút chính to trên thanh hành động chi tiết căn
   lang?: Lang; // Không truyền → dùng ngôn ngữ CTV đã chọn gần nhất (Story 7.3)
 }
 
 /**
  * Nút "Gửi khách" (Story 9.4): điện thoại → mở khay chia sẻ (Zalo, Messenger...); máy tính / không hỗ trợ → copy bài.
  */
-export const CopyShareButton: React.FC<CopyShareButtonProps> = ({ apartment, ctv, compact, lang }) => {
+export const CopyShareButton: React.FC<CopyShareButtonProps> = ({ apartment, ctv, compact, primary, lang }) => {
   const [copied, setCopied] = useState(false);
   const [manualText, setManualText] = useState('');
   const isRented = apartment.status === 'RENTED';
@@ -51,8 +52,8 @@ export const CopyShareButton: React.FC<CopyShareButtonProps> = ({ apartment, ctv
         title={isRented ? 'Căn đã cho thuê' : share ? 'Gửi khách' : 'Copy tin gửi khách'}
         aria-label={copied ? 'Đã gửi / copy tin gửi khách' : share ? 'Gửi khách' : 'Copy tin gửi khách'}
         className={`flex items-center justify-center gap-1.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-          compact ? 'w-11 h-11 shrink-0' : 'w-full h-11 px-3'
-        } ${copied ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}
+          compact ? 'w-11 h-11 shrink-0' : primary ? 'w-full h-12 px-4 text-base font-semibold' : 'w-full h-11 px-3'
+        } ${copied ? 'bg-emerald-700 text-white' : primary ? 'bg-brand-accent text-white hover:bg-brand-accent-dark' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}
       >
         {copied ? <Check className="w-4 h-4" /> : share ? <Send className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
         {!compact && (copied ? (share ? 'Đã gửi' : 'Đã copy') : share ? 'Gửi khách' : 'Copy tin')}
@@ -64,7 +65,7 @@ export const CopyShareButton: React.FC<CopyShareButtonProps> = ({ apartment, ctv
           <div className="w-full max-w-md bg-white rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-800">Nhấn giữ để copy tin gửi khách</p>
-              <button type="button" onClick={() => setManualText('')} className="p-1 text-slate-400 hover:text-slate-700">
+              <button type="button" onClick={() => setManualText('')} className="p-1 text-slate-600 hover:text-slate-700">
                 <X className="w-5 h-5" />
               </button>
             </div>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Apartment, apartmentApi, Pagination } from '../api/apartmentApi.js';
 import { APARTMENT_REALTIME, RealtimeMessage } from '../api/realtimeStream.js';
 
@@ -72,6 +72,7 @@ export function useApartmentSearch() {
   const [filters, setFilters] = useState<ApartmentFilterValues>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
+  const quietReload = useRef(false); // Story 12.5: tải lại ngầm (kéo làm mới, có mạng lại) → giữ danh sách cũ, không nháy khung chờ
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [pagination, setPagination] = useState<Pagination>(EMPTY_PAGINATION);
   const [aiSummary, setAiSummary] = useState('');
@@ -93,7 +94,8 @@ export function useApartmentSearch() {
       }
     };
 
-    setStatus('loading');
+    if (!quietReload.current) setStatus('loading');
+    quietReload.current = false;
     load()
       .then(({ res, summary }) => {
         if (cancelled) return;
@@ -119,7 +121,10 @@ export function useApartmentSearch() {
     setPage(1);
   }, []);
 
-  const reload = useCallback(() => setReloadKey((key) => key + 1), []);
+  const reload = useCallback(() => {
+    quietReload.current = true;
+    setReloadKey((key) => key + 1);
+  }, []);
   // Có mạng lại (Story 9.1) hoặc vừa Nhập tin AI từ menu đáy (Story 9.3) → tải danh sách mới nhất
   useEffect(() => {
     window.addEventListener('online', reload);

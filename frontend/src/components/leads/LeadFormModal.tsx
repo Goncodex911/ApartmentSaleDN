@@ -2,14 +2,17 @@ import React, { useState } from 'react';
 import { Lead, LeadAmenity, LeadRequirements, leadApi } from '../../api/leadApi.js';
 import { ToggleChip } from '../apartment/formFields.js';
 import { OTHER_ZONE, PROPERTY_TYPES, ZONES } from '../../utils/danang.js';
-import { X, Loader2, UserPlus, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
+import { BottomSheet } from '../layout/BottomSheet.js';
+import { Button } from '../ui/Button.js';
+import { fieldClass, Textarea } from '../ui/Input.js';
 
 interface LeadFormModalProps {
   onClose: () => void;
   onCreated: (lead: Lead) => void;
 }
 
-const inputClass = 'w-full h-11 px-3 border rounded-xl border-slate-200 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500';
+const inputClass = fieldClass; // Ô nhập chuẩn dùng chung (Story 12.1)
 const LEAD_ZONES = ZONES.filter((zone) => zone !== OTHER_ZONE);
 const ROOMS = [
   { value: 0, label: 'Studio' },
@@ -78,18 +81,16 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({ onClose, onCreated
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 pb-badge-safe sm:p-4">
-      <form onSubmit={handleSubmit} className="w-full sm:max-w-md max-h-[90dvh] flex flex-col bg-white rounded-t-2xl sm:rounded-2xl text-sm">
-        <div className="flex items-center justify-between px-4 pt-3">
-          <h2 className="font-bold text-slate-900 flex items-center gap-2">
-            <UserPlus className="w-5 h-5 text-indigo-600" aria-hidden /> Thêm khách hàng
-          </h2>
-          <button type="button" onClick={onClose} aria-label="Đóng" className="w-11 h-11 -mr-2 flex items-center justify-center text-slate-400 hover:text-slate-700">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-3 space-y-3">
+    // Story 12.3: bảng trượt dùng chung; nút Lưu ghim đáy nằm ngoài <form> nên gắn qua thuộc tính form="lead-form"
+    <BottomSheet
+      title="Thêm khách hàng"
+      onClose={onClose}
+      snapPoints={[0.9]}
+      showClose
+      footer={<Button type="submit" form="lead-form" size="lg" className="w-full" loading={saving} disabled={!name.trim()}>Lưu khách</Button>}
+    >
+      <form id="lead-form" onSubmit={handleSubmit} className="text-sm">
+        <div className="space-y-3">
           {error && <p role="alert" className="p-2.5 rounded-xl bg-rose-50 text-rose-700 text-xs">{error}</p>}
           <input required autoFocus placeholder="Tên khách *" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
           <input type="tel" inputMode="tel" placeholder="Số điện thoại" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
@@ -113,14 +114,14 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({ onClose, onCreated
                 onChange={(e) => setBudget(e.target.value)}
                 className={inputClass}
               />
-              <div role="group" aria-label="Đơn vị tiền" className="flex shrink-0 p-1 rounded-xl bg-slate-100">
+              <div role="group" aria-label="Đơn vị tiền" className="flex shrink-0 rounded-xl bg-slate-100">
                 {(['VND', 'USD'] as const).map((unit) => (
                   <button
                     key={unit}
                     type="button"
                     aria-pressed={currency === unit}
                     onClick={() => setCurrency(unit)}
-                    className={`h-9 px-3 rounded-lg text-xs font-semibold transition-colors ${currency === unit ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}
+                    className={`h-11 px-3 rounded-xl text-sm font-semibold transition-colors ${currency === unit ? 'bg-white text-indigo-800 shadow-sm ring-1 ring-slate-200' : 'text-slate-600'}`}
                   >
                     {unit === 'VND' ? 'Triệu đ' : 'USD'}
                   </button>
@@ -135,7 +136,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({ onClose, onCreated
             ))}
           </Group>
 
-          <button type="button" aria-expanded={showMore} onClick={() => setShowMore((open) => !open)} className="h-11 flex items-center gap-1 text-sm font-semibold text-indigo-700">
+          <button type="button" aria-expanded={showMore} onClick={() => setShowMore((open) => !open)} className="h-11 flex items-center gap-1 text-sm font-semibold text-indigo-800">
             Thêm tiêu chí <ChevronDown className={`w-4 h-4 transition-transform motion-reduce:transition-none ${showMore ? 'rotate-180' : ''}`} aria-hidden />
           </button>
           {showMore && (
@@ -154,17 +155,11 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({ onClose, onCreated
                 <span className="text-xs font-semibold text-slate-600">Ngày dự kiến dọn vào</span>
                 <input type="date" value={moveInDate} onChange={(e) => setMoveInDate(e.target.value)} className={inputClass} />
               </label>
-              <textarea rows={2} placeholder="Ghi chú đầu tiên" value={note} onChange={(e) => setNote(e.target.value)} className={`${inputClass} h-auto py-2`} />
+              <Textarea rows={2} aria-label="Ghi chú đầu tiên" placeholder="Ghi chú đầu tiên" value={note} onChange={(e) => setNote(e.target.value)} />
             </div>
           )}
         </div>
-
-        <div className="px-4 pt-2 pb-4 border-t border-slate-100">
-          <button type="submit" disabled={saving || !name.trim()} className="w-full h-12 rounded-xl bg-indigo-600 text-white font-semibold disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform duration-100 motion-reduce:transform-none">
-            {saving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />} Lưu khách
-          </button>
-        </div>
       </form>
-    </div>
+    </BottomSheet>
   );
 };

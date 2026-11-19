@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { ClipboardList, WifiOff } from 'lucide-react';
+import { EmptyState } from '../components/ui/EmptyState.js';
+import { Button } from '../components/ui/Button.js';
 import { useApp } from '../components/layout/AppShell.js';
 import { PullIndicator } from '../components/layout/PullIndicator.js';
 import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
@@ -70,23 +72,22 @@ export const SubmissionsPage: React.FC = () => {
 
   const renderList = () => {
     if (state === 'loading') {
-      return <div className="space-y-2 animate-pulse">{[0, 1, 2].map((i) => <div key={i} className="h-36 bg-slate-200/70 rounded-2xl" />)}</div>;
-    }
-    if (state === 'error') {
       return (
-        <div className="py-12 text-center space-y-3">
-          <AlertCircle className="w-10 h-10 text-rose-400 mx-auto" aria-hidden />
-          <p className="text-sm text-slate-600">Không tải được danh sách tin.</p>
-          <button onClick={reload} className="h-11 px-4 rounded-xl border border-slate-200 bg-white text-sm font-medium">Thử lại</button>
+        <div className="space-y-2" aria-busy="true" aria-label="Đang tải tin đăng">
+          {[0, 1, 2].map((i) => <div key={i} className="skeleton h-36 rounded-2xl" />)}
         </div>
       );
     }
+    if (state === 'error') {
+      return <EmptyState icon={WifiOff} title="Không tải được danh sách tin" description="Vui lòng kiểm tra mạng rồi thử lại." action={<Button onClick={reload}>Thử lại</Button>} />;
+    }
     if (items.length === 0) {
       return (
-        <div className="py-12 text-center space-y-1">
-          <p className="text-base font-semibold text-slate-800">{isManager ? 'Không có tin nào chờ duyệt' : 'Bạn chưa đăng tin nào'}</p>
-          <p className="text-sm text-slate-500">{isManager ? 'Tin CTV gửi lên sẽ hiện ở đây.' : 'Tìm được căn mới? Bấm "Đăng tin" để gửi Quản lý duyệt.'}</p>
-        </div>
+        <EmptyState
+          icon={ClipboardList}
+          title={isManager ? 'Không có tin nào chờ duyệt' : 'Bạn chưa đăng tin nào'}
+          description={isManager ? 'Tin CTV gửi lên sẽ hiện ở đây.' : 'Tìm được căn mới? Bấm "Đăng tin" để gửi Quản lý duyệt.'}
+        />
       );
     }
     return (

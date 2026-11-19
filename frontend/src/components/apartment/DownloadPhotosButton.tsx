@@ -8,6 +8,7 @@ import { tapFeedback } from '../../utils/haptics.js';
 interface DownloadPhotosButtonProps {
   photos: string[]; // Ảnh được phép gửi khách (đã trừ ảnh có SĐT nguồn cũ và video)
   fileName: string; // Tên file zip trên máy tính
+  compact?: boolean; // Story 12.6: nút gọn trên thanh hành động (rộng theo chữ, cao 48px)
 }
 
 const PARALLEL = 4;
@@ -35,7 +36,8 @@ const saveBlob = (blob: Blob, fileName: string) => {
  * Tải ảnh gửi khách (Story 10.3): tải THẲNG từ Cloudinary (cỡ 1600px), KHÔNG còn in SĐT lên ảnh và không qua server
  * → nhanh hơn nhiều. Ảnh lỗi thì bỏ qua, các ảnh khác vẫn tải.
  */
-export const DownloadPhotosButton: React.FC<DownloadPhotosButtonProps> = ({ photos, fileName }) => {
+export const DownloadPhotosButton: React.FC<DownloadPhotosButtonProps> = ({ photos, fileName, compact }) => {
+  const size = compact ? 'h-12 px-3 shrink-0' : 'w-full h-11 px-3';
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [preparedCount, setPreparedCount] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
@@ -85,7 +87,7 @@ export const DownloadPhotosButton: React.FC<DownloadPhotosButtonProps> = ({ phot
 
   if (status === 'ready') {
     return (
-      <button type="button" onClick={handleShare} className="w-full h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-medium rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">
+      <button type="button" onClick={handleShare} className={`${size} flex items-center justify-center gap-1.5 text-sm font-medium rounded-xl bg-emerald-700 text-white hover:bg-emerald-800`}>
         <Share2 className="w-4 h-4" /> Lưu {files.length} ảnh
       </button>
     );
@@ -96,7 +98,7 @@ export const DownloadPhotosButton: React.FC<DownloadPhotosButtonProps> = ({ phot
       type="button"
       onClick={handlePrepare}
       disabled={status === 'loading'}
-      className="w-full h-11 flex items-center justify-center gap-1.5 px-3 text-sm font-medium rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 disabled:opacity-60"
+      className={`${size} flex items-center justify-center gap-1.5 text-sm font-medium rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 disabled:opacity-60`}
     >
       {status === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
       {status === 'loading' ? `${preparedCount}/${photos.length}` : status === 'error' ? 'Thử lại' : 'Tải ảnh'}

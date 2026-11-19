@@ -36,7 +36,7 @@ export const PendingUsersModal: React.FC<{ onClose: () => void }> = ({ onClose }
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <UserCheck className="w-5 h-5 text-indigo-600" /> Tài khoản chờ duyệt
           </h2>
-          <button type="button" onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
+          <button type="button" onClick={onClose} className="p-1.5 text-slate-600 hover:text-slate-700 rounded-lg">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -56,7 +56,7 @@ export const PendingUsersModal: React.FC<{ onClose: () => void }> = ({ onClose }
                 <p className="text-xs text-slate-500">{user.phone} · Quản lý</p>
               </div>
               {processingId === user._id ? (
-                <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+                <Loader2 className="w-5 h-5 animate-spin text-slate-600" />
               ) : (
                 <>
                   <button type="button" onClick={() => handleDecision(user._id, 'ACTIVE')} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold">

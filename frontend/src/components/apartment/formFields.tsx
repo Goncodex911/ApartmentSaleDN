@@ -1,8 +1,8 @@
 import React from 'react';
+import { fieldClass } from '../ui/Input.js';
 
-// Chuẩn điện thoại (Story 8.1): chữ 16px để iPhone không tự phóng to khi bấm vào ô, ô cao 44px dễ bấm
-export const inputClass =
-  'w-full h-11 px-3 text-base sm:text-sm text-slate-900 bg-white border border-slate-200 rounded-xl placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500';
+// Chuẩn điện thoại (Story 8.1): chữ 16px, ô cao 44px — Story 12.1 gom về `fieldClass` của bộ thành phần dùng chung
+export const inputClass = fieldClass;
 
 /** Nhãn + ô nhập; `required` thêm dấu * cho nhãn. */
 export const Field: React.FC<{ label: string; required?: boolean; className?: string; children: React.ReactNode }> = ({
@@ -38,8 +38,8 @@ export const ToggleChip: React.FC<{ checked: boolean; onChange: (checked: boolea
     type="button"
     aria-pressed={checked}
     onClick={() => onChange(!checked)}
-    className={`min-h-[44px] px-4 rounded-full border text-sm transition-colors ${
-      checked ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+    className={`min-h-[44px] px-4 rounded-full border text-sm cursor-pointer transition-colors ${
+      checked ? 'border-brand-accent bg-brand-accent text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
     }`}
   >
     {children}

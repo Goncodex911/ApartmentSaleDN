@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Apartment, ApartmentPayload, apartmentApi } from '../../api/apartmentApi.js';
-import { X, Loader2 } from 'lucide-react';
+import { X } from 'lucide-react';
+import { Button } from '../ui/Button.js';
 import { PhotoUploader, MediaValue } from './PhotoUploader.js';
 import { splitMedia } from '../../utils/media.js';
 import { LocationSection, toLocationForm, fromLocationForm, isLocationComplete } from './LocationSection.js';
@@ -196,13 +197,10 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
 
         {/* Nút Lưu ghim cuối màn hình, chừa chỗ huy hiệu Netlify */}
         <div className="shrink-0 flex gap-2 p-3 pb-badge-safe sm:pb-3 border-t border-slate-100">
-          <button type="button" onClick={onClose} className="h-11 px-4 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100">
-            Hủy
-          </button>
-          <button type="submit" disabled={loading} className="flex-1 h-11 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60">
-            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+          <Button variant="ghost" onClick={onClose}>Hủy</Button>
+          <Button type="submit" loading={loading} className="flex-1">
             {submitLabel || (isEdit ? 'Lưu thay đổi' : 'Lưu căn hộ')}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

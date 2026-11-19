@@ -47,7 +47,7 @@ export const LiveToast: React.FC<{ toast: LiveToastData | null; onDismiss: () =>
             Xem
           </button>
         )}
-        <button type="button" onClick={() => setShown(false)} aria-label="Đóng thông báo" className="w-11 h-11 shrink-0 flex items-center justify-center text-slate-400 hover:text-slate-600">
+        <button type="button" onClick={() => setShown(false)} aria-label="Đóng thông báo" className="w-11 h-11 shrink-0 flex items-center justify-center text-slate-600 hover:text-slate-900">
           <X className="w-4 h-4" />
         </button>
       </div>

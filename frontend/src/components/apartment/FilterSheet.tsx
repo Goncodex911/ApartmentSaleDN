@@ -2,9 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Landmark, apartmentApi } from '../../api/apartmentApi.js';
 import { AMENITY_KEYS, ApartmentFilterValues, EMPTY_FILTERS, countActiveFilters } from '../../hooks/useApartmentSearch.js';
 import { amenityLabel } from '../../utils/amenities.js';
-import { X } from 'lucide-react';
+import { BottomSheet } from '../layout/BottomSheet.js';
 import { tapFeedback } from '../../utils/haptics.js';
 import { PROPERTY_TYPES, ZONES } from '../../utils/danang.js';
+import { STATUS_ORDER, STATUS_STYLE } from '../../utils/statusStyle.js';
+import { Button } from '../ui/Button.js';
+import { Select } from '../ui/Input.js';
 
 export const PRICE_RANGES = [
   { id: 'under_5m', label: 'Dưới 5 triệu' },
@@ -20,12 +23,8 @@ export const ROOM_TYPES = [
 ];
 // Tên tiện ích tiếng Anh lấy từ danh mục chung (Story 8.5); "Gần biển" là điều kiện khoảng cách, khác "Sea view"
 export const AMENITIES = AMENITY_KEYS.map((key) => ({ key, label: key === 'nearBeach' ? 'Gần biển (<1km)' : amenityLabel(key) }));
-export const STATUSES = [
-  { id: 'AVAILABLE', label: 'Trống' },
-  { id: 'UPCOMING', label: 'Sắp trống' },
-  { id: 'DEPOSITED', label: 'Đã cọc' },
-  { id: 'RENTED', label: 'Đã thuê', managerOnly: true },
-];
+// Nhãn trạng thái lấy từ nguồn chung (Story 12.1); CTV không lọc được căn Đã thuê
+export const STATUSES = STATUS_ORDER.map((id) => ({ id, label: STATUS_STYLE[id].label, managerOnly: id === 'RENTED' }));
 const RADIUS_OPTIONS = ['1', '2', '3', '5'];
 
 const Chip: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
@@ -36,8 +35,8 @@ const Chip: React.FC<{ active: boolean; onClick: () => void; children: React.Rea
       onClick();
     }}
     aria-pressed={active}
-    className={`min-h-[40px] px-3.5 rounded-full border text-sm transition-colors ${
-      active ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+    className={`min-h-[44px] px-3.5 rounded-full border text-sm cursor-pointer transition-colors ${
+      active ? 'border-brand-accent bg-brand-accent text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
     }`}
   >
     {children}
@@ -79,19 +78,23 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({ initial, isManager, on
     setDraft((d) => ({ ...d, landmark: id, landmarkName: landmarks.find((l) => l.id === id)?.name || '' }));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 pb-badge-safe sm:pb-0" onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-lg max-h-[85vh] flex flex-col bg-white rounded-t-2xl sm:rounded-2xl"
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-          <h2 className="text-base font-semibold text-slate-900">Bộ lọc</h2>
-          <button type="button" onClick={onClose} aria-label="Đóng" className="p-2 -mr-2 text-slate-500 hover:text-slate-800">
-            <X className="w-5 h-5" />
-          </button>
+    // Story 12.3: bảng trượt dùng chung — mở ở 90%, nút Xem kết quả ghim đáy
+    <BottomSheet
+      title="Bộ lọc"
+      onClose={onClose}
+      snapPoints={[0.9]}
+      showClose
+      wide
+      footer={
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => setDraft(EMPTY_FILTERS)}>Xóa lọc</Button>
+          <Button className="flex-1" onClick={() => onApply(draft)}>
+            Xem kết quả{countActiveFilters(draft) > 0 ? ` (${countActiveFilters(draft)} lọc)` : ''}
+          </Button>
         </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+      }
+    >
+        <div className="space-y-5 pt-1">
           <Section title="Khoảng giá">
             {PRICE_RANGES.map((p) => (
               <Chip key={p.id} active={draft.priceRange === p.id} onClick={() => pick('priceRange', p.id)}>{p.label}</Chip>
@@ -124,16 +127,12 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({ initial, isManager, on
           </Section>
           <section className="space-y-2">
             <h3 className="text-sm font-semibold text-slate-900">Gần địa điểm</h3>
-            <select
-              value={draft.landmark}
-              onChange={(e) => selectLandmark(e.target.value)}
-              className="w-full h-11 px-3 text-base sm:text-sm border border-slate-200 rounded-xl bg-white"
-            >
+            <Select aria-label="Gần địa điểm" value={draft.landmark} onChange={(e) => selectLandmark(e.target.value)}>
               <option value="">Không chọn</option>
               {landmarks.map((l) => (
                 <option key={l.id} value={l.id}>{l.name}</option>
               ))}
-            </select>
+            </Select>
             {draft.landmark && (
               <div className="flex flex-wrap gap-2">
                 {RADIUS_OPTIONS.map((r) => (
@@ -143,20 +142,6 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({ initial, isManager, on
             )}
           </section>
         </div>
-
-        <div className="flex gap-2 p-4 border-t border-slate-100">
-          <button type="button" onClick={() => setDraft(EMPTY_FILTERS)} className="h-11 px-4 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100">
-            Xóa lọc
-          </button>
-          <button
-            type="button"
-            onClick={() => onApply(draft)}
-            className="flex-1 h-11 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700"
-          >
-            Xem kết quả{countActiveFilters(draft) > 0 ? ` (${countActiveFilters(draft)} lọc)` : ''}
-          </button>
-        </div>
-      </div>
-    </div>
+    </BottomSheet>
   );
 };

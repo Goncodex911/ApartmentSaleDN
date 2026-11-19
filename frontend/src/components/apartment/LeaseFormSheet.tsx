@@ -3,10 +3,11 @@ import { LeaseInput } from '../../api/apartmentApi.js';
 import { userApi } from '../../api/userApi.js';
 import { BottomSheet } from '../layout/BottomSheet.js';
 import { ToggleChip } from './formFields.js';
-import { Loader2 } from 'lucide-react';
+import { Button } from '../ui/Button.js';
+import { fieldClass } from '../ui/Input.js';
 
 const DURATIONS = [1, 3, 6, 12];
-const inputClass = 'w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500';
+const inputClass = fieldClass; // Ô nhập chuẩn dùng chung (Story 12.1)
 const todayInput = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -53,8 +54,20 @@ export const LeaseFormSheet: React.FC<{ onSubmit: (lease?: LeaseInput) => Promis
   };
 
   return (
-    <BottomSheet title="Hợp đồng thuê" onClose={onClose}>
-      <div className="space-y-3 text-sm max-h-[65dvh] overflow-y-auto -mx-1 px-1">
+    <BottomSheet
+      title="Hợp đồng thuê"
+      onClose={onClose}
+      showClose
+      footer={
+        <div className={`grid gap-2 ${allowSkip ? 'grid-cols-[auto_1fr]' : ''}`}>
+          {allowSkip && (
+            <Button variant="outline" size="lg" disabled={!!saving} loading={saving === 'skip'} onClick={() => submit('skip')}>Bỏ qua</Button>
+          )}
+          <Button variant="secondary" size="lg" disabled={!!saving || !startDate} loading={saving === 'save'} onClick={() => submit('save')}>Lưu hợp đồng</Button>
+        </div>
+      }
+    >
+      <div className="space-y-3 text-sm">
         {error && <p role="alert" className="p-2.5 rounded-xl bg-rose-50 text-rose-700">{error}</p>}
         <label className="block space-y-1.5">
           <span className="text-xs font-semibold text-slate-600">Ngày bắt đầu</span>
@@ -82,16 +95,6 @@ export const LeaseFormSheet: React.FC<{ onSubmit: (lease?: LeaseInput) => Promis
           <input placeholder="Tên khách thuê" value={tenantName} onChange={(e) => setTenantName(e.target.value)} className={inputClass} />
           <input type="tel" inputMode="tel" placeholder="SĐT khách thuê" value={tenantPhone} onChange={(e) => setTenantPhone(e.target.value)} className={inputClass} />
         </div>
-      </div>
-      <div className={`grid gap-2 ${allowSkip ? 'grid-cols-[auto_1fr]' : ''}`}>
-        {allowSkip && (
-          <button type="button" disabled={!!saving} onClick={() => submit('skip')} className="h-12 px-4 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 disabled:opacity-50">
-            {saving === 'skip' ? <Loader2 className="w-4 h-4 animate-spin" aria-label="Đang lưu" /> : 'Bỏ qua'}
-          </button>
-        )}
-        <button type="button" disabled={!!saving || !startDate} onClick={() => submit('save')} className="h-12 flex items-center justify-center gap-2 rounded-xl bg-brand-navy text-white text-sm font-semibold disabled:opacity-50">
-          {saving === 'save' && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />} Lưu hợp đồng
-        </button>
       </div>
     </BottomSheet>
   );

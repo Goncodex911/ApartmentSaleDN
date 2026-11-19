@@ -5,7 +5,9 @@ import { LeadCard } from '../components/leads/LeadCard.js';
 import { LeadDetailModal } from '../components/leads/LeadDetailModal.js';
 import { LeadFormModal } from '../components/leads/LeadFormModal.js';
 import { LEAD_STAGES, STAGES_NEED_INPUT } from '../components/leads/leadStages.js';
-import { AlertCircle } from 'lucide-react';
+import { Users, UserPlus, WifiOff } from 'lucide-react';
+import { EmptyState } from '../components/ui/EmptyState.js';
+import { Button } from '../components/ui/Button.js';
 
 // Bảng Kanban phễu khách hàng (Story 6.1): cột cuộn ngang trên điện thoại, kéo-thả trên máy tính
 export const LeadsPage: React.FC = () => {
@@ -36,30 +38,26 @@ export const LeadsPage: React.FC = () => {
   const renderBoard = () => {
     if (status === 'loading') {
       return (
-        <div className="flex gap-3 overflow-hidden animate-pulse">
+        <div className="flex gap-3 overflow-hidden" aria-busy="true" aria-label="Đang tải khách hàng">
           {LEAD_STAGES.map((stage) => (
-            <div key={stage.key} className="w-[80vw] sm:w-72 shrink-0 h-64 bg-slate-200/70 rounded-2xl" />
+            <div key={stage.key} className="skeleton w-[80vw] sm:w-72 shrink-0 h-64 rounded-2xl" />
           ))}
         </div>
       );
     }
     if (status === 'error') {
       return (
-        <div className="py-16 text-center space-y-3">
-          <AlertCircle className="w-10 h-10 text-rose-400 mx-auto" />
-          <p className="text-sm text-slate-600">Không tải được danh sách khách hàng.</p>
-          <button onClick={reload} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold">Thử lại</button>
-        </div>
+        <EmptyState icon={WifiOff} title="Không tải được danh sách khách hàng" description="Vui lòng kiểm tra mạng rồi thử lại." action={<Button onClick={reload}>Thử lại</Button>} />
       );
     }
     if (leads.length === 0) {
       return (
-        <div className="py-12 text-center space-y-1 px-6">
-          <h3 className="text-base font-semibold text-slate-800">Chưa có khách hàng nào</h3>
-          <p className="text-sm text-slate-500 max-w-sm mx-auto">
-            Bấm "Thêm khách" để ghi nhận khách, hoặc gửi link xem phòng — khách chat với trợ lý AI sẽ tự xuất hiện ở đây.
-          </p>
-        </div>
+        <EmptyState
+          icon={Users}
+          title="Chưa có khách hàng nào"
+          description='Bấm "Thêm khách" để ghi nhận khách, hoặc gửi link xem phòng — khách chat với trợ lý AI sẽ tự xuất hiện ở đây.'
+          action={<Button icon={UserPlus} onClick={() => setIsFormOpen(true)}>Thêm khách</Button>}
+        />
       );
     }
     return (
@@ -98,9 +96,7 @@ export const LeadsPage: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-900">Khách hàng</h1>
             <p className="text-sm text-slate-500">{leads.length} khách</p>
           </div>
-          <button onClick={() => setIsFormOpen(true)} className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-sm font-semibold whitespace-nowrap hover:bg-indigo-700">
-            Thêm khách
-          </button>
+          <Button onClick={() => setIsFormOpen(true)} className="shrink-0 whitespace-nowrap">Thêm khách</Button>
         </div>
         {dropError && <p className="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs">{dropError}</p>}
         {renderBoard()}

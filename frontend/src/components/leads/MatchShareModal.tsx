@@ -7,7 +7,8 @@ import { User } from '../../api/authApi.js';
 import { CopyShareButton } from '../apartment/CopyShareButton.js';
 import { ShareLinkButton } from '../apartment/ShareLinkButton.js';
 import { summarizeRequirements } from './leadStages.js';
-import { X, MessageCircle, Loader2, Target } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
+import { BottomSheet } from '../layout/BottomSheet.js';
 
 interface MatchShareModalProps {
   apartmentId: string;
@@ -35,19 +36,18 @@ export const MatchShareModal: React.FC<MatchShareModalProps> = ({ apartmentId, l
   const thumbnail = data?.apartment.images.find((url) => !data.apartment.hiddenImages?.includes(url));
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 pb-badge-safe sm:p-4">
-      <div className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl p-4 space-y-3 text-sm">
-        <div className="flex items-center justify-between">
-          <h2 className="font-bold text-slate-900 flex items-center gap-2">
-            <Target className="w-5 h-5 text-emerald-600" aria-hidden /> Căn mới hợp với khách
-          </h2>
-          <button type="button" onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
+    // Story 12.3: bảng trượt dùng chung (portal → chồng lên chi tiết khách đúng thứ tự)
+    <BottomSheet title="Căn mới hợp với khách" onClose={onClose} showClose>
+      <div className="space-y-3 text-sm">
         {error && <p className="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs">{error}</p>}
-        {!data && !error && <Loader2 className="w-6 h-6 animate-spin text-slate-400 mx-auto my-8" />}
+        {!data && !error && (
+          // Story 12.5: khung chờ đúng hình (ảnh + 3 dòng + khung khách + 2 nút)
+          <div className="space-y-3" aria-busy="true" aria-label="Đang tải căn">
+            <div className="flex gap-3"><div className="skeleton w-20 h-20 rounded-xl shrink-0" /><div className="flex-1 space-y-2"><div className="skeleton h-4 rounded" /><div className="skeleton h-4 w-1/2 rounded" /><div className="skeleton h-3 w-1/3 rounded" /></div></div>
+            <div className="skeleton h-14 rounded-xl" />
+            <div className="skeleton h-11 rounded-xl" />
+          </div>
+        )}
 
         {data && (
           <>
@@ -55,7 +55,7 @@ export const MatchShareModal: React.FC<MatchShareModalProps> = ({ apartmentId, l
               {thumbnail && <img src={thumbnail} alt={data.apartment.title} className="w-20 h-20 rounded-xl object-cover shrink-0" />}
               <div className="min-w-0">
                 <p className="font-semibold text-slate-800 line-clamp-2">{data.apartment.title}</p>
-                <p className="text-indigo-600 font-bold">{formatVnd(data.apartment.price)}/tháng</p>
+                <p className="text-brand-navy font-bold">{formatVnd(data.apartment.price)}/tháng</p>
                 <p className="text-xs text-slate-500">{data.apartment.location.district}</p>
               </div>
             </div>
@@ -86,6 +86,6 @@ export const MatchShareModal: React.FC<MatchShareModalProps> = ({ apartmentId, l
           </>
         )}
       </div>
-    </div>
+    </BottomSheet>
   );
 };

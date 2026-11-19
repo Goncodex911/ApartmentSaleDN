@@ -3,7 +3,7 @@ import { Apartment, apartmentApi } from '../../api/apartmentApi.js';
 import { formatVnd } from '../../utils/format.js';
 import { roomParts, zoneText } from '../../utils/apartmentLabels.js';
 import { LngLat, buildGoogleMapsDirUrl, haversineKm, orderNearestNeighbor, roundUpQuarter, suggestTimes } from '../../utils/tourRoute.js';
-import { ArrowDown, ArrowUp, Loader2, Navigation, Phone, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Navigation, Phone, X } from 'lucide-react';
 
 type Stop = Apartment & { coordinates: LngLat };
 const GPS_TIMEOUT_MS = 8000;
@@ -80,8 +80,10 @@ export const TourPlanSheet: React.FC<{ ids: string[]; onClose: () => void }> = (
 
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
         {!stops && !failed && (
-          <div className="py-10 flex flex-col items-center gap-2 text-sm text-slate-500" aria-busy="true">
-            <Loader2 className="w-6 h-6 animate-spin" aria-hidden /> Đang lấy vị trí và xếp đường đi…
+          // Story 12.5: giữ dòng chữ (lấy GPS có thể mất vài giây) + khung chờ đúng hình các dòng lộ trình
+          <div className="space-y-2" aria-busy="true">
+            <p className="text-sm text-slate-600">Đang lấy vị trí và xếp đường đi…</p>
+            {ids.map((id) => <div key={id} className="skeleton h-28 rounded-2xl" />)}
           </div>
         )}
         {failed && (
@@ -138,7 +140,7 @@ export const TourPlanSheet: React.FC<{ ids: string[]; onClose: () => void }> = (
           target="_blank"
           rel="noopener noreferrer"
           aria-disabled={!mapsUrl}
-          className={`h-12 flex items-center justify-center gap-2 rounded-xl text-base font-semibold ${mapsUrl ? 'bg-brand-navy text-white active:scale-[0.98] transition-transform duration-100 motion-reduce:transform-none' : 'pointer-events-none bg-slate-200 text-slate-400'}`}
+          className={`h-12 flex items-center justify-center gap-2 rounded-xl text-base font-semibold ${mapsUrl ? 'bg-brand-navy text-white active:scale-[0.98] transition-transform duration-100 motion-reduce:transform-none' : 'pointer-events-none bg-slate-200 text-slate-600'}`}
         >
           <Navigation className="w-5 h-5" aria-hidden /> Mở Google Maps
         </a>

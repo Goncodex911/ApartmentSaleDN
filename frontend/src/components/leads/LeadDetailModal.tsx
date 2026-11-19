@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { Lead, LeadStage, leadApi } from '../../api/leadApi.js';
 import { LEAD_STAGES, STAGES_NEED_INPUT, summarizeRequirements, formatDateTime } from './leadStages.js';
 import { LeadMatchesSection } from './LeadMatchesSection.js';
-import { X, Phone, MessageCircle, Loader2, Trash2, Send } from 'lucide-react';
+import { Phone, MessageCircle, Trash2, Send } from 'lucide-react';
+import { BottomSheet } from '../layout/BottomSheet.js';
+import { Button } from '../ui/Button.js';
+import { Input } from '../ui/Input.js';
 
 interface LeadDetailModalProps {
   lead: Lead;
@@ -68,25 +71,18 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, pendingS
   const canConfirm = targetStage === 'VIEWING' ? !!viewingAt : !!lostReason.trim();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 pb-badge-safe sm:p-4">
-      <div className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-t-2xl sm:rounded-2xl p-4 space-y-4 text-sm">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h2 className="text-base font-bold text-slate-900 truncate">{lead.name}</h2>
-            {summary && <p className="text-xs text-slate-500 mt-0.5">{summary}</p>}
-          </div>
-          <button type="button" onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    // Story 12.3: bảng trượt dùng chung — mở 50%, kéo lên 90% để xem hết ghi chú / căn phù hợp
+    <BottomSheet title={lead.name} onClose={onClose} snapPoints={[0.5, 0.9]} showClose wide>
+      <div className="space-y-4 text-sm">
+        {summary && <p className="text-sm text-slate-600">{summary}</p>}
 
         {lead.phone && (
           <div className="grid grid-cols-2 gap-2">
-            <a href={`tel:${lead.phone}`} className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-600 text-white font-semibold text-xs">
-              <Phone className="w-4 h-4" /> Gọi {lead.phone}
+            <a href={`tel:${lead.phone}`} className="h-11 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-700 text-white font-semibold text-sm">
+              <Phone className="w-4 h-4" aria-hidden /> Gọi {lead.phone}
             </a>
-            <a href={`https://zalo.me/${lead.phone}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-blue-600 text-white font-semibold text-xs">
-              <MessageCircle className="w-4 h-4" /> Chat Zalo
+            <a href={`https://zalo.me/${lead.phone}`} target="_blank" rel="noopener noreferrer" className="h-11 flex items-center justify-center gap-1.5 rounded-xl bg-blue-700 text-white font-semibold text-sm">
+              <MessageCircle className="w-4 h-4" aria-hidden /> Chat Zalo
             </a>
           </div>
         )}
@@ -97,7 +93,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, pendingS
 
         {/* Chuyển giai đoạn 1 chạm */}
         <div className="space-y-2">
-          <p className="text-xs font-bold uppercase text-slate-400">Giai đoạn</p>
+          <p className="text-xs font-bold uppercase text-slate-600">Giai đoạn</p>
           <div className="flex flex-wrap gap-1.5">
             {LEAD_STAGES.map((stage) => (
               <button
@@ -117,17 +113,13 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, pendingS
           {targetStage && (
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
               {targetStage === 'VIEWING' ? (
-                <input type="datetime-local" value={viewingAt} onChange={(e) => setViewingAt(e.target.value)} className="w-full px-3 py-2 border rounded-lg border-slate-200" />
+                <Input type="datetime-local" aria-label="Giờ hẹn xem phòng" value={viewingAt} onChange={(e) => setViewingAt(e.target.value)} />
               ) : (
-                <input autoFocus placeholder="Lý do khách hủy / không hợp *" value={lostReason} onChange={(e) => setLostReason(e.target.value)} className="w-full px-3 py-2 border rounded-lg border-slate-200" />
+                <Input autoFocus aria-label="Lý do khách hủy" placeholder="Lý do khách hủy / không hợp *" value={lostReason} onChange={(e) => setLostReason(e.target.value)} />
               )}
               <div className="flex gap-2">
-                <button type="button" disabled={!canConfirm || busy} onClick={() => changeStage(targetStage)} className="flex-1 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold disabled:opacity-50">
-                  Xác nhận
-                </button>
-                <button type="button" onClick={() => setTargetStage(null)} className="px-3 py-2 rounded-lg border border-slate-200 text-xs">
-                  Hủy
-                </button>
+                <Button size="sm" className="flex-1" disabled={!canConfirm} loading={busy} onClick={() => changeStage(targetStage)}>Xác nhận</Button>
+                <Button size="sm" variant="outline" onClick={() => setTargetStage(null)}>Hủy</Button>
               </div>
             </div>
           )}
@@ -135,35 +127,34 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, pendingS
 
         {/* Ghi chú nhanh */}
         <div className="space-y-2">
-          <p className="text-xs font-bold uppercase text-slate-400">Ghi chú</p>
+          <p className="text-xs font-bold uppercase text-slate-600">Ghi chú</p>
           <div className="flex gap-2">
-            <input
+            <Input
+              wrapperClassName="flex-1"
+              aria-label="Ghi chú nhanh"
               placeholder="VD: Khách muốn xem tối thứ 7..."
               value={note}
               maxLength={1000}
               onChange={(e) => setNote(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && note.trim() && addNote()}
-              className="flex-1 px-3 py-2 border rounded-xl border-slate-200"
             />
-            <button type="button" disabled={!note.trim() || busy} onClick={addNote} className="px-3 rounded-xl bg-indigo-600 text-white disabled:opacity-50">
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            </button>
+            <Button aria-label="Thêm ghi chú" icon={Send} loading={busy} disabled={!note.trim()} onClick={addNote} className="w-11 px-0" />
           </div>
           <ul className="space-y-1.5 max-h-56 overflow-y-auto">
             {lead.notes.map((item) => (
               <li key={item._id} className={`p-2 rounded-lg text-xs ${item.isSystem ? 'bg-slate-50 text-slate-500 italic' : 'bg-indigo-50/60 text-slate-700'}`}>
-                <span className="block text-[10px] text-slate-400">{formatDateTime(item.createdAt)}</span>
+                <span className="block text-[10px] text-slate-600">{formatDateTime(item.createdAt)}</span>
                 {item.content}
               </li>
             ))}
-            {lead.notes.length === 0 && <li className="text-xs text-slate-400">Chưa có ghi chú.</li>}
+            {lead.notes.length === 0 && <li className="text-xs text-slate-600">Chưa có ghi chú.</li>}
           </ul>
         </div>
 
-        <button type="button" onClick={deleteLead} disabled={busy} className="flex items-center gap-1 text-xs text-rose-600 hover:underline">
-          <Trash2 className="w-3.5 h-3.5" /> Xóa khách
+        <button type="button" onClick={deleteLead} disabled={busy} className="h-11 flex items-center gap-1.5 text-sm text-rose-700 hover:underline">
+          <Trash2 className="w-4 h-4" aria-hidden /> Xóa khách
         </button>
       </div>
-    </div>
+    </BottomSheet>
   );
 };
