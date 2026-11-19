@@ -17,6 +17,8 @@ Tài liệu này tổng hợp toàn bộ các dịch vụ bên ngoài, API Key v
 | **[EPIC-06](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_06_CUSTOMER_CRM_AND_AUTO_CHAT.md)** | AI Auto-Chat Assistant, Zalo OA / Webhook | `GEMINI_API_KEY`, `ZALO_OA_ACCESS_TOKEN` (Tùy chọn) | ⏸️ Chưa đến hạn |
 | **[EPIC-09](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_09_PWA_MOBILE_APP.md)** | Logo/icon app, Netlify (header cache), điện thoại thật để thử | Không có biến môi trường mới | ✅ **Đã đủ — chỉ còn thử trên điện thoại thật (mục 6.3)** |
 | **[EPIC-11](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_11_SMART_BROKER_TOOLS_AND_REALTIME.md)** | Bản đồ OSM, SSE Real-time, Google Maps Waypoints, Cron | Không có biến môi trường bắt buộc (0 VND) | ⏸️ **Sẵn sàng (0 VND - xem mục 7)** |
+| **[EPIC-12](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_12_UI_UX_DESIGN_SYSTEM_AND_STANDARDIZATION.md)** | Nâng cấp UI/UX, Design System, Gestures | Không có biến môi trường mới (0 VND) | ✅ **Sẵn sàng (Thuần Frontend)** |
+| **[EPIC-13](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_13_ADMIN_CONTROL_CENTER_AND_GOVERNANCE.md)** | Trung Tâm Quản Trị Admin, Audit Log, User Management | Tái sử dụng MongoDB & Telegram có sẵn (0 VND) | ✅ **Sẵn sàng (Tận dụng DB)** |
 
 ---
 
