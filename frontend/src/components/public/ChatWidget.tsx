@@ -65,7 +65,8 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ code, ctvName, greeting,
       saveSessionId(code, result.sessionId);
       setMessages((list) => [...list, { role: 'assistant', content: result.reply, suggestions: result.suggestions }]);
     } catch (err: any) {
-      const message = (lang === 'vi' && err.response?.data?.message) || copy.connectionError;
+      // Story 14.7: 429 (gửi quá nhanh / mở quá nhiều phiên) — tiếng Việt hiện đúng câu của server, tiếng Anh dùng câu dịch sẵn
+      const message = (lang === 'vi' && err.response?.data?.message) || (err.response?.status === 429 ? copy.tooManyChats : copy.connectionError);
       setMessages((list) => [...list, { role: 'assistant', content: message }]);
     } finally {
       setSending(false);

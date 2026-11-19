@@ -30,7 +30,7 @@ export async function syncLeadFromChat(session: IChatSession): Promise<void> {
 
   const userId = String(session.ctvId);
   const leadId = String(lead._id);
-  const area = lead.requirements.districts.join(', ');
+  const area = [...new Set([...(lead.requirements.zones || []), ...lead.requirements.districts])].join(', '); // Story 14.7: khu vực + quận
 
   if (!session.notifiedStart) {
     await NotificationService.notify({

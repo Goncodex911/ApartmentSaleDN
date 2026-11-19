@@ -50,6 +50,7 @@ export interface ChangeStagePayload {
   stage: LeadStage;
   viewingAt?: string;
   lostReason?: string;
+  depositedApartmentId?: string; // Story 14.8: căn khách đã cọc → báo Quản lý xác nhận
 }
 
 // Story 11.1: điểm phù hợp khách ↔ căn

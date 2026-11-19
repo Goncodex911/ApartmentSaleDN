@@ -12,6 +12,7 @@ interface SheetDragOptions {
   contentRef: React.RefObject<HTMLElement>;
   snapPoints?: number[]; // Tỉ lệ chiều cao màn hình, VD [0.5, 0.9]; không có = cao vừa nội dung
   enabled: boolean; // false trên máy tính (hộp thoại giữa màn hình, không kéo)
+  expanded?: boolean; // true → trượt lên nấc cao nhất (Story 14.8)
   onClose: () => void;
 }
 
@@ -20,7 +21,7 @@ interface SheetDragOptions {
  * thả tay → giữ vận tốc + chọn nấc gần điểm dừng dự đoán, đủ ngưỡng thì trượt xuống đóng.
  * Mọi chuyển động chạy từ vị trí đang hiện (chụp lại giữa chừng được). Đặt transform trực tiếp, không render lại React.
  */
-export function useSheetDrag({ sheetRef, overlayRef, contentRef, snapPoints, enabled, onClose }: SheetDragOptions) {
+export function useSheetDrag({ sheetRef, overlayRef, contentRef, snapPoints, enabled, expanded, onClose }: SheetDragOptions) {
   const y = useRef(0);
   const cancelAnim = useRef<() => void>(() => undefined);
   const closing = useRef(false);
@@ -107,6 +108,11 @@ export function useSheetDrag({ sheetRef, overlayRef, contentRef, snapPoints, ena
     const target = list.reduce((best, snap) => (Math.abs(snap - projected) < Math.abs(best - projected) ? snap : best), list[0]);
     moveTo(target, velocity);
   };
+
+  // Story 14.8: nội dung cần thêm chỗ (VD bấm giai đoạn cần nhập thông tin) → trượt lên nấc cao nhất bằng lò xo, không nhảy cứng
+  useEffect(() => {
+    if (enabled && expanded && !closing.current) moveTo(snaps()[0]);
+  }, [enabled, expanded]); // Chỉ chạy khi chuyển sang trạng thái mở rộng
 
   // Kéo từ vùng nội dung: chỉ khi nội dung đã cuộn lên đầu mà vẫn kéo xuống (không tranh với cuộn)
   useEffect(() => {

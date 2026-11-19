@@ -10,26 +10,33 @@ import { randomCode } from '../../utils/random-code.js';
 import { ChatSession, IChatSession, IChatSuggestion } from './chat-session.model.js';
 import { askChatAi } from './chat-ai.js';
 import { syncLeadFromChat } from './chat-lead.js';
+import { createCounter } from '../../middlewares/rate-limit.js';
+import { usdToVndRate } from '../../config/currency.js';
 
 const MAX_USER_MESSAGES_PER_SESSION = 30;
 const AI_HISTORY_SIZE = 12;
 const FALLBACK_REPLY = 'Dạ em đã ghi nhận nhu cầu của anh/chị. Tư vấn viên sẽ liên hệ lại anh/chị ngay ạ!';
 const LINK_EXPIRED = { status: 404, message: 'Link không còn hiệu lực' };
+const TOO_MANY_SESSIONS = { status: 429, message: 'Bạn đã mở quá nhiều cuộc trò chuyện, vui lòng thử lại sau' };
+const newSessionLimit = createCounter({ windowMs: 60 * 60 * 1000, max: 5 });
 
 /**
  * Gợi ý tối đa 3 căn thật còn trống theo nhu cầu (Story 6.2 - AC3), bỏ căn đang xem và căn đã gợi ý.
  * Link mỗi căn là link xem phòng của chính CTV chủ phiên chat → khách vẫn ở trong "kênh" của CTV.
  */
 async function suggestApartments(session: IChatSession): Promise<IChatSuggestion[]> {
-  const { districts, maxBudget, bedrooms, allowPets, carParking } = session.requirements;
-  if (!districts.length && !maxBudget) return [];
+  const { districts, zones = [], maxBudget, budgetCurrency, bedrooms, allowPets, carParking } = session.requirements;
+  if (!districts.length && !zones.length && !maxBudget) return [];
 
   const excluded = new Set([String(session.apartmentId)]);
   session.messages.forEach((message) => message.suggestions?.forEach((s) => excluded.add(String(s.apartmentId))));
 
+  // Story 14.7: khách nói khu vực ("Mỹ An") → lọc theo khu vực; ngân sách USD quy ra VNĐ theo tỷ giá cấu hình
+  const budgetVnd = maxBudget && (budgetCurrency === 'USD' ? maxBudget * usdToVndRate() : maxBudget);
   const { items } = await SearchService.search({
-    district: districts[0],
-    maxPrice: maxBudget ? Math.round(maxBudget * 1.05) : undefined,
+    zones: zones.length ? zones : undefined,
+    district: zones.length ? undefined : districts[0],
+    maxPrice: budgetVnd ? Math.round(budgetVnd * 1.05) : undefined,
     bedrooms: bedrooms || undefined,
     allowPets: allowPets || undefined,
     carParking: carParking || undefined,
@@ -62,7 +69,7 @@ export class ChatService {
   }
 
   /** Khách gửi 1 tin: AI trả lời → cập nhật nhu cầu → gợi ý căn → đồng bộ CRM & báo CTV. */
-  static async sendMessage(code: string, input: { sessionId?: string; message: string }, viewerId?: string) {
+  static async sendMessage(code: string, input: { sessionId?: string; message: string }, viewer: { id?: string; ip: string }) {
     const link = await ShareLink.findOne({ code }).lean();
     if (!link) throw LINK_EXPIRED;
     const [apartment, ctv] = await Promise.all([
@@ -72,6 +79,8 @@ export class ChatService {
     if (!apartment || !ctv || ctv.status !== 'ACTIVE') throw LINK_EXPIRED;
 
     const existing = input.sessionId ? await ChatSession.findOne({ sessionId: input.sessionId, shareCode: code }) : null;
+    // Story 14.7: mỗi phiên mới = 1 khách + 1 thông báo cho CTV → giới hạn số phiên MỚI theo IP trên mỗi link (sessionId bịa / hết hạn cũng tính)
+    if (!existing && newSessionLimit.hit(`${viewer.ip}:${code}`)) throw TOO_MANY_SESSIONS;
     const session =
       existing ??
       new ChatSession({ sessionId: randomCode(24), shareCode: code, ctvId: link.ctvId, apartmentId: link.apartmentId });
@@ -99,8 +108,10 @@ export class ChatService {
     const reply = ai?.reply || FALLBACK_REPLY;
     session.messages.push({ role: 'assistant', content: reply, suggestions: suggestions.length ? suggestions : undefined, createdAt: new Date() });
 
-    // CTV tự thử chat trên link của mình → không tạo khách, không tự báo cho mình
-    if (viewerId !== String(link.ctvId)) await syncLeadFromChat(session);
+    // CTV tự thử chat trên link của mình → không tạo khách, không tự báo cho mình.
+    // Story 14.7: chỉ tạo khách từ tin thứ 2 (hoặc ngay khi để lại SĐT) → khách mở chat rồi bỏ đi không làm đầy phễu
+    const isRealLead = session.userMessageCount >= 2 || Boolean(session.customer.phone);
+    if (viewer.id !== String(link.ctvId) && isRealLead) await syncLeadFromChat(session);
     await session.save();
 
     return { sessionId: session.sessionId, reply, suggestions };

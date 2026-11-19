@@ -153,8 +153,9 @@ export class NaturalSearchService {
    * Bóc tách giá thuê từ ngôn ngữ nói (triệu, củ, tr, quay đầu, dưới)
    */
   private static extractPrice(text: string, result: INaturalExtracted) {
+    // Story 14.8: đơn vị phải đứng riêng thành từ — "1 trệt", "tầng 3 trở lên" không phải giá
     // Kiểu 1: "từ X đến Y tr" hoặc "X - Y tr"
-    const rangeMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(?:đến|-)\s*(\d+(?:[.,]\d+)?)\s*(?:tr|triệu|củ)/i);
+    const rangeMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(?:đến|-)\s*(\d+(?:[.,]\d+)?)\s*(?:tr|triệu|củ)(?![a-zà-ỹđ])/i);
     if (rangeMatch) {
       result.minPrice = Math.round(parseFloat(rangeMatch[1].replace(',', '.')) * 1000000);
       result.maxPrice = Math.round(parseFloat(rangeMatch[2].replace(',', '.')) * 1000000);
@@ -162,7 +163,7 @@ export class NaturalSearchService {
     }
 
     // Kiểu 2: "dưới X tr" hoặc "tầm X tr quay đầu / đổ lại" hoặc "X tr quay đầu"
-    const maxMatch = text.match(/(?:dưới|<|tối đa|tầm|khoảng)?\s*(\d+(?:[.,]\d+)?)\s*(?:tr|triệu|củ)\s*(?:quay đầu|đổ lại|trở xuống)?/i);
+    const maxMatch = text.match(/(?:dưới|<|tối đa|tầm|khoảng)?\s*(\d+(?:[.,]\d+)?)\s*(?:tr|triệu|củ)(?![a-zà-ỹđ])\s*(?:quay đầu|đổ lại|trở xuống)?/i);
     if (maxMatch) {
       const val = Math.round(parseFloat(maxMatch[1].replace(',', '.')) * 1000000);
       if (/trên|>|tối thiểu/i.test(text)) {

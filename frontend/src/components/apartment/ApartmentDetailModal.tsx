@@ -17,7 +17,7 @@ import { amenityLabels } from '../../utils/amenities.js';
 interface ApartmentDetailModalProps {
   apartment: Apartment | null;
   currentUser: User | null;
-  isOwnerOrAdmin: boolean;
+  canManage: boolean;
   onClose: () => void;
   onStatusUpdated?: (newStatus: any, newDate?: string) => void;
   onEdit?: (apartment: Apartment) => void; // Quản lý/Admin: sửa & xóa (đã chuyển từ thẻ danh sách vào đây)
@@ -37,7 +37,7 @@ const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
   apartment,
   currentUser,
-  isOwnerOrAdmin,
+  canManage,
   onClose,
   onStatusUpdated,
   onEdit,
@@ -83,7 +83,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
           <button onClick={onClose} aria-label="Đóng" className="w-11 h-11 flex items-center justify-center text-slate-500 hover:text-slate-800">
             <X className="w-5 h-5" />
           </button>
-          {isOwnerOrAdmin && (
+          {canManage && (
             <div className="flex items-center">
               {onEdit && (
                 <Button variant="ghost" onClick={() => onEdit(apartment)}>Sửa</Button>
@@ -156,16 +156,16 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
                   apartmentId={apartment._id}
                   status={apartment.status}
                   availableDate={apartment.availableDate}
-                  canEdit={isOwnerOrAdmin}
+                  canEdit={canManage}
                   onStatusUpdated={onStatusUpdated}
                 />
               </div>
             </div>
 
-            {isOwnerOrAdmin && apartment.status === 'RENTED' && <LeaseSection apartment={apartment} onChanged={() => onStatusUpdated?.(apartment.status)} />}
+            {canManage && apartment.status === 'RENTED' && <LeaseSection apartment={apartment} onChanged={() => onStatusUpdated?.(apartment.status)} />}
 
             {/* Story 13.6: Chờ xác minh + Báo lỗi tin + báo lỗi đang mở (Quản lý) */}
-            <ListingHealthSection apartment={apartment} isManager={!isCtv} canResolve={isOwnerOrAdmin} onChanged={() => onStatusUpdated?.(apartment.status)} />
+            <ListingHealthSection apartment={apartment} isManager={!isCtv} canResolve={canManage} onChanged={() => onStatusUpdated?.(apartment.status)} />
 
             {apartment.needsReview && (
               <p className="px-3 py-2 rounded-xl bg-amber-50 text-sm text-amber-800">
@@ -235,7 +235,7 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
           currentUser={currentUser}
           sendablePhotos={sendablePhotos}
           hiddenImageCount={hiddenImageCount}
-          canCallOwner={isOwnerOrAdmin}
+          canCallOwner={canManage}
           shareLang={shareLang}
           onShareLangChange={(lang) => { setShareLang(lang); setShareLangState(lang); }}
         />

@@ -42,7 +42,7 @@ export class FilterBuilder {
     const range = options.priceRange && Object.hasOwn(PRICE_RANGES, options.priceRange) ? PRICE_RANGES[options.priceRange] : undefined;
     if (range) {
       filter.price = { $gte: range[0] };
-      if (range[1] !== undefined) filter.price.$lte = range[1];
+      if (range[1] !== undefined) filter.price.$lt = range[1]; // Story 14.8: [min, max) — căn đúng 8tr chỉ thuộc "8–12tr", khớp Dashboard
     } else if (options.minPrice !== undefined || options.maxPrice !== undefined) {
       filter.price = {};
       if (options.minPrice !== undefined) filter.price.$gte = Number(options.minPrice);

@@ -19,7 +19,7 @@ const ALREADY_HANDLED = { status: 409, message: 'Tin đã được xử lý, kh�
 // Mã pHash ảnh của tin (khử trùng lặp bằng ảnh như tin Telegram); ảnh lỗi bị bỏ qua
 async function hashImages(urls: string[] = []): Promise<string[]> {
   const hashes = await Promise.all(urls.slice(0, 10).map((url) => fetchImageBuffer(url).then(PHashUtil.computeDHash).catch(() => null)));
-  return hashes.filter((hash): hash is string => Boolean(hash));
+  return hashes.filter((hash): hash is string => !!hash && PHashUtil.isInformative(hash)); // Story 14.2: bỏ ảnh trơn / banner
 }
 
 const notifySafely = (task: Promise<unknown>) => task.catch(() => undefined); // Lỗi gửi thông báo không làm hỏng thao tác chính
@@ -105,7 +105,6 @@ export class SubmissionService {
 
     try {
       const data = structuredClone(submission.data);
-      const imageHashes = await hashImages(data.images);
       let apartmentId;
       if (mergeInto) {
         const master = await Apartment.findById(mergeInto);
@@ -114,13 +113,12 @@ export class SubmissionService {
         await DedupService.aggregateSubListing(
           master,
           { sourceType: 'MANUAL', sourceName: `CTV ${ctv?.name || ''}`, rawText: data.description || data.title, mediaUrls: data.images, managerId: manager.id },
-          { price: data.price, ownerContact: data.ownerContact },
-          imageHashes
+          { price: data.price, ownerContact: data.ownerContact }
         );
         apartmentId = master._id;
       } else {
         // Căn mới duyệt từ tin CTV luôn ở trạng thái Trống; Quản lý đổi sau nếu cần
-        const apartment = await ApartmentService.create({ ...data, status: 'AVAILABLE' }, manager.id, { submittedBy: String(submission.ctvId), imageHashes });
+        const apartment = await ApartmentService.create({ ...data, status: 'AVAILABLE' }, manager.id, { submittedBy: String(submission.ctvId), imageHashes: await hashImages(data.images) });
         apartmentId = apartment._id;
       }
       submission.set({ apartmentId, merged: Boolean(mergeInto) });

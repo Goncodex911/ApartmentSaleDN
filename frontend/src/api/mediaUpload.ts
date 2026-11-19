@@ -5,6 +5,7 @@ interface UploadSignature {
   apiKey: string;
   folder: string;
   timestamp: number;
+  publicId: string; // Story 14.5: 1 chữ ký = 1 file (đã ký kèm public_id + overwrite=false)
   signature: string;
   allowedFormats: string; // Đã ký cùng chữ ký — phải gửi kèm đúng giá trị
 }
@@ -22,8 +23,9 @@ export function checkMediaFile(file: File): string | null {
   return null;
 }
 
-/** Xin chữ ký tải lên (server ký, cố định thư mục theo vai trò). Dùng chung cho cả lượt chọn file. */
-export const getUploadSignature = async (): Promise<UploadSignature> => (await apiClient.post('/apartments/upload-signature')).data.data;
+/** Xin chữ ký tải lên (server ký, cố định thư mục theo vai trò) — mỗi file 1 chữ ký riêng, tối đa 10 / lần (Story 14.5). */
+export const getUploadSignatures = async (count: number): Promise<UploadSignature[]> =>
+  (await apiClient.post('/apartments/upload-signature', { count })).data.data;
 
 /**
  * Story 10.2: tải 1 file THẲNG lên Cloudinary (không qua Netlify / Render) — XMLHttpRequest để có tiến độ %.
@@ -35,6 +37,8 @@ export function uploadToCloudinary(file: File, sig: UploadSignature, onProgress:
     form.append('file', file);
     form.append('api_key', sig.apiKey);
     form.append('folder', sig.folder);
+    form.append('public_id', sig.publicId);
+    form.append('overwrite', 'false');
     form.append('allowed_formats', sig.allowedFormats);
     form.append('timestamp', String(sig.timestamp));
     form.append('signature', sig.signature);

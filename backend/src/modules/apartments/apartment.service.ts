@@ -3,16 +3,23 @@ import { CreateApartmentInput, UpdateApartmentInput, UpdateStatusInput, AddSubLi
 import { uploadBufferToCloudinary } from '../../config/cloudinary.js';
 import { prepareLocation, withStreet } from './apartment-location.js';
 import { Types } from 'mongoose';
-import { maskPhonesInText, escapeRegex } from '../../utils/phone-text.js';
+import { maskPhone, maskPhonesInText, escapeRegex } from '../../utils/phone-text.js';
 import { LeadMatchingService } from '../leads/lead-matching.service.js';
 import { publishApartmentEvent } from '../realtime/realtime.bus.js';
 import { buildLease, extendLease } from './apartment-lease.js';
 import { AuditActor, AuditService } from '../audit/audit.service.js';
-import { closeOpenReports } from '../reports/report-closing.js';
+import { closeOpenReports, refreshVerification, TRUST_STEP } from '../reports/report-closing.js';
+import type { ReportReason } from '../reports/listing-report.model.js';
 
 // Story 13.3: đối tượng ghi nhật ký
 const auditTarget = (apartment: IApartment) => ({ type: 'APARTMENT' as const, id: apartment._id, title: apartment.title });
 
+// Story 14.3 — chung kho: mọi Quản lý / ADMIN thao tác được mọi căn (route đã chặn CTV bằng requireRoles)
+async function findOr404(id: string) {
+  const apartment = await Apartment.findById(id);
+  if (!apartment) throw { status: 404, message: 'Không tìm thấy căn hộ' };
+  return apartment;
+}
 
 // Chỉ nhận giá trị chuỗi: qs cho phép ?status[$ne]=X tạo object → chèn toán tử MongoDB vào filter
 const queryText = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
@@ -45,7 +52,7 @@ export class ApartmentService {
     if (isPrivilegedRole(role)) return item;
 
     const maskContact = (contact?: { phone?: string; note?: string }) =>
-      contact && { ...contact, phone: contact.phone?.replace(/(\d{4})\d{3}(\d{3})/, '$1***$2'), note: undefined };
+      contact && { ...contact, phone: maskPhone(contact.phone), note: undefined };
     const maskText = (text?: string) => (text ? maskPhonesInText(text) : text);
 
     item.title = maskText(item.title);
@@ -100,13 +107,14 @@ export class ApartmentService {
 
   // Cập nhật căn hộ (Chỉ chủ căn hộ hoặc Admin)
   static async update(id: string, data: UpdateApartmentInput, user: AuditActor) {
-    const apartment = await Apartment.findById(id);
-    if (!apartment) throw { status: 404, message: 'Không tìm thấy căn hộ' };
-    if (user.role !== 'ADMIN' && apartment.managerId.toString() !== user.id) {
-      throw { status: 403, message: 'Bạn không có quyền chỉnh sửa căn hộ này' };
-    }
+    const apartment = await findOr404(id);
     if (data.location) await prepareLocation(data.location, apartment.location);
-    const before = { status: apartment.status, price: apartment.price, flagged: Boolean(apartment.verification) };
+    const before = {
+      status: apartment.status,
+      price: apartment.price,
+      images: JSON.stringify(apartment.images),
+      owner: JSON.stringify([apartment.ownerContact?.phone, apartment.ownerContact?.name]),
+    };
     // Gán từng trường con (VD: attributes.elevator) thay vì ghi đè cả object (Object.assign)
     // → gửi một phần attributes/location/ownerContact không làm mất các trường còn lại
     // null = Quản lý xóa trắng ô trên form → gán undefined để Mongoose xóa hẳn trường ($unset) (Story 8.1)
@@ -119,29 +127,38 @@ export class ApartmentService {
       }
       for (const [subKey, subValue] of Object.entries(value)) assign(`${key}.${subKey}`, subValue);
     }
-    // Quản lý đã mở form và lưu lại → coi như đã kiểm tra tin AI và báo lỗi của CTV (Story 13.6)
-    apartment.set({ needsReview: false, reviewReason: undefined, verification: undefined });
+    // Quản lý đã mở form và lưu lại → coi như đã kiểm tra tin AI (Story 13.6)
+    apartment.set({ needsReview: false, reviewReason: undefined });
     await apartment.save();
-    await closeOpenReports(apartment._id, user.id, 'RESOLVED');
+    await this.closeFixedReports(apartment, user.id, before);
     // Story 11.4: báo CTV đang mở app khi đổi trạng thái hoặc giảm giá (tăng giá không báo)
     if (apartment.status !== before.status) {
       publishApartmentEvent('apartment.status', apartment, user.id);
       if (apartment.status === 'AVAILABLE') LeadMatchingService.runInBackground(apartment); // Story 11.1
     } else if (apartment.price < before.price) publishApartmentEvent('apartment.price', apartment, user.id);
-    // Story 13.6: lưu sửa căn đã gỡ cờ "Chờ xác minh" mà chưa có sự kiện nào ở trên (VD tăng giá) → báo riêng để thẻ CTV bỏ nhãn
-    else if (before.flagged) publishApartmentEvent('apartment.flagged', apartment, user.id);
     if (apartment.status !== before.status) AuditService.log(user, 'CHANGE_STATUS', auditTarget(apartment), { from: before.status, to: apartment.status });
     if (apartment.price !== before.price) AuditService.log(user, 'UPDATE_PRICE', auditTarget(apartment), { from: before.price, to: apartment.price });
     return this.maskApartment(apartment, user.role);
   }
 
+  /**
+   * Story 14.6: lưu form chỉ đóng báo lỗi đúng phần đã sửa (giá → "Chủ tăng giá", ảnh → "Ảnh không đúng",
+   * SĐT / tên chủ → "Không liên lạc được"); chuyển Đã cọc / Đã thuê → đóng tất cả. Người báo đúng +5, nhãn "Chờ xác minh" tính lại.
+   */
+  private static async closeFixedReports(apartment: IApartment, actorId: string, before: { price: number; images: string; owner: string }) {
+    const taken = apartment.status === 'DEPOSITED' || apartment.status === 'RENTED';
+    const fixed: ReportReason[] = [];
+    if (apartment.price !== before.price) fixed.push('PRICE_CHANGED');
+    if (JSON.stringify(apartment.images) !== before.images) fixed.push('WRONG_PHOTOS');
+    if (JSON.stringify([apartment.ownerContact?.phone, apartment.ownerContact?.name]) !== before.owner) fixed.push('UNREACHABLE');
+    if (!taken && !fixed.length) return;
+    const closed = await closeOpenReports(apartment._id, actorId, 'RESOLVED', { reasons: taken ? undefined : fixed, trustDelta: TRUST_STEP });
+    if (closed) apartment.verification = (await refreshVerification(apartment)).verification; // Đồng bộ bản trong bộ nhớ (đã ghi DB)
+  }
+
   // Cập nhật nhanh 1-Click trạng thái phòng
   static async updateStatus(id: string, input: UpdateStatusInput, user: AuditActor) {
-    const apartment = await Apartment.findById(id);
-    if (!apartment) throw { status: 404, message: 'Không tìm thấy căn hộ' };
-    if (user.role !== 'ADMIN' && apartment.managerId.toString() !== user.id) {
-      throw { status: 403, message: 'Bạn không có quyền thay đổi trạng thái căn hộ này' };
-    }
+    const apartment = await findOr404(id);
     const previousStatus = apartment.status;
     apartment.status = input.status;
     if (input.availableDate !== undefined) {
@@ -154,7 +171,7 @@ export class ApartmentService {
     const closesReports = input.status === 'DEPOSITED' || input.status === 'RENTED'; // Story 13.6: căn hết trống → báo lỗi tự đóng
     if (closesReports) apartment.verification = undefined;
     await apartment.save();
-    if (closesReports) await closeOpenReports(apartment._id, user.id, 'RESOLVED');
+    if (closesReports) await closeOpenReports(apartment._id, user.id, 'RESOLVED', { trustDelta: TRUST_STEP }); // Story 14.6: người báo đúng +5
     if (statusChanged) {
       publishApartmentEvent('apartment.status', apartment, user.id); // Story 11.4
       AuditService.log(user, 'CHANGE_STATUS', auditTarget(apartment), { from: previousStatus, to: apartment.status });
@@ -166,11 +183,7 @@ export class ApartmentService {
 
   // Gia hạn hợp đồng thuê thêm 1 / 3 / 6 / 12 tháng (Story 11.5)
   static async renewLease(id: string, months: number, user: { id: string; role: string }) {
-    const apartment = await Apartment.findById(id);
-    if (!apartment) throw { status: 404, message: 'Không tìm thấy căn hộ' };
-    if (user.role !== 'ADMIN' && apartment.managerId.toString() !== user.id) {
-      throw { status: 403, message: 'Bạn không có quyền gia hạn hợp đồng căn hộ này' };
-    }
+    const apartment = await findOr404(id);
     extendLease(apartment, months);
     await apartment.save();
     return this.maskApartment(apartment, user.role);
@@ -178,11 +191,7 @@ export class ApartmentService {
 
   // Đính kèm Nguồn tham chiếu vào Căn Master
   static async addSubListing(id: string, input: AddSubListingInput, user: AuditActor) {
-    const apartment = await Apartment.findById(id);
-    if (!apartment) throw { status: 404, message: 'Không tìm thấy căn hộ' };
-    if (user.role !== 'ADMIN' && apartment.managerId.toString() !== user.id) {
-      throw { status: 403, message: 'Bạn không có quyền thêm nguồn tham chiếu cho căn hộ này' };
-    }
+    const apartment = await findOr404(id);
     const { setAsMasterPrice, ...subListingData } = input;
     const previousPrice = apartment.price;
     if (setAsMasterPrice && subListingData.price) {
@@ -197,11 +206,7 @@ export class ApartmentService {
 
   // Gỡ bỏ Nguồn tham chiếu khỏi Căn Master
   static async removeSubListing(id: string, subListingId: string, user: { id: string; role: string }) {
-    const apartment = await Apartment.findById(id);
-    if (!apartment) throw { status: 404, message: 'Không tìm thấy căn hộ' };
-    if (user.role !== 'ADMIN' && apartment.managerId.toString() !== user.id) {
-      throw { status: 403, message: 'Bạn không có quyền xóa nguồn tham chiếu này' };
-    }
+    const apartment = await findOr404(id);
     apartment.subListings = apartment.subListings.filter(
       (sub: any) => sub._id.toString() !== subListingId
     );
@@ -211,11 +216,8 @@ export class ApartmentService {
 
   // Xóa căn hộ
   static async delete(id: string, user: AuditActor) {
-    const apartment = await Apartment.findById(id);
-    if (!apartment) throw { status: 404, message: 'Không tìm thấy căn hộ' };
-    if (user.role !== 'ADMIN' && apartment.managerId.toString() !== user.id) {
-      throw { status: 403, message: 'Bạn không có quyền xóa căn hộ này' };
-    }
+    const apartment = await findOr404(id);
+    await closeOpenReports(apartment._id, user.id, 'DISMISSED'); // Story 14.6: không để báo lỗi mồ côi, không đổi điểm
     await apartment.deleteOne();
     AuditService.log(user, 'DELETE_APARTMENT', auditTarget(apartment), { price: apartment.price, status: apartment.status });
     return true;
@@ -267,8 +269,6 @@ export class ApartmentService {
 
   // Lấy chi tiết căn hộ
   static async findById(id: string, role?: string) {
-    const item = await Apartment.findById(id);
-    if (!item) throw { status: 404, message: 'Không tìm thấy căn hộ' };
-    return this.maskApartment(item, role);
+    return this.maskApartment(await findOr404(id), role);
   }
 }

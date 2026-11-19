@@ -6,12 +6,13 @@ import {
   updateStatusSchema,
   renewLeaseSchema,
   addSubListingSchema,
+  uploadSignatureSchema,
 } from './apartment.validation.js';
 import { AuthRequest } from '../../middlewares/auth.js';
 import { asyncHandler } from '../../utils/async-handler.js';
 import { isPrivilegedRole } from './apartment.model.js';
 import { SUBMISSION_MEDIA_FOLDER } from '../submissions/submission.model.js';
-import { signDirectUpload } from '../../config/cloudinary.js';
+import { signDirectUploads } from '../../config/cloudinary.js';
 import { usdToVndRate } from '../../config/currency.js';
 import { AuditService, auditActor } from '../audit/audit.service.js';
 
@@ -27,10 +28,11 @@ export class ApartmentController {
     res.status(200).json({ success: true, message: 'Tải media lên Cloudinary thành công', data });
   });
 
-  // Story 10.2: chữ ký tải ảnh / video thẳng lên Cloudinary (thư mục theo vai trò như /upload-media)
+  // Story 10.2 / 14.5: chữ ký tải thẳng lên Cloudinary, 1 chữ ký = 1 file (tối đa 10 / lần), thư mục theo vai trò như /upload-media
   static uploadSignature = asyncHandler(async (req, res) => {
     const folder = isPrivilegedRole(req.user?.role) ? APARTMENT_MEDIA_FOLDER : SUBMISSION_MEDIA_FOLDER;
-    res.status(200).json({ success: true, data: signDirectUpload(folder) });
+    const { count } = uploadSignatureSchema.parse(req.body ?? {});
+    res.status(200).json({ success: true, data: signDirectUploads(folder, count) });
   });
 
   // Kiểm tra căn hộ nghi trùng trong kho (Story 13.10)

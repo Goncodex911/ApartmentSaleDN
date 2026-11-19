@@ -1,5 +1,6 @@
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { Readable } from 'stream';
+import { randomCode } from '../utils/random-code.js';
 
 // .env đã được nạp từ config/env.ts trước mọi module; đọc cấu hình lúc upload để luôn lấy giá trị mới nhất
 function initCloudinary() {
@@ -54,12 +55,19 @@ export async function deleteCloudinaryMedia(publicIds: string[], resourceType: '
 // Chỉ cho tải ảnh & video (ký kèm vào chữ ký) — không có thì chữ ký còn hạn dùng tải được mọi loại file (HTML, PDF...)
 const ALLOWED_FORMATS = 'jpg,jpeg,png,webp,gif,heic,heif,mp4,mov,m4v,webm,3gp';
 
-export function signDirectUpload(folder: string) {
+/**
+ * Story 14.5: mỗi chữ ký chỉ tải được ĐÚNG 1 file — ký kèm public_id ngẫu nhiên + overwrite=false
+ * (dùng lại chữ ký không tạo thêm file) → giới hạn số lượt tải của CTV có tác dụng thật.
+ */
+export function signDirectUploads(folder: string, count: number) {
   const { CLOUDINARY_CLOUD_NAME: cloudName, CLOUDINARY_API_KEY: apiKey, CLOUDINARY_API_SECRET: apiSecret } = process.env;
   if (!cloudName || !apiKey || !apiSecret) throw { status: 503, message: 'Chưa cấu hình Cloudinary trên máy chủ' };
   const timestamp = Math.round(Date.now() / 1000);
-  const signature = cloudinary.utils.api_sign_request({ allowed_formats: ALLOWED_FORMATS, folder, timestamp }, apiSecret);
-  return { cloudName, apiKey, folder, timestamp, signature, allowedFormats: ALLOWED_FORMATS };
+  return Array.from({ length: count }, () => {
+    const publicId = randomCode(20);
+    const params = { allowed_formats: ALLOWED_FORMATS, folder, overwrite: false, public_id: publicId, timestamp };
+    return { cloudName, apiKey, folder, timestamp, publicId, signature: cloudinary.utils.api_sign_request(params, apiSecret), allowedFormats: ALLOWED_FORMATS };
+  });
 }
 
 export { cloudinary };

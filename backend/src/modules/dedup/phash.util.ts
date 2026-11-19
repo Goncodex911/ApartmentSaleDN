@@ -66,5 +66,15 @@ export class PHashUtil {
   public static isMatch(hash1: string, hash2: string, maxDistance = 8): boolean {
     return this.hammingDistance(hash1, hash2) <= maxDistance;
   }
+
+  /**
+   * Story 14.2: ảnh có đặc trưng để so trùng — số bit 1 trong khoảng 8–56 / 64.
+   * Ảnh một màu, nền trơn, banner chữ ra hash gần "0000…"/"ffff…" → trùng nhau dù là căn khác.
+   * Không dùng `this` vì được truyền thẳng làm callback (VD `hashes.filter(PHashUtil.isInformative)`).
+   */
+  public static isInformative(hash: string): boolean {
+    const ones = PHashUtil.hammingDistance(hash, '0000000000000000'); // Hash sai định dạng → 64 → loại
+    return ones >= 8 && ones <= 56;
+  }
 }
 

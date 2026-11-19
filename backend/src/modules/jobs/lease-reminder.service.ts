@@ -1,5 +1,6 @@
 import { Apartment } from '../apartments/apartment.model.js';
 import { NotificationService } from '../notifications/notification.service.js';
+import { User } from '../auth/user.model.js';
 import { maskPhonesInText } from '../../utils/phone-text.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -7,7 +8,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const dayMonth = (date: Date) => date.toLocaleDateString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit' });
 
 /**
- * Nhắc tái ký (Story 11.5): căn RENTED còn ≤ 30 ngày / ≤ 15 ngày / đã quá hạn → báo Quản lý của căn + CTV chốt căn.
+ * Nhắc tái ký (Story 11.5): căn RENTED còn ≤ 30 ngày / ≤ 15 ngày / đã quá hạn → báo cả đội Quản lý + CTV chốt căn.
  * Quét theo "còn ≤ N ngày" (không phải "đúng N ngày") nên hôm nào không ai mở app thì hôm sau vẫn nhắc bù, không sót.
  * Mỗi mốc chỉ nhắc 1 lần (lease.reminded30At / reminded15At / expiredNotifiedAt). Trả về số căn đã nhắc.
  */
@@ -23,10 +24,12 @@ export async function scanLeaseReminders(now = new Date()): Promise<number> {
       { 'lease.expiredNotifiedAt': { $exists: false }, 'lease.endDate': { $lt: now } },
     ],
   })
-    .select('title managerId lease')
+    .select('title lease')
     .limit(500)
     .lean();
 
+  // Story 14.3 — chung kho: cả đội Quản lý / ADMIN đang hoạt động cùng nhận nhắc (đọc 1 lần mỗi lượt quét)
+  const managerIds = due.length ? (await User.find({ role: { $in: ['ADMIN', 'MANAGER'] }, status: 'ACTIVE' }).select('_id').lean()).map((user) => String(user._id)) : [];
   let reminded = 0;
   for (const apartment of due) {
     const lease = apartment.lease!;
@@ -50,7 +53,7 @@ export async function scanLeaseReminders(now = new Date()): Promise<number> {
     if (daysLeft <= 15 && !lease.reminded15At) flags['lease.reminded15At'] = now;
     if (!lease.reminded30At) flags['lease.reminded30At'] = now;
 
-    const recipients = [...new Set([apartment.managerId, lease.closedBy].filter(Boolean).map(String))];
+    const recipients = [...new Set([...managerIds, ...(lease.closedBy ? [String(lease.closedBy)] : [])])];
     await Promise.all(
       recipients.map((userId) =>
         NotificationService.notify({ userId, type: 'LEASE_EXPIRING', title: daysLeft <= 0 ? 'Hợp đồng thuê đã hết hạn' : 'Sắp hết hạn hợp đồng thuê', body, apartmentId: String(apartment._id) })

@@ -128,3 +128,6 @@ export const addSubListingSchema = z.object({
 });
 
 export type AddSubListingInput = z.infer<typeof addSubListingSchema>;
+
+// Story 14.5: số chữ ký tải lên cần xin (1 chữ ký = 1 file), tối đa 10 / lần — khớp giới hạn 10 file của /upload-media
+export const uploadSignatureSchema = z.object({ count: z.number().int().min(1).max(10).default(1) });

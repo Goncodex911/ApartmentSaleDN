@@ -63,6 +63,8 @@ const chatSessionSchema = new Schema<IChatSession>(
     ],
     requirements: {
       districts: { type: [String], default: [] },
+      zones: { type: [String], default: undefined }, // Story 14.7: khu vực theo danh sách ZONES ("Mỹ An", "An Hải")
+      budgetCurrency: { type: String, enum: ['VND', 'USD'] },
       maxBudget: Number,
       moveInDate: String,
       bedrooms: Number,

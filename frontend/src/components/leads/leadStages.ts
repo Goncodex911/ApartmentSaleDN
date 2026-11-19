@@ -9,8 +9,8 @@ export const LEAD_STAGES: { key: LeadStage; label: string; accent: string }[] = 
   { key: 'LOST', label: 'Hủy / Không hợp', accent: 'border-slate-300 bg-slate-100 text-slate-600' },
 ];
 
-// Giai đoạn cần nhập thêm thông tin trước khi chuyển (ngày hẹn / lý do hủy)
-export const STAGES_NEED_INPUT: LeadStage[] = ['VIEWING', 'LOST'];
+// Giai đoạn cần nhập thêm thông tin trước khi chuyển (ngày hẹn / căn đã cọc — Story 14.8 / lý do hủy)
+export const STAGES_NEED_INPUT: LeadStage[] = ['VIEWING', 'DEPOSITED', 'LOST'];
 
 export const stageLabel = (stage: LeadStage) => LEAD_STAGES.find((s) => s.key === stage)?.label ?? stage;
 

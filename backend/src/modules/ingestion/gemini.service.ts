@@ -9,6 +9,7 @@ import { splitAddress, ADDRESS_PLACEHOLDER } from '../../utils/street.js';
 import { NEW_AMENITY_KEYS } from '../search/slang.dictionary.js';
 import { OTHER_ZONE, PROPERTY_TYPES, PropertyType, Zone, inferPropertyType, roundLeaseMonths } from '../apartments/listing-taxonomy.js';
 import { INCLUDED_SERVICES, IncludedService } from '../apartments/apartment.model.js';
+import { toVnPhone } from '../../utils/validators.js';
 
 // Số nguyên dương trong khoảng cho phép, ngược lại undefined (AI có thể trả chuỗi/số âm/null)
 const positiveInt = (value: unknown, max: number) => {
@@ -180,7 +181,8 @@ ${rawText.trim()}
     // Tin chỉ ghi giá USD → quy đổi ước tính theo tỷ giá cấu hình để căn vẫn lọc được theo giá VNĐ, Quản lý kiểm tra lại
     const priceFromUsd = !(Number(ext.price) > 0) && market.priceUsd ? Math.round((market.priceUsd * usdToVndRate()) / 100000) * 100000 : 0;
     const price = Number(ext.price) > 0 ? Number(ext.price) : priceFromUsd;
-    const phone = ext.ownerContact?.phone ? String(ext.ownerContact.phone).trim() : '';
+    // Story 14.1: chuẩn hóa về "0xxxxxxxxx" (tin hay ghi "0905.123.456", "+84 905…") → che số & khử trùng mới khớp
+    const phone = toVnPhone(ext.ownerContact?.phone) ?? '';
 
     const location = resolveListingLocation(ext);
     const address = typeof ext.address === 'string' && ext.address.trim() ? ext.address.trim() : ADDRESS_PLACEHOLDER;
