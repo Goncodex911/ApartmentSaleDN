@@ -57,6 +57,8 @@ BƯỚC 2: NẾU LÀ TIN CHO THUÊ, TRÍCH XUẤT CÁC THÔNG SỐ CHUẨN XÁC:
   + name: Tên người liên hệ hoặc "Chủ nhà".
 - needsReview: boolean (true nếu price = 0, hoặc thiếu SĐT, hoặc địa chỉ quá mơ hồ).
 - reviewReason: Chuỗi giải thích lý do cần kiểm tra nếu needsReview = true.
+- confidence: Số nguyên 0–100 = mức chắc chắn của bạn rằng các trường đã bóc (giá, SĐT, địa chỉ, khu vực, loại căn) đúng với tin gốc.
+  Thông tin rõ ràng, đầy đủ -> 90–100; phải đoán một phần -> 50–89; mơ hồ, mâu thuẫn -> dưới 50.
 `;
 
 export const GEMINI_JSON_SCHEMA_INSTRUCTION = `
@@ -97,7 +99,8 @@ Hãy trả về DUY NHẤT một chuỗi JSON hợp lệ (không kèm markdown \
       "phone": "0987654321"
     },
     "needsReview": false,
-    "reviewReason": null
+    "reviewReason": null,
+    "confidence": 95
   }
 }
 `;

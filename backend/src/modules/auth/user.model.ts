@@ -21,6 +21,12 @@ export interface IUser extends Document {
   telegramChatId?: string;
   telegramLinkCode?: string;
   telegramLinkExpiresAt?: Date;
+  // Story 13.2: tăng khi khóa tài khoản / reset mật khẩu → mọi token cũ (kể cả refresh) mất hiệu lực
+  tokenVersion: number;
+  // Story 13.6: điểm tín nhiệm báo lỗi (+5 đúng, −5 sai); dưới −15 tự khóa quyền báo lỗi
+  trustScore: number;
+  canReport: boolean;
+  mustChangePassword: boolean; // Story 13.9: vừa nhận mật khẩu tạm từ Admin → app nhắc đổi
   comparePassword(candidate: string): Promise<boolean>;
   createdAt: Date;
   updatedAt: Date;
@@ -49,6 +55,10 @@ const userSchema = new Schema<IUser>(
     telegramChatId: { type: String },
     telegramLinkCode: { type: String, index: { sparse: true } },
     telegramLinkExpiresAt: { type: Date },
+    tokenVersion: { type: Number, default: 0 },
+    trustScore: { type: Number, default: 0 },
+    canReport: { type: Boolean, default: true },
+    mustChangePassword: { type: Boolean, default: false },
   },
   {
     timestamps: true,

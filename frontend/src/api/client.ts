@@ -43,6 +43,11 @@ apiClient.interceptors.response.use(
       error.response = { status: 0, data: { message: 'Cần kết nối mạng để thực hiện thao tác này' } };
       return Promise.reject(error);
     }
+    // Story 13.2: Admin khóa tài khoản → thoát ngay, xóa dữ liệu trên máy
+    if (error.response?.status === 403 && error.response.data?.code === 'ACCOUNT_BLOCKED') {
+      redirectToLogin();
+      return Promise.reject(error);
+    }
     if (error.response?.status !== 401 || !original) return Promise.reject(error);
 
     if (NO_REFRESH_URLS.includes(original.url) || original._retried) {

@@ -3,6 +3,7 @@ import { User } from '../auth/user.model.js';
 import { ShareLink } from './share-link.model.js';
 import { slugify, toPublicListing } from './public-listing.util.js';
 import { randomCode } from '../../utils/random-code.js';
+import { SystemConfigService } from '../admin/system-config.service.js';
 
 export const SHARE_CODE_PATTERN = /^[a-z0-9]{8}$/;
 
@@ -36,9 +37,10 @@ export class ShareLinkService {
     const link = await ShareLink.findOne({ code }).lean();
     if (!link) throw { status: 404, message: 'Link không còn hiệu lực' };
 
-    const [apartment, ctv] = await Promise.all([
+    const [apartment, ctv, config] = await Promise.all([
       Apartment.findById(link.apartmentId).lean(),
       User.findById(link.ctvId).select('name phone zaloPhone zaloLink avatarUrl greetingMessage status').lean(),
+      SystemConfigService.get(),
     ]);
     // CTV bị khóa/chưa được duyệt thì link cũng hết hiệu lực
     if (!apartment || !ctv || ctv.status !== 'ACTIVE') throw { status: 404, message: 'Link không còn hiệu lực' };
@@ -47,6 +49,7 @@ export class ShareLinkService {
       await ShareLink.updateOne({ _id: link._id }, { $inc: { views: 1 }, $set: { lastViewedAt: new Date() } });
     }
 
-    return toPublicListing(apartment as any, ctv);
+    // Story 13.5: hotline / Zalo OA công ty ở chân trang (Admin sửa trên web)
+    return { ...toPublicListing(apartment as any, ctv), company: { hotline: config.hotline || undefined, zaloOaUrl: config.zaloOaUrl || undefined } };
   }
 }

@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { User, IUser } from './user.model.js';
-import { RegisterInput, LoginInput } from './auth.validation.js';
+import { RegisterInput, LoginInput, ChangePasswordInput } from './auth.validation.js';
+import { forgetSession } from '../../middlewares/auth.js';
+import { AuditService } from '../audit/audit.service.js';
 import { JWT_SECRET } from '../../config/env.js';
 
 const ACCESS_TOKEN_EXPIRES = '1h';
@@ -15,6 +17,7 @@ export class AuthService {
       id: user._id.toString(),
       role: user.role,
       ctvCode: user.ctvCode,
+      tv: user.tokenVersion ?? 0, // Story 13.2: so với DB để vô hiệu hóa phiên khi khóa / reset mật khẩu
     };
 
     const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES });
@@ -81,17 +84,35 @@ export class AuthService {
   static async refresh(refreshToken?: string) {
     if (!refreshToken) throw SESSION_EXPIRED;
 
-    let decoded: { id: string; type?: string };
+    let decoded: { id: string; type?: string; tv?: number };
     try {
-      decoded = jwt.verify(refreshToken, JWT_SECRET) as { id: string; type?: string };
+      decoded = jwt.verify(refreshToken, JWT_SECRET) as typeof decoded;
     } catch {
       throw SESSION_EXPIRED;
     }
     if (decoded.type !== 'refresh') throw SESSION_EXPIRED;
 
     const user = await User.findById(decoded.id);
-    if (!user || user.status !== 'ACTIVE') throw SESSION_EXPIRED;
+    // Story 13.2: tài khoản bị khóa hoặc đã reset mật khẩu (tokenVersion tăng) → không cấp lại token
+    if (!user || user.status !== 'ACTIVE' || (decoded.tv ?? 0) !== (user.tokenVersion ?? 0)) throw SESSION_EXPIRED;
 
+    return { user, ...this.generateTokens(user) };
+  }
+
+  /**
+   * Story 13.9: tự đổi mật khẩu. Tăng tokenVersion → các thiết bị khác bị đăng xuất; trả token mới để thiết bị đang dùng vẫn đăng nhập.
+   * Sai mật khẩu hiện tại trả 400 (không phải 401) để app không hiểu nhầm là hết phiên rồi tự đăng xuất.
+   */
+  static async changePassword(actor: { id: string; role: string; ip?: string; userAgent?: string }, input: ChangePasswordInput) {
+    const user = await User.findById(actor.id);
+    if (!user) throw SESSION_EXPIRED;
+    if (!(await user.comparePassword(input.currentPassword))) throw { status: 400, message: 'Mật khẩu hiện tại không đúng' };
+    user.password = input.newPassword; // pre('save') băm bcrypt
+    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
+    user.mustChangePassword = false;
+    await user.save();
+    forgetSession(actor.id);
+    AuditService.log(actor, 'CHANGE_PASSWORD', { type: 'USER', id: user._id, title: `${user.name} (${user.ctvCode})` }); // Không ghi mật khẩu
     return { user, ...this.generateTokens(user) };
   }
 

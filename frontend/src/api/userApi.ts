@@ -1,6 +1,14 @@
 import { apiClient } from './client.js';
 import { User } from './authApi.js';
 
+export type AdminUser = Pick<User, '_id' | 'name' | 'phone' | 'role' | 'ctvCode' | 'status'> & { createdAt: string; trustScore?: number; canReport?: boolean };
+export interface UserListParams {
+  status?: User['status'];
+  role?: User['role'];
+  search?: string;
+  page?: number;
+}
+
 export const userApi = {
   getProfile: async (): Promise<{ success: boolean; data: User }> => {
     const res = await apiClient.get('/users/profile');
@@ -28,16 +36,31 @@ export const userApi = {
     return res.data.data;
   },
 
-  // [ADMIN] Danh sách tài khoản theo trạng thái (mặc định: chờ duyệt)
-  listUsers: async (status: User['status'] = 'PENDING'): Promise<User[]> => {
-    const res = await apiClient.get('/users', { params: { status } });
+  // [ADMIN] Danh sách thành viên: lọc trạng thái / vai trò, tìm tên – SĐT – mã CTV (Story 13.2)
+  listUsers: async (params: UserListParams): Promise<{ items: AdminUser[]; total: number }> => {
+    const res = await apiClient.get('/users', { params });
+    return { items: res.data.data, total: res.data.meta.total };
+  },
+
+  // [ADMIN] Duyệt (ACTIVE) hoặc khóa (BLOCKED) tài khoản
+  updateUserStatus: async (userId: string, status: 'ACTIVE' | 'BLOCKED'): Promise<AdminUser> => {
+    const res = await apiClient.patch(`/users/${userId}/status`, { status });
     return res.data.data;
   },
 
-  // [ADMIN] Duyệt (ACTIVE) hoặc từ chối/khóa (BLOCKED) tài khoản
-  updateUserStatus: async (userId: string, status: 'ACTIVE' | 'BLOCKED') => {
-    const res = await apiClient.patch(`/users/${userId}/status`, { status });
-    return res.data;
+  // [ADMIN] Quản lý ↔ CTV (Story 13.2)
+  updateUserRole: async (userId: string, role: 'MANAGER' | 'COLLABORATOR'): Promise<AdminUser> => {
+    const res = await apiClient.patch(`/users/${userId}/role`, { role });
+    return res.data.data;
+  },
+
+  // [ADMIN] Khóa / mở quyền báo lỗi tin (Story 13.6)
+  setCanReport: async (userId: string, canReport: boolean): Promise<AdminUser> => (await apiClient.patch(`/users/${userId}/can-report`, { canReport })).data.data,
+
+  // [ADMIN] Mật khẩu tạm — chỉ trả về 1 lần (Story 13.2)
+  resetUserPassword: async (userId: string): Promise<string> => {
+    const res = await apiClient.post(`/users/${userId}/reset-password`);
+    return res.data.data.tempPassword;
   },
 
   getPublicCtv: async (ctvCode: string): Promise<{ success: boolean; data: Partial<User> }> => {

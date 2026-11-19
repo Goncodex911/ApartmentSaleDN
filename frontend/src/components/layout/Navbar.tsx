@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/leads', label: 'Khách hàng' },
   { to: '/submissions', label: 'Tin đăng' }, // Story 8.6: Quản lý thấy là "Duyệt tin" kèm số tin chờ
 ];
+const ADMIN_ITEM = { to: '/admin', label: 'Quản trị' }; // Story 13.1 — chỉ ADMIN
 
 /**
  * Thanh trên. Máy tính: logo + tab + chuông + avatar. Điện thoại (Story 9.3): chỉ logo + chuông —
@@ -41,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, pendingCount, accountMenu 
             <span className="text-base font-bold text-[#0f2a45]">ApartmentDN</span>
           </NavLink>
           {user &&
-            NAV_ITEMS.map(({ to, label }) => (
+            [...NAV_ITEMS, ...(user.role === 'ADMIN' ? [ADMIN_ITEM] : [])].map(({ to, label }) => (
               <NavLink
                 key={to}
                 to={to}

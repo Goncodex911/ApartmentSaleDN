@@ -5,6 +5,7 @@ import { splitMedia, videoPoster } from '../../utils/media.js';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { StatusBadge } from './StatusBadge.js';
+import { ListingHealthSection } from './ListingHealthSection.js';
 import { LeaseSection } from './LeaseSection.js';
 import { DetailActionBar } from './DetailActionBar.js';
 import { Lang, getShareLang, setShareLang } from '../../utils/shareLang.js';
@@ -50,6 +51,8 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
 
   const { attributes, fees, location, ownerContact } = apartment;
   const isCtv = currentUser?.role === 'COLLABORATOR';
+  // Nội bộ: địa chỉ đủ số nhà + phường; Set bỏ tên trùng (khu vực "Ngũ Hành Sơn" = quận Ngũ Hành Sơn)
+  const fullAddress = [...new Set([location.address, location.ward, zoneText(location), location.district, location.city].filter(Boolean))].join(', ');
   const { images: photos, videos } = splitMedia(apartment); // Story 10.2: video cũ lỡ nằm trong images → mục Video
   const sendablePhotos = photos.filter((url) => !apartment.hiddenImages?.includes(url)); // Bỏ ảnh có SĐT nguồn cũ (Story 5.2)
   const hiddenImageCount = photos.length - sendablePhotos.length;
@@ -133,19 +136,19 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
             <div className="space-y-1.5">
               <h2 className="text-lg font-bold text-slate-900 leading-snug">{apartment.title}</h2>
               <p className="text-sm text-slate-500">
-                {/* Nội bộ: địa chỉ đủ số nhà; Set bỏ tên trùng (khu vực "Ngũ Hành Sơn" = quận Ngũ Hành Sơn) */}
-                {[...new Set([location.address, zoneText(location), location.district, location.city].filter(Boolean))].join(', ')}
+                {fullAddress}
               </p>
-              {/* Link map nội bộ (Story 8.3): mở app Google Maps để dẫn khách xem phòng */}
-              {location.mapUrl && (
+              {/* Link map nội bộ (Story 8.3): mở app Google Maps để dẫn khách xem phòng.
+                  Story 13.8: căn chỉ nhập địa chỉ (không có link) → mở tìm kiếm Google Maps theo địa chỉ */}
+              {(location.mapUrl || location.address) && (
                 <a
-                  href={location.mapUrl}
+                  href={location.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
                 >
                   <MapPin className="w-4 h-4" aria-hidden />
-                  Mở bản đồ
+                  Mở Google Maps
                 </a>
               )}
               <div className="flex items-center gap-2 pt-1">
@@ -160,6 +163,9 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
             </div>
 
             {isOwnerOrAdmin && apartment.status === 'RENTED' && <LeaseSection apartment={apartment} onChanged={() => onStatusUpdated?.(apartment.status)} />}
+
+            {/* Story 13.6: Chờ xác minh + Báo lỗi tin + báo lỗi đang mở (Quản lý) */}
+            <ListingHealthSection apartment={apartment} isManager={!isCtv} canResolve={isOwnerOrAdmin} onChanged={() => onStatusUpdated?.(apartment.status)} />
 
             {apartment.needsReview && (
               <p className="px-3 py-2 rounded-xl bg-amber-50 text-sm text-amber-800">
@@ -192,11 +198,17 @@ export const ApartmentDetailModal: React.FC<ApartmentDetailModalProps> = ({
             {/* Thông tin chủ nhà — CTV chỉ thấy SĐT đã che (Story 1.2) */}
             <div>
               <SectionTitle>Chủ nhà / đầu mối</SectionTitle>
-              <p className="text-sm text-slate-700">
-                {ownerContact.name} · {ownerContact.phone}
-                {isCtv && <span className="text-slate-500"> (đã ẩn số)</span>}
-              </p>
-              {!isCtv && ownerContact.note && <p className="mt-1 text-sm text-rose-700">Ghi chú riêng: {ownerContact.note}</p>}
+              {ownerContact?.phone ? (
+                <p className="text-sm text-slate-700">
+                  {[ownerContact.name, ownerContact.phone].filter(Boolean).join(' · ')}
+                  {isCtv && <span className="text-slate-500"> (đã ẩn số)</span>}
+                </p>
+              ) : (
+                <p className="text-sm text-slate-600">
+                  {ownerContact?.name && `${ownerContact.name} · `}Chưa có SĐT chủ (Nguồn liên kết / Đang cập nhật)
+                </p>
+              )}
+              {!isCtv && ownerContact?.note && <p className="mt-1 text-sm text-rose-700">Ghi chú riêng: {ownerContact.note}</p>}
             </div>
 
             {apartment.subListings && apartment.subListings.length > 0 && (

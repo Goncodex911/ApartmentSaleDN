@@ -12,6 +12,7 @@ import { isPrivilegedRole } from './apartment.model.js';
 import { SUBMISSION_MEDIA_FOLDER } from '../submissions/submission.model.js';
 import { signDirectUpload } from '../../config/cloudinary.js';
 import { usdToVndRate } from '../../config/currency.js';
+import { AuditService, auditActor } from '../audit/audit.service.js';
 
 const APARTMENT_MEDIA_FOLDER = 'apartment_sale/apartments';
 
@@ -39,13 +40,13 @@ export class ApartmentController {
 
   // Cập nhật thông tin căn hộ (cập nhật một phần, không ghi đè trường không gửi lên)
   static update = asyncHandler(async (req, res) => {
-    const data = await ApartmentService.update(apartmentId(req), updateApartmentSchema.parse(req.body), req.user!);
+    const data = await ApartmentService.update(apartmentId(req), updateApartmentSchema.parse(req.body), auditActor(req));
     res.status(200).json({ success: true, message: 'Cập nhật căn hộ thành công', data });
   });
 
   // Cập nhật nhanh 1-Click trạng thái phòng (Story 2.2)
   static updateStatus = asyncHandler(async (req, res) => {
-    const data = await ApartmentService.updateStatus(apartmentId(req), updateStatusSchema.parse(req.body), req.user!);
+    const data = await ApartmentService.updateStatus(apartmentId(req), updateStatusSchema.parse(req.body), auditActor(req));
     res.status(200).json({ success: true, message: 'Cập nhật trạng thái phòng thành công', data });
   });
 
@@ -58,7 +59,7 @@ export class ApartmentController {
 
   // Đính kèm Nguồn tham chiếu vào Căn Master (Story 2.3)
   static addSubListing = asyncHandler(async (req, res) => {
-    const data = await ApartmentService.addSubListing(apartmentId(req), addSubListingSchema.parse(req.body), req.user!);
+    const data = await ApartmentService.addSubListing(apartmentId(req), addSubListingSchema.parse(req.body), auditActor(req));
     res.status(201).json({ success: true, message: 'Đính kèm nguồn tham chiếu thành công', data });
   });
 
@@ -70,7 +71,7 @@ export class ApartmentController {
 
   // Xóa căn hộ
   static delete = asyncHandler(async (req, res) => {
-    await ApartmentService.delete(apartmentId(req), req.user!);
+    await ApartmentService.delete(apartmentId(req), auditActor(req));
     res.status(200).json({ success: true, message: 'Xóa căn hộ thành công' });
   });
 
@@ -81,7 +82,10 @@ export class ApartmentController {
 
   // Xem chi tiết căn hộ theo ID (Tự động che dữ liệu theo role)
   static getById = asyncHandler(async (req, res) => {
+    const data = await ApartmentService.findById(apartmentId(req), req.user?.role);
+    // Story 13.3: Quản lý / ADMIN nhận SĐT chủ nhà đầy đủ → ghi nhật ký (chạy ngầm)
+    if (isPrivilegedRole(req.user?.role) && data?.ownerContact?.phone) AuditService.logContactView(auditActor(req), data);
     // meta.usdRate: bảng so sánh căn quy giá ra USD (Story 11.6)
-    res.status(200).json({ success: true, data: await ApartmentService.findById(apartmentId(req), req.user?.role), meta: { usdRate: usdToVndRate() } });
+    res.status(200).json({ success: true, data, meta: { usdRate: usdToVndRate() } });
   });
 }

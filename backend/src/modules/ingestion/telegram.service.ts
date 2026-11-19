@@ -2,6 +2,7 @@ import { DedupService } from '../dedup/dedup.service.js';
 import { uploadBufferToCloudinary } from '../../config/cloudinary.js';
 import { User } from '../auth/user.model.js';
 import { UserService } from '../users/user.service.js';
+import { SystemConfigService } from '../admin/system-config.service.js';
 
 // Telegram gửi album thành NHIỀU message cùng media_group_id (mỗi message 1 ảnh, chỉ 1 message có caption).
 // Gom các message của album, chờ ALBUM_WAIT_MS kể từ ảnh cuối cùng rồi mới xử lý thành 1 bài đăng hoàn chỉnh.
@@ -128,9 +129,10 @@ export class TelegramService {
 
     if (rawText.trim().length < 10) return;
 
-    // Chỉ nhận tin từ các nhóm trong TELEGRAM_SOURCE_CHAT_IDS (nếu có cấu hình) → người lạ nhắn bot không đẩy được tin rác
-    const allowedChatIds = (process.env.TELEGRAM_SOURCE_CHAT_IDS || '').split(',').map((id) => id.trim()).filter(Boolean);
-    if (allowedChatIds.length > 0 && !allowedChatIds.includes(String(chatId))) return;
+    // Chỉ nhận tin từ nhóm nguồn đang bật (Admin cấu hình trên web — Story 13.5; dự phòng TELEGRAM_SOURCE_CHAT_IDS)
+    // → người lạ nhắn bot không đẩy được tin rác
+    const allowedChatIds = await SystemConfigService.allowedTelegramChats();
+    if (allowedChatIds && !allowedChatIds.includes(String(chatId))) return;
 
     // 1. Tải TOÀN BỘ ảnh của bài (bản độ phân giải cao nhất = phần tử cuối mảng photo) song song lên Cloudinary
     const photoFileIds: string[] = messages.flatMap((m) => (m.photo?.length ? [m.photo[m.photo.length - 1].file_id] : []));
@@ -150,6 +152,7 @@ export class TelegramService {
       rawText,
       mediaUrls,
       managerId,
+      sourceChatId: String(chatId),
     });
 
     // 4. Phản hồi thông báo kết quả

@@ -14,6 +14,7 @@ export interface LiveToastData {
 
 function toastFor({ type, data }: RealtimeMessage): Omit<LiveToastData, 'key'> | null {
   if (!data.label) return null; // CTV nhận căn đã cho thuê không kèm tên → chỉ làm mờ thẻ, không báo
+  if (type === 'apartment.flagged') return null; // Story 13.6: gắn / gỡ "Chờ xác minh" chỉ đổi nhãn trên thẻ, không báo nổi
   if (type === 'apartment.created') return { kind: 'created', text: `Có căn mới: ${data.label}`, canView: true };
   if (type === 'apartment.price') return { kind: 'price', text: `${data.label} vừa giảm giá còn ${formatVnd(data.price || 0)}`, canView: false };
   if (data.status === 'DEPOSITED') return { kind: 'deposited', text: `${data.label} vừa được đặt cọc`, canView: false };

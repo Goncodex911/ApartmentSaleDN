@@ -2,15 +2,15 @@ import { EventEmitter } from 'events';
 import { randomBytes } from 'crypto';
 import { maskPhonesInText } from '../../utils/phone-text.js';
 
-export type RealtimeEventType = 'apartment.created' | 'apartment.status' | 'apartment.price';
+export type RealtimeEventType = 'apartment.created' | 'apartment.status' | 'apartment.price' | 'apartment.flagged';
 
 export interface RealtimeEvent {
   id: string; // "<mã lần khởi động>-<số thứ tự>" — client gửi lại qua Last-Event-ID để nhận bù
   type: RealtimeEventType;
-  data: { id: string; status: string; price: number; priceUsd?: number; label: string; by?: string };
+  data: { id: string; status: string; price: number; priceUsd?: number; label: string; by?: string; flagged?: boolean };
 }
 
-type ApartmentLike = { _id: unknown; title: string; status: string; price: number; priceUsd?: number };
+type ApartmentLike = { _id: unknown; title: string; status: string; price: number; priceUsd?: number; verification?: unknown };
 
 // Render free chạy 1 máy chủ → giữ sự kiện trong bộ nhớ là đủ; khởi động lại thì mã khởi động đổi → client tải lại danh sách
 const BOOT_ID = randomBytes(4).toString('hex');
@@ -36,6 +36,7 @@ export function publishApartmentEvent(type: RealtimeEventType, apartment: Apartm
       priceUsd: apartment.priceUsd,
       label: maskPhonesInText(apartment.title).slice(0, 80),
       by,
+      flagged: Boolean(apartment.verification), // Story 13.6: nhãn "Chờ xác minh" trên thẻ
     },
   };
   buffer.push(event);

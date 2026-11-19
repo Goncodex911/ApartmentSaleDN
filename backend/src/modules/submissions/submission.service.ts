@@ -8,8 +8,9 @@ import { PHashUtil } from '../dedup/phash.util.js';
 import { NotificationService } from '../notifications/notification.service.js';
 import { User } from '../auth/user.model.js';
 import { fetchImageBuffer } from '../../utils/fetch-image.js';
+import { AuditActor, AuditService } from '../audit/audit.service.js';
 
-type Actor = { id: string; role: string };
+type Actor = AuditActor;
 type ListQuery = { status?: string; page: number; limit: number };
 
 const NOT_FOUND = { status: 404, message: 'Không tìm thấy tin đăng' };
@@ -93,7 +94,7 @@ export class SubmissionService {
     const district = (location.zone && districtOfZone(location.zone)) || location.district || '';
     const address = [location.houseNumber, location.street].filter(Boolean).join(' ') || location.address || '';
 
-    const byContact = await DedupService.checkDeterministicMatch(ownerContact.phone, address, district);
+    const byContact = await DedupService.checkDeterministicMatch(ownerContact?.phone || '', address, district);
     const byPhoto = byContact ? null : await DedupService.checkVisualMatch(await hashImages(images), district);
     const match = byContact || byPhoto?.matchedApartment;
     if (!match) return [];
@@ -147,6 +148,7 @@ export class SubmissionService {
         apartmentId: String(submission.apartmentId),
       })
     );
+    AuditService.log(manager, 'APPROVE_SUBMISSION', { type: 'SUBMISSION', id: submission._id, title: submission.data.title }, { apartmentId: String(submission.apartmentId), merged: Boolean(mergeInto) });
     return submission;
   }
 
@@ -163,6 +165,7 @@ export class SubmissionService {
         submissionId: id,
       })
     );
+    AuditService.log(manager, 'REJECT_SUBMISSION', { type: 'SUBMISSION', id: submission._id, title: submission.data.title }, { reason });
     return submission;
   }
 
