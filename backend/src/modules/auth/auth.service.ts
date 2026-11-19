@@ -4,15 +4,21 @@ import { RegisterInput, LoginInput, ChangePasswordInput } from './auth.validatio
 import { forgetSession } from '../../middlewares/auth.js';
 import { AuditService } from '../audit/audit.service.js';
 import { JWT_SECRET } from '../../config/env.js';
+import { randomCode } from '../../utils/random-code.js';
 
 const ACCESS_TOKEN_EXPIRES = '1h';
 const REFRESH_TOKEN_EXPIRES = '7d';
 const INVALID_LOGIN = { status: 401, message: 'Số điện thoại hoặc mật khẩu không chính xác' };
 const SESSION_EXPIRED = { status: 401, message: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại' };
 
+// Story 14.5: phiên refresh theo thiết bị
+const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000; // Khớp REFRESH_TOKEN_EXPIRES
+const ROTATION_GRACE_MS = 60_000; // Token vừa bị xoay vẫn nhận 60 giây: 2 tab / PWA refresh cùng lúc không bị đăng xuất oan
+const MAX_SESSIONS = 10;
+
 export class AuthService {
-  // Tạo Access Token và Refresh Token
-  static generateTokens(user: IUser) {
+  // Tạo Access Token và Refresh Token (refresh mang jti của phiên thiết bị)
+  private static generateTokens(user: IUser, jti: string) {
     const payload = {
       id: user._id.toString(),
       role: user.role,
@@ -22,9 +28,53 @@ export class AuthService {
 
     const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES });
     // type: 'refresh' → middleware không chấp nhận refresh token (hạn 7 ngày) thay cho access token
-    const refreshToken = jwt.sign({ ...payload, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES });
+    const refreshToken = jwt.sign({ ...payload, type: 'refresh', jti }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES });
 
     return { accessToken, refreshToken };
+  }
+
+  /** Mở phiên cho 1 thiết bị (đăng nhập / đăng ký / đổi mật khẩu): giữ tối đa 10 phiên, bỏ phiên hết hạn. Ghi nguyên tử, không dùng save(). */
+  private static async openSession(user: IUser) {
+    const jti = randomCode(24);
+    const now = Date.now();
+    await User.updateOne({ _id: user._id }, { $pull: { refreshSessions: { expiresAt: { $lt: new Date(now) } } } });
+    await User.updateOne(
+      { _id: user._id },
+      { $push: { refreshSessions: { $each: [{ jti, expiresAt: new Date(now + REFRESH_TTL_MS) }], $slice: -MAX_SESSIONS } } }
+    );
+    return this.generateTokens(user, jti);
+  }
+
+  /**
+   * Xoay phiên khi refresh: jti cũ → prevJti (còn nhận ROTATION_GRACE_MS), cấp jti mới.
+   * Request đến cùng lúc mang jti vừa bị xoay → trả token của jti hiện tại thay vì báo hết phiên.
+   */
+  private static async rotateSession(user: IUser, oldJti: string) {
+    const jti = randomCode(24);
+    const now = Date.now();
+    const rotated = await User.updateOne(
+      { _id: user._id, 'refreshSessions.jti': oldJti },
+      { $set: { 'refreshSessions.$.jti': jti, 'refreshSessions.$.prevJti': oldJti, 'refreshSessions.$.rotatedAt': new Date(now), 'refreshSessions.$.expiresAt': new Date(now + REFRESH_TTL_MS) } }
+    );
+    if (rotated.modifiedCount) return this.generateTokens(user, jti);
+
+    const fresh = await User.findOne({ _id: user._id, refreshSessions: { $elemMatch: { prevJti: oldJti, rotatedAt: { $gte: new Date(now - ROTATION_GRACE_MS) } } } })
+      .select('refreshSessions')
+      .lean();
+    const current = fresh?.refreshSessions.find((session) => session.prevJti === oldJti);
+    if (!current) throw SESSION_EXPIRED; // Đã đăng xuất / đã bị thu hồi / token cũ quá 60 giây
+    return this.generateTokens(user, current.jti);
+  }
+
+  /** Đăng xuất: thu hồi đúng phiên của thiết bị này (máy khác vẫn đăng nhập). Token lỗi / hết hạn → bỏ qua. */
+  static async logout(refreshToken?: string) {
+    if (!refreshToken) return;
+    try {
+      const { id, jti } = jwt.verify(refreshToken, JWT_SECRET) as { id: string; jti?: string };
+      if (jti) await User.updateOne({ _id: id }, { $pull: { refreshSessions: { $or: [{ jti }, { prevJti: jti }] } } });
+    } catch {
+      // Token hỏng / hết hạn thì phiên cũng đã vô dụng
+    }
   }
 
   /**
@@ -57,7 +107,7 @@ export class AuthService {
     });
 
     if (user.status === 'PENDING') return { user, pendingApproval: true as const };
-    return { user, ...this.generateTokens(user) };
+    return { user, ...(await this.openSession(user)) };
   }
 
   // Đăng nhập
@@ -73,8 +123,7 @@ export class AuthService {
       throw { status: 403, message: 'Tài khoản của bạn đã bị khóa' };
     }
 
-    const tokens = this.generateTokens(user);
-    return { user, ...tokens };
+    return { user, ...(await this.openSession(user)) };
   }
 
   /**
@@ -84,7 +133,7 @@ export class AuthService {
   static async refresh(refreshToken?: string) {
     if (!refreshToken) throw SESSION_EXPIRED;
 
-    let decoded: { id: string; type?: string; tv?: number };
+    let decoded: { id: string; type?: string; tv?: number; jti?: string };
     try {
       decoded = jwt.verify(refreshToken, JWT_SECRET) as typeof decoded;
     } catch {
@@ -96,7 +145,9 @@ export class AuthService {
     // Story 13.2: tài khoản bị khóa hoặc đã reset mật khẩu (tokenVersion tăng) → không cấp lại token
     if (!user || user.status !== 'ACTIVE' || (decoded.tv ?? 0) !== (user.tokenVersion ?? 0)) throw SESSION_EXPIRED;
 
-    return { user, ...this.generateTokens(user) };
+    // Story 14.5: token cấp trước khi có phiên theo thiết bị (chưa có jti) → mở phiên mới, không đăng xuất hàng loạt
+    const tokens = decoded.jti ? await this.rotateSession(user, decoded.jti) : await this.openSession(user);
+    return { user, ...tokens };
   }
 
   /**
@@ -113,7 +164,7 @@ export class AuthService {
     await user.save();
     forgetSession(actor.id);
     AuditService.log(actor, 'CHANGE_PASSWORD', { type: 'USER', id: user._id, title: `${user.name} (${user.ctvCode})` }); // Không ghi mật khẩu
-    return { user, ...this.generateTokens(user) };
+    return { user, ...(await this.openSession(user)) }; // Phiên cũ đã mất hiệu lực nhờ tokenVersion tăng
   }
 
   // Lấy thông tin tài khoản hiện tại

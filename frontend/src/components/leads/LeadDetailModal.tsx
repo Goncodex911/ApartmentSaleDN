@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Lead, LeadStage, leadApi } from '../../api/leadApi.js';
 import { LEAD_STAGES, STAGES_NEED_INPUT, summarizeRequirements, formatDateTime } from './leadStages.js';
 import { LeadMatchesSection } from './LeadMatchesSection.js';
+import { DepositApartmentPicker, DepositChoice } from './DepositApartmentPicker.js';
 import { Phone, MessageCircle, Trash2, Send } from 'lucide-react';
 import { BottomSheet } from '../layout/BottomSheet.js';
 import { Button } from '../ui/Button.js';
@@ -20,6 +21,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, pendingS
   const [targetStage, setTargetStage] = useState<LeadStage | null>(pendingStage ?? null);
   const [viewingAt, setViewingAt] = useState('');
   const [lostReason, setLostReason] = useState('');
+  const [deposit, setDeposit] = useState<DepositChoice>();
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -42,6 +44,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, pendingS
         stage,
         viewingAt: stage === 'VIEWING' && viewingAt ? new Date(viewingAt).toISOString() : undefined,
         lostReason: stage === 'LOST' ? lostReason.trim() : undefined,
+        depositedApartmentId: stage === 'DEPOSITED' && deposit ? deposit : undefined,
       });
       setTargetStage(null);
       onUpdated(updated);
@@ -68,11 +71,11 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, pendingS
   };
 
   const summary = summarizeRequirements(lead.requirements);
-  const canConfirm = targetStage === 'VIEWING' ? !!viewingAt : !!lostReason.trim();
+  const canConfirm = targetStage === 'VIEWING' ? !!viewingAt : targetStage === 'DEPOSITED' ? deposit !== undefined : !!lostReason.trim();
 
   return (
     // Story 12.3: bảng trượt dùng chung — mở 50%, kéo lên 90% để xem hết ghi chú / căn phù hợp
-    <BottomSheet title={lead.name} onClose={onClose} snapPoints={[0.5, 0.9]} showClose wide>
+    <BottomSheet title={lead.name} onClose={onClose} snapPoints={[0.5, 0.9]} showClose wide expanded={!!targetStage}>
       <div className="space-y-4 text-sm">
         {summary && <p className="text-sm text-slate-600">{summary}</p>}
 
@@ -114,6 +117,8 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, pendingS
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
               {targetStage === 'VIEWING' ? (
                 <Input type="datetime-local" aria-label="Giờ hẹn xem phòng" value={viewingAt} onChange={(e) => setViewingAt(e.target.value)} />
+              ) : targetStage === 'DEPOSITED' ? (
+                <DepositApartmentPicker leadId={lead._id} value={deposit} onChange={setDeposit} />
               ) : (
                 <Input autoFocus aria-label="Lý do khách hủy" placeholder="Lý do khách hủy / không hợp *" value={lostReason} onChange={(e) => setLostReason(e.target.value)} />
               )}

@@ -18,7 +18,7 @@ export const LeadsPage: React.FC = () => {
   const [dropError, setDropError] = useState('');
 
 
-  // Thả thẻ vào cột: cột cần thêm thông tin (Hẹn xem / Hủy) → mở Modal, còn lại chuyển ngay
+  // Thả thẻ vào cột: cột cần thêm thông tin (Hẹn xem / Đã cọc / Hủy) → mở Modal, còn lại chuyển ngay
   const handleDrop = async (stage: LeadStage) => {
     const lead = leads.find((item) => item._id === draggingId);
     setDraggingId(null);

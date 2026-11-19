@@ -73,11 +73,8 @@ export class SearchController {
   /**
    * GET /api/v1/apartments/search — Tìm kiếm mờ thông minh, hiểu tiếng lóng, bán kính GPS & Bộ lọc 1-chạm
    */
+  // Tìm câu tự nhiên chỉ qua /search/natural (có giới hạn tần suất Gemini) — Story 14.4 bỏ cờ ?natural=true đi vòng qua giới hạn
   static search = asyncHandler(async (req, res) => {
-    const query = req.query;
-    // Cờ ?natural=true → chuyển sang xử lý câu tự nhiên (lỗi vẫn đi qua asyncHandler của route này)
-    if (query.natural === 'true' && text(query.q)) return runNaturalSearch(req, res);
-
     const result = await SearchService.search(parseSearchOptions(req));
     res.status(200).json({ success: true, data: result.items, pagination: result.pagination, meta: result.meta });
   });

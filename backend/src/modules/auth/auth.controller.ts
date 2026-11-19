@@ -70,9 +70,10 @@ export class AuthController {
     }
   }
 
-  // Đăng xuất
-  static async logout(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  // Đăng xuất — Story 14.5: thu hồi phiên của thiết bị này (lỗi vẫn xóa cookie, vẫn trả 200)
+  static async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      await AuthService.logout(req.cookies?.refreshToken).catch(() => undefined);
       res.clearCookie('refreshToken');
       res.status(200).json({ success: true, message: 'Đăng xuất thành công' });
     } catch (error) {

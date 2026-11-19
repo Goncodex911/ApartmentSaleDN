@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ImagePlus, Play, X } from 'lucide-react';
-import { checkMediaFile, getUploadSignature, uploadToCloudinary } from '../../api/mediaUpload.js';
+import { checkMediaFile, getUploadSignatures, uploadToCloudinary } from '../../api/mediaUpload.js';
 import { videoPoster } from '../../utils/media.js';
 
 export interface MediaValue {
@@ -16,6 +16,7 @@ interface PhotoUploaderProps {
 
 type Pending = { id: string; name: string; percent: number };
 const PARALLEL = 2; // Tải 2 file cùng lúc — đủ nhanh mà không nghẽn 4G
+const SIGNATURES_PER_REQUEST = 10; // Khớp giới hạn của server (Story 14.5)
 
 /**
  * Ảnh & video căn hộ (Story 8.1 + 10.2): tải THẲNG lên Cloudinary, mỗi file 1 ô tiến độ %;
@@ -38,15 +39,19 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({ value, onChange, o
     const done = (id: string) => setPending((list) => list.filter((p) => p.id !== id));
 
     try {
-      const sig = await getUploadSignature();
+      // Story 14.5: mỗi file 1 chữ ký riêng; server ký tối đa 10 chữ ký / lần → chia nhóm 10
+      const batches = Array.from({ length: Math.ceil(jobs.length / SIGNATURES_PER_REQUEST) }, (_, i) =>
+        getUploadSignatures(Math.min(SIGNATURES_PER_REQUEST, jobs.length - i * SIGNATURES_PER_REQUEST))
+      );
+      const signatures = (await Promise.all(batches)).flat();
       const uploaded: MediaValue = { images: [], videos: [] };
       const failed: string[] = [];
       // Hàng đợi đơn giản: PARALLEL "luồng" lần lượt lấy file kế tiếp
-      const queue = [...jobs];
+      const queue = jobs.map((job, i) => ({ ...job, sig: signatures[i] }));
       await Promise.all(
         Array.from({ length: PARALLEL }, async () => {
           for (let job = queue.shift(); job; job = queue.shift()) {
-            const { id, file } = job;
+            const { id, file, sig } = job;
             try {
               const result = await uploadToCloudinary(file, sig, (percent) =>
                 setPending((list) => list.map((p) => (p.id === id ? { ...p, percent } : p)))

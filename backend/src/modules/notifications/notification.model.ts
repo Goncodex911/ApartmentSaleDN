@@ -3,7 +3,9 @@ import { Schema, model, Document, Types } from 'mongoose';
 // LISTING_*: tin CTV đăng chờ duyệt (Story 8.6)
 // LEASE_EXPIRING: nhắc tái ký hợp đồng thuê (Story 11.5)
 // LISTING_FLAGGED: căn bị ≥ 2 người báo lỗi (Story 13.6)
-export const NOTIFICATION_TYPES = ['NEW_CHAT_LEAD', 'APARTMENT_MATCH', 'LISTING_SUBMITTED', 'LISTING_APPROVED', 'LISTING_REJECTED', 'LEASE_EXPIRING', 'LISTING_FLAGGED'] as const;
+// SOURCE_AVAILABLE_AGAIN: căn Đã cọc / Đã thuê được nguồn mới đăng lại (Story 14.2)
+// LEAD_DEPOSITED: CTV báo khách đã cọc căn (Story 14.8)
+export const NOTIFICATION_TYPES = ['NEW_CHAT_LEAD', 'APARTMENT_MATCH', 'LISTING_SUBMITTED', 'LISTING_APPROVED', 'LISTING_REJECTED', 'LEASE_EXPIRING', 'LISTING_FLAGGED', 'SOURCE_AVAILABLE_AGAIN', 'LEAD_DEPOSITED'] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 // Thông báo trong app (Story 6.2, 6.3) — tự xóa sau 30 ngày

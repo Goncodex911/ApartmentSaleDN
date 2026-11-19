@@ -9,7 +9,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "promote-admin": "tsx src/scripts/promote-admin.ts",
-    "backfill-zone-type": "tsx src/scripts/backfill-zone-type.ts"
+    "backfill-zone-type": "tsx src/scripts/backfill-zone-type.ts",
+    "normalize-owner-phones": "tsx src/scripts/normalize-owner-phones.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

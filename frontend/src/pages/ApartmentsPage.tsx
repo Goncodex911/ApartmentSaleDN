@@ -71,11 +71,12 @@ export const ApartmentsPage: React.FC = () => {
       .then((res) => setSelectedApartment((current) => (current?._id === apartment._id ? res.data : current)))
       .catch(() => undefined); // Mất mạng: vẫn xem bản trong danh sách
   };
-  // Story 11.5: bấm thông báo nhắc tái ký → về Bảng hàng kèm mã căn cần mở
-  const openApartmentId = (location.state as { openApartmentId?: string } | null)?.openApartmentId;
+  // Mở sẵn 1 căn: bấm thông báo (Story 11.5, state) hoặc "Xem căn đã có" ở hộp thoại trùng mở tab mới /apartments?id=… (Story 14.8)
+  const openApartmentId =
+    (location.state as { openApartmentId?: string } | null)?.openApartmentId || new URLSearchParams(location.search).get('id') || undefined;
   useEffect(() => {
     if (!openApartmentId) return;
-    navigate(location.pathname, { replace: true, state: null }); // Xoá để quay lại / tải lại không mở lần nữa
+    navigate(location.pathname, { replace: true, state: null }); // Xoá state & ?id để quay lại / tải lại không mở lần nữa
     openById(openApartmentId);
   }, [openApartmentId]); // Chỉ chạy khi có mã căn mới
 
@@ -234,7 +235,7 @@ export const ApartmentsPage: React.FC = () => {
         // Lấy bản mới nhất trong danh sách → chi tiết đang mở cũng đổi trạng thái / giá theo thời gian thực (Story 11.4)
         apartment={selectedApartment && (apartments.find((item) => item._id === selectedApartment._id) || selectedApartment)}
         currentUser={currentUser}
-        isOwnerOrAdmin={isManager}
+        canManage={isManager}
         onClose={() => setSelectedApartment(null)}
         onStatusUpdated={reload}
         onEdit={(apt) => { setSelectedApartment(null); setEditingApartment(apt); }}

@@ -24,8 +24,8 @@ export class ListingReportController {
   });
 
   // GET /api/v1/reports — hàng đợi kiểm duyệt (Admin + Quản lý)
-  static queue = asyncHandler(async (req, res) => {
-    res.status(200).json({ success: true, data: await ListingReportService.queue(req.user!) });
+  static queue = asyncHandler(async (_req, res) => {
+    res.status(200).json({ success: true, data: await ListingReportService.queue() });
   });
 
   // POST /api/v1/reports/:apartmentId/resolve — Đã thuê / sửa giá / tin vẫn đúng

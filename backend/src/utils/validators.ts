@@ -18,8 +18,16 @@ export const normalizeVnPhone = (raw: string) =>
     .replace(/[\s.\-()]/g, '')
     .replace(/^(?:\+?84)(?=[35789]\d{8}$)/, '0');
 
-export const vnPhone = (message: string) =>
-  z.string().transform(normalizeVnPhone).pipe(z.string().regex(/^0[35789]\d{8}$/, message));
+const VN_PHONE = /^0[35789]\d{8}$/;
+
+/** SĐT dạng chuẩn "0xxxxxxxxx" hoặc undefined nếu không phải SĐT VN (dùng cho dữ liệu AI / khử trùng / script — Story 14.1). */
+export const toVnPhone = (raw: unknown): string | undefined => {
+  if (typeof raw !== 'string' && typeof raw !== 'number') return undefined;
+  const phone = normalizeVnPhone(String(raw));
+  return VN_PHONE.test(phone) ? phone : undefined;
+};
+
+export const vnPhone = (message: string) => z.string().transform(normalizeVnPhone).pipe(z.string().regex(VN_PHONE, message));
 
 export type DeepPartial<T> = T extends readonly unknown[] | Date
   ? T

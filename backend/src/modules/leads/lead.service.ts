@@ -4,6 +4,9 @@ import { CreateLeadInput, UpdateLeadInput, ChangeStageInput } from './lead.valid
 import { Apartment } from '../apartments/apartment.model.js';
 import { ApartmentService } from '../apartments/apartment.service.js';
 import { MATCH_THRESHOLD, scoreLeadMatch } from './lead-matching.service.js';
+import { User } from '../auth/user.model.js';
+import { NotificationService } from '../notifications/notification.service.js';
+import { maskPhonesInText } from '../../utils/phone-text.js';
 
 const MAX_MATCHES = 10;
 const MATCH_CANDIDATES = 300;
@@ -71,12 +74,29 @@ export class LeadService {
       lead.lostReason = input.lostReason;
       systemNote += `: ${input.lostReason}`;
     }
-    if (input.stage === 'DEPOSITED' && input.depositedApartmentId) {
-      lead.set('depositedApartmentId', input.depositedApartmentId);
+    // Story 14.8: khách cọc căn MỚI (khác căn đã báo) → báo cả đội Quản lý xác nhận; trạng thái căn KHÔNG tự đổi
+    const depositId = input.stage === 'DEPOSITED' ? input.depositedApartmentId : undefined;
+    let depositedTitle: string | undefined;
+    if (depositId && String(lead.depositedApartmentId) !== depositId) {
+      const apartment = await Apartment.findById(depositId).select('title').lean();
+      if (!apartment) throw { status: 404, message: 'Không tìm thấy căn hộ' };
+      depositedTitle = maskPhonesInText(apartment.title); // Tiêu đề tin gốc có thể chứa SĐT chủ
+      lead.set('depositedApartmentId', depositId);
+      systemNote += `: ${depositedTitle}`;
     }
 
     pushLeadNote(lead, systemNote, true);
-    return lead.save();
+    const saved = await lead.save();
+    if (depositedTitle) {
+      const ctv = await User.findById(ctvId).select('name').lean();
+      NotificationService.notifyManagers({
+        type: 'LEAD_DEPOSITED',
+        title: 'CTV báo khách đã cọc căn',
+        body: `CTV ${ctv?.name || ''} báo khách ${saved.name} đã cọc: ${depositedTitle}. Bấm để mở căn và cập nhật trạng thái.`,
+        apartmentId: depositId,
+      }).catch(() => undefined); // Lỗi gửi thông báo không làm hỏng việc chuyển giai đoạn
+    }
+    return saved;
   }
 
   /** Căn đang trống / sắp trống phù hợp ≥ 80% với khách, sắp theo điểm (Story 11.1). */

@@ -27,6 +27,8 @@ export interface IUser extends Document {
   trustScore: number;
   canReport: boolean;
   mustChangePassword: boolean; // Story 13.9: vừa nhận mật khẩu tạm từ Admin → app nhắc đổi
+  // Story 14.5: refresh token đang hiệu lực theo thiết bị (jti) — đăng xuất máy nào thu hồi phiên máy đó
+  refreshSessions: { jti: string; prevJti?: string; rotatedAt?: Date; expiresAt: Date }[];
   comparePassword(candidate: string): Promise<boolean>;
   createdAt: Date;
   updatedAt: Date;
@@ -59,6 +61,10 @@ const userSchema = new Schema<IUser>(
     trustScore: { type: Number, default: 0 },
     canReport: { type: Boolean, default: true },
     mustChangePassword: { type: Boolean, default: false },
+    refreshSessions: {
+      type: [{ _id: false, jti: { type: String, required: true }, prevJti: String, rotatedAt: Date, expiresAt: { type: Date, required: true } }],
+      default: [],
+    },
   },
   {
     timestamps: true,
@@ -66,6 +72,7 @@ const userSchema = new Schema<IUser>(
       transform(_doc, ret) {
         delete (ret as { password?: string }).password;
         delete (ret as { telegramLinkCode?: string }).telegramLinkCode;
+        delete (ret as { refreshSessions?: unknown }).refreshSessions;
         return ret;
       },
     },

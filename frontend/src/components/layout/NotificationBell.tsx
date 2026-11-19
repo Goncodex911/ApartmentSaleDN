@@ -3,9 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { AppNotification, notificationApi } from '../../api/notificationApi.js';
 import { User } from '../../api/authApi.js';
 import { MatchShareModal } from '../leads/MatchShareModal.js';
-import { Bell, Target, MessageSquare, ClipboardCheck, CalendarClock, X, AlertTriangle } from 'lucide-react';
+import { Bell, Target, MessageSquare, ClipboardCheck, CalendarClock, X, AlertTriangle, RefreshCcw, HandCoins, LucideIcon } from 'lucide-react';
 
 const POLL_INTERVAL_MS = 30_000;
+
+// Thông báo bấm vào mở chi tiết căn: nhắc tái ký, báo lỗi, căn đã thuê được đăng lại (14.2), khách đã cọc (14.8)
+const OPENS_APARTMENT = new Set<AppNotification['type']>(['LEASE_EXPIRING', 'LISTING_FLAGGED', 'SOURCE_AVAILABLE_AGAIN', 'LEAD_DEPOSITED']);
+const ICONS: Partial<Record<AppNotification['type'], [LucideIcon, string]>> = {
+  APARTMENT_MATCH: [Target, 'text-emerald-600'],
+  LISTING_FLAGGED: [AlertTriangle, 'text-amber-600'],
+  LEASE_EXPIRING: [CalendarClock, 'text-amber-600'],
+  SOURCE_AVAILABLE_AGAIN: [RefreshCcw, 'text-amber-600'],
+  LEAD_DEPOSITED: [HandCoins, 'text-emerald-600'],
+};
+
+const NotificationIcon: React.FC<{ type: AppNotification['type'] }> = ({ type }) => {
+  const [Icon, color] = ICONS[type] ?? (type.startsWith('LISTING_') ? [ClipboardCheck, 'text-indigo-500'] : [MessageSquare, 'text-violet-500']);
+  return <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${color}`} aria-hidden />;
+};
 
 const timeAgo = (iso: string) => {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
@@ -66,8 +81,8 @@ export const NotificationBell: React.FC<{ user: User }> = ({ user }) => {
     }
     if (item.type === 'APARTMENT_MATCH' && item.apartmentId && item.leadId) {
       setMatch({ apartmentId: item.apartmentId, leadId: item.leadId });
-    } else if ((item.type === 'LEASE_EXPIRING' || item.type === 'LISTING_FLAGGED') && item.apartmentId) {
-      navigate('/apartments', { state: { openApartmentId: item.apartmentId } }); // Mở chi tiết căn sắp hết hạn (Story 11.5)
+    } else if (OPENS_APARTMENT.has(item.type) && item.apartmentId) {
+      navigate('/apartments', { state: { openApartmentId: item.apartmentId } }); // Mở chi tiết căn (Story 11.5, 13.6, 14.2, 14.8)
     } else if (item.type.startsWith('LISTING_')) {
       navigate('/submissions'); // Tin đăng chờ duyệt / kết quả duyệt (Story 8.6)
     } else {
@@ -106,17 +121,7 @@ export const NotificationBell: React.FC<{ user: User }> = ({ user }) => {
               onClick={() => handleOpenItem(item)}
               className={`w-full text-left p-3 flex gap-2.5 border-b border-slate-50 hover:bg-slate-50 ${item.readAt ? '' : 'bg-indigo-50/50'}`}
             >
-              {item.type === 'APARTMENT_MATCH' ? (
-                <Target className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" aria-hidden />
-              ) : item.type === 'LISTING_FLAGGED' ? (
-                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" aria-hidden />
-              ) : item.type === 'LEASE_EXPIRING' ? (
-                <CalendarClock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" aria-hidden />
-              ) : item.type.startsWith('LISTING_') ? (
-                <ClipboardCheck className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
-              ) : (
-                <MessageSquare className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
-              )}
+              <NotificationIcon type={item.type} />
               <span className="min-w-0">
                 <span className="block text-xs font-bold text-slate-800">{item.title}</span>
                 <span className="block text-xs text-slate-600">{item.body}</span>

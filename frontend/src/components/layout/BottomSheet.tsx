@@ -15,6 +15,7 @@ interface BottomSheetProps {
   footer?: React.ReactNode; // Thanh nút ghim đáy (không cuộn theo nội dung)
   showClose?: boolean; // Nút X — đóng có hiệu ứng trượt xuống như khi vuốt
   wide?: boolean; // Máy tính: rộng max-w-lg thay vì max-w-md
+  expanded?: boolean; // Story 14.8: nội dung cần thêm chỗ → trượt lên nấc cao nhất
 }
 
 /**
@@ -22,13 +23,13 @@ interface BottomSheetProps {
  * Render qua portal ra <body> — transform khi kéo không làm lệch các hộp `fixed` lồng bên trong.
  * Máy tính (≥ 640px): hộp thoại giữa màn hình, không kéo. Esc / chạm nền mờ → đóng (có hiệu ứng trượt xuống).
  */
-export const BottomSheet: React.FC<BottomSheetProps> = ({ title, onClose, children, snapPoints, footer, showClose, wide }) => {
+export const BottomSheet: React.FC<BottomSheetProps> = ({ title, onClose, children, snapPoints, footer, showClose, wide, expanded }) => {
   const sheetRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const [isMobile] = useState(() => !window.matchMedia(desktopQuery).matches);
-  const { handleProps, dismiss } = useSheetDrag({ sheetRef, overlayRef, contentRef, snapPoints, enabled: isMobile, onClose });
+  const { handleProps, dismiss } = useSheetDrag({ sheetRef, overlayRef, contentRef, snapPoints, enabled: isMobile, expanded, onClose });
 
   // Trợ năng: đưa con trỏ bàn phím vào bảng khi mở, trả lại chỗ cũ khi đóng; Esc đóng bảng trên cùng
   useEffect(() => {

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { ApartmentController } from './apartment.controller.js';
 import { authMiddleware, AuthRequest } from '../../middlewares/auth.js';
 import { rateLimit } from '../../middlewares/rate-limit.js';
-import { requireRoles, optionalAuthMiddleware } from '../../middlewares/rbac.js';
+import { requireRoles } from '../../middlewares/rbac.js';
 import { uploadMiddleware } from '../../middlewares/upload.js';
 import { searchRoutes } from '../search/search.routes.js';
 
@@ -57,9 +57,9 @@ router.delete(
   ApartmentController.removeSubListing
 );
 
-// 4. Tra cứu công khai hoặc theo quyền hạn CTV (kèm Data Masking)
+// 4. Tra cứu kho — bắt buộc đăng nhập (Story 14.4); dữ liệu che theo vai trò (Data Masking)
 router.use('/search', searchRoutes);
-router.get('/', optionalAuthMiddleware, ApartmentController.getAll);
-router.get('/:id', optionalAuthMiddleware, ApartmentController.getById);
+router.get('/', authMiddleware, ApartmentController.getAll);
+router.get('/:id', authMiddleware, ApartmentController.getById);
 
 export const apartmentRoutes = router;

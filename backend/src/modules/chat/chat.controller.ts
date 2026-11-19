@@ -19,7 +19,7 @@ const shareCode = (req: AuthRequest) => {
 export class ChatController {
   // POST /api/v1/chat/:code/messages — khách gửi tin cho trợ lý AI (Story 6.2)
   static sendMessage = asyncHandler(async (req, res) => {
-    const data = await ChatService.sendMessage(shareCode(req), sendMessageSchema.parse(req.body), req.user?.id);
+    const data = await ChatService.sendMessage(shareCode(req), sendMessageSchema.parse(req.body), { id: req.user?.id, ip: req.ip || 'unknown' });
     res.status(200).json({ success: true, data });
   });
 
