@@ -17,7 +17,19 @@ export interface PublicListing {
   includedServices: NonNullable<Apartment['includedServices']>;
   fees: NonNullable<Apartment['fees']>;
   attributes: Omit<Apartment['attributes'], 'livingRooms'>;
-  location: { street?: string; zone?: string; ward?: string; district: string; city: string; approximateCenter: [number, number] | null };
+  // Story 15.5: vị trí đúng + địa chỉ đầy đủ; precision EXACT → ghim, STREET / AREA → vòng gần đúng
+  location: {
+    street?: string;
+    fullAddress: string;
+    buildingName?: string;
+    zone?: string;
+    ward?: string;
+    district: string;
+    city: string;
+    coordinates: [number, number] | null;
+    precision: 'EXACT' | 'STREET' | 'AREA';
+  };
+  nearby: { group: 'BEACH' | 'MARKET' | 'NIGHTLIFE'; name: string; nameEn: string; distanceM: number; walkMinutes?: number }[];
   images: string[];
   status: Apartment['status'];
   availableDate?: string;

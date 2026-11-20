@@ -20,6 +20,7 @@ export type ApartmentFilterValues = {
   radiusKm: string;
   zones: string[]; // Story 8.4: chọn nhiều
   propertyTypes: string[];
+  needsLocation: boolean; // Story 15.7: [Quản lý] căn chưa có vị trí chính xác
 } & Record<AmenityKey, boolean>;
 
 export const EMPTY_FILTERS: ApartmentFilterValues = {
@@ -31,6 +32,7 @@ export const EMPTY_FILTERS: ApartmentFilterValues = {
   radiusKm: '2',
   zones: [],
   propertyTypes: [],
+  needsLocation: false,
   elevator: false,
   allowPets: false,
   carParking: false,
@@ -44,7 +46,7 @@ export const EMPTY_FILTERS: ApartmentFilterValues = {
 };
 
 export const countActiveFilters = (f: ApartmentFilterValues) =>
-  [f.priceRange, f.roomType, f.status, f.landmark].filter(Boolean).length + f.zones.length + f.propertyTypes.length + AMENITY_KEYS.filter((key) => f[key]).length;
+  [f.priceRange, f.roomType, f.status, f.landmark, f.needsLocation].filter(Boolean).length + f.zones.length + f.propertyTypes.length + AMENITY_KEYS.filter((key) => f[key]).length;
 
 const PAGE_SIZE = 12;
 const EMPTY_PAGINATION: Pagination = { total: 0, page: 1, limit: PAGE_SIZE, totalPages: 1 };
@@ -56,6 +58,7 @@ export function toParams(f: ApartmentFilterValues, page: number) {
   if (f.status) params.status = f.status;
   if (f.zones.length) params.zones = f.zones.join(',');
   if (f.propertyTypes.length) params.propertyTypes = f.propertyTypes.join(',');
+  if (f.needsLocation) params.needsLocation = true;
   if (f.landmark) Object.assign(params, { landmark: f.landmark, radiusKm: Number(f.radiusKm) || 2 });
   AMENITY_KEYS.forEach((key) => f[key] && (params[key] = true));
   return params;

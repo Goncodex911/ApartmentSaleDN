@@ -9,6 +9,7 @@ import { sameDistrict, sameStreet, streetKey } from './street-key.js';
 import { LeadMatchingService } from '../leads/lead-matching.service.js';
 import { publishApartmentEvent } from '../realtime/realtime.bus.js';
 import { GeocodingService } from '../search/geocoding.service.js';
+import { geocodeStreet } from '../search/street-geocoder.js';
 import { PHashUtil } from './phash.util.js';
 import { IProcessListingInput } from './dedup.types.js';
 import { recordIngestion } from '../ingestion/ingestion-event.model.js';
@@ -160,8 +161,9 @@ export class DedupService {
 
     // Bước 5: Tin hoàn toàn mới -> Gemini Vision đánh dấu ảnh dán SĐT nguồn cũ (Story 5.2) -> Tạo Master
     const phoneImageIndexes = await GeminiVisionService.detectImagesWithPhone(downloadedImages.map((img) => img.buffer));
-    // Gắn tọa độ (điểm mốc trong địa chỉ → tâm khu vực) để tin nhập tự động cũng tìm được theo bán kính
-    const geo = GeocodingService.resolveCoordinates(ext.address) || GeocodingService.resolveCoordinates(ext.district);
+    // Gắn tọa độ: tên đường (Story 15.6) → điểm mốc trong địa chỉ → tâm khu vực, để tin nhập tự động cũng tìm được theo bán kính
+    const fromStreet = await geocodeStreet(ext.street, ext.district);
+    const geo = fromStreet ? null : GeocodingService.resolveCoordinates(ext.address) || GeocodingService.resolveCoordinates(ext.district);
     // Story 14.2: tin chưa có tên đường không tự gộp theo SĐT → tạo căn mới nhưng báo Quản lý kiểm tra
     const review =
       !streetKey(ext.street) && (await this.hasPhoneOwner(ext.ownerContact.phone))
@@ -183,7 +185,8 @@ export class DedupService {
         ward: ext.ward,
         district: ext.district,
         city: ext.city,
-        coordinates: geo?.coordinates,
+        coordinates: fromStreet ?? geo?.coordinates,
+        geoPrecision: fromStreet ? 'STREET' : geo ? 'AREA' : undefined,
       },
       attributes: {
         propertyType: ext.propertyType,

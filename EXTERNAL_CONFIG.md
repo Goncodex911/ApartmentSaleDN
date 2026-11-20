@@ -19,6 +19,10 @@ Tài liệu này tổng hợp toàn bộ các dịch vụ bên ngoài, API Key v
 | **[EPIC-11](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_11_SMART_BROKER_TOOLS_AND_REALTIME.md)** | Bản đồ OSM, SSE Real-time, Google Maps Waypoints, Cron | Không có biến môi trường bắt buộc (0 VND) | ⏸️ **Sẵn sàng (0 VND - xem mục 7)** |
 | **[EPIC-12](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_12_UI_UX_DESIGN_SYSTEM_AND_STANDARDIZATION.md)** | Nâng cấp UI/UX, Design System, Gestures | Không có biến môi trường mới (0 VND) | ✅ **Sẵn sàng (Thuần Frontend)** |
 | **[EPIC-13](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_13_ADMIN_CONTROL_CENTER_AND_GOVERNANCE.md)** | Trung Tâm Quản Trị Admin, Audit Log, User Management | Tái sử dụng MongoDB & Telegram có sẵn (0 VND) | ✅ **Sẵn sàng (Tận dụng DB)** |
+| **[EPIC-14](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_14_SYSTEM_AUDIT_FIXES_AND_HARDENING.md)** | Sửa Lỗi Logic Sau Rà Soát Toàn Hệ Thống & Gia Cố Bảo Mật | Không có biến môi trường mới (0 VND) | ✅ **Sẵn sàng (Nội bộ)** |
+| **[EPIC-15](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_15_GEOSPATIAL_MAP_AND_SMART_DISCOVERY.md)** | Bản Đồ Địa Không Gian, GPS Thực Địa & Bán Kính Bảo Mật | `VITE_MAP_TILE_URL` (cần key CARTO miễn phí, ≤ 1 triệu tile/tháng), `NOMINATIM_USER_AGENT` (tùy chọn) | ⚠️ **Cần đăng ký key CARTO (miễn phí) — xem mục 8.1** |
+| **[EPIC-16](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_16_ADMIN_CONSOLE_AND_ACTIVITY_MONITORING.md)** | Bảng Điều Khiển Quản Trị Riêng & Giám Sát Hoạt Động | Tái sử dụng MongoDB Atlas & JWT có sẵn (0 VND) | ✅ **Sẵn sàng (Thuần nội bộ)** |
+| **[EPIC-17](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_17_MULTI_CHANNEL_AUTO_POSTING_AND_PRECISION_MAPS.md)** | Đăng Tin Đa Kênh (Zalo, WhatsApp) & Chuẩn Hóa Google Maps | Web Share API, WhatsApp Deep-links, HTTP Resolver (0 VND) | ✅ **Sẵn sàng (0 VND)** |
 
 ---
 
@@ -155,3 +159,61 @@ Epic 11 được thiết kế theo triết lý **Ponytail (Tối giản, 0 đồ
 #### 7.5. Biến môi trường của Epic 11
 * **Bắt buộc:** không có.
 * **Tùy chọn:** `USD_VND_RATE` trên Render (đã có trong `.env.example`, mặc định 25.000) — tỷ giá cho bảng so sánh căn, ước tính chi phí trên trang khách (Story 11.6) và ghép khách theo ngân sách USD (Story 11.1). `VITE_MAP_TILE_KEY` / `CRON_SECRET` chỉ cần khi chọn các Cách B ở trên.
+
+---
+
+### 8. EPIC-15: Hệ Thống Bản Đồ Địa Không Gian & Khảo Sát Bất Động Sản (Geospatial & Discovery)
+
+Epic 15 tiếp tục trung thành với triết lý **Ponytail (Tối giản, 0 đồng, không mua API Google Maps đắt đỏ)**. Mọi nâng cấp đều sử dụng chuẩn web mở và dịch vụ CDN công cộng miễn phí:
+
+#### 8.1. Bản đồ nền CartoDB Voyager / Positron (Nâng cấp từ OSM)
+* **Mục đích:** Thay thế giao diện OpenStreetMap mặc định bằng phong cách bản đồ phẳng (Flat / Minimalist) sang trọng như Airbnb, màu sắc dịu nhẹ giúp các bong bóng giá phòng (`AVAILABLE` xanh, `UPCOMING` cam) nổi bật rõ ràng dưới ánh sáng ngoài trời.
+* **⚠️ Cập nhật điều khoản CARTO (kiểm tra 21/11/2026, điều khoản cập nhật 29/09/2026):**
+  * **Cần API key** (miễn phí, đăng ký không chờ duyệt). Không có key → tile bị đóng dấu "API key required".
+  * App kinh doanh: **miễn phí tối đa 1 triệu lượt tải tile / tháng** (tính chung mọi key của tài khoản). Vượt → gói Basemaps Commercial **$500 / tháng** (10 triệu tile).
+  * Key nằm ở frontend → **bắt buộc khóa theo website** trong trang quản lý key để người khác không dùng ké hạn mức.
+  * Không được cache tile phía server; không cache trên máy người dùng quá 30 ngày (app không cache tile — Story 11.2).
+* **Giải pháp:** CDN tile của CARTO:
+  * URL Voyager: `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=<KEY_CỦA_BẠN>`.
+  * Ghi nguồn bắt buộc, hiện rõ trên bản đồ: `© OpenStreetMap contributors, © CARTO` (code tự thêm khi URL là CARTO).
+* **Cách cấu hình (Story 15.1):**
+  1. Vào https://carto.com/basemaps/ → **Get API key**, đăng ký bằng email của bạn.
+  2. Khóa key theo website: `https://apartmentsaledn.netlify.app` và `http://localhost:5173`.
+  3. **Netlify** → Site settings → Environment variables → `VITE_MAP_TILE_URL` = URL Voyager ở trên (thay `<KEY_CỦA_BẠN>`) → **deploy lại** (biến `VITE_` được gắn vào lúc build).
+  4. **Chạy local:** tạo file `frontend/.env.local` chứa cùng dòng `VITE_MAP_TILE_URL=...` (Vite **không** đọc file `.env` ở gốc repo; `frontend/.env.local` đã nằm trong `.gitignore`).
+* **Chưa cấu hình:** app tự dùng tile OpenStreetMap chuẩn như hiện tại (không lỗi, chỉ kém đẹp hơn).
+* **Theo dõi hạn mức:** ~50–150 tile mỗi lần mở & kéo bản đồ → đội ~20 CTV dùng hằng ngày ≈ 0,3–0,9 triệu tile / tháng. Xem số liệu trong trang CARTO; sắp vượt → xóa biến để về tile OSM.
+
+#### 8.2. Định vị GPS Thực địa cho CTV (HTML5 Geolocation API)
+* **Mục đích:** Khi CTV đang đứng ngoài đường khảo sát, bấm 1 nút `[📍]` là bản đồ tự lướt (`flyTo`) về tọa độ thực tế của môi giới và định vị chấm xanh xung nhịp (Pulsing Blue Dot).
+* **Chi phí:** **0 VND (Miễn phí 100%)**.
+* **Điều kiện bắt buộc:**
+  * Trình duyệt yêu cầu kết nối **HTTPS** mới cho phép gọi GPS (`navigator.geolocation`). Netlify đã bật sẵn HTTPS mặc định.
+  * Thiết bị di động của CTV (iPhone/Android) phải bật "Dịch vụ định vị" (Location Services) và bấm **Cho phép (Allow)** khi trình duyệt hỏi quyền.
+  * Nếu người dùng từ chối cấp quyền, hệ thống hiển thị thông báo Toast hướng dẫn bật định vị mà không làm gián đoạn trải nghiệm.
+
+#### 8.3. Bộ Định vị Tên đường Tự động Khi Nhập Tin (OSM Nominatim / Photon Geocoding)
+* **Mục đích:** Khi Quản lý hoặc CTV nhập căn hộ bằng text địa chỉ (ví dụ: `150 Hoàng Kế Viêm, Ngũ Hành Sơn`) mà không dán link Google Maps, backend tự động phân giải tên đường ra tọa độ GPS để không bị dồn về tâm quận.
+* **Chi phí:** **0 VND (Miễn phí 100%)**.
+* **Giải pháp:**
+  * **Đã chốt dùng OSM Nominatim** (`nominatim.openstreetmap.org`) — có chính sách sử dụng rõ ràng. **Không dùng Photon công khai** (`photon.komoot.io`): người duy trì nói bản công khai chỉ để demo / thử nghiệm, không cam kết hoạt động (chỉ dùng nếu sau này tự cài Photon).
+  * **Tuân thủ chính sách sử dụng Nominatim** (https://operations.osmfoundation.org/policies/nominatim/):
+    1. Giới hạn tần suất: Tối đa 1 request/giây (hàng đợi nội bộ trong máy chủ).
+    2. Bắt buộc có định danh User-Agent riêng (ví dụ: `RoomMaster-Danang/1.0`). Nên kèm cách liên hệ (website app); **có ghi email hay không là do bạn quyết** — code không tự gắn email.
+    3. **Bộ nhớ đệm (Geocache):** Lưu kết quả tọa độ tên đường vào MongoDB collection `geocaches` để lần sau các căn cùng tên đường lấy ngay trong 1ms mà không gọi lại API bên ngoài.
+    4. Không tải hàng loạt: script định vị lại căn cũ (Story 15.6) cũng đi qua hàng đợi 1 request/giây.
+  * Chỉ gửi **tên đường + quận + Đà Nẵng** ra ngoài — không gửi số nhà, tên / SĐT chủ.
+* **Cấu hình:** không bắt buộc. Muốn đổi định danh → thêm `NOMINATIM_USER_AGENT` trong **Render → Environment** (backend), VD `RoomMaster-Danang/1.0 (+https://apartmentsaledn.netlify.app)`.
+
+#### 8.4. Bản đồ Vị trí Chính xác cho Trang Khách Thuê (`/p/:slug`)
+* **✅ Quyết định Project Owner (21/11/2026):** hiển thị **đúng vị trí + địa chỉ đầy đủ**, không làm lệch (Story 15.5). Vị trí chính xác lấy từ link Google Maps hoặc ghim kéo tay trong form (Story 15.7).
+* **Chi phí:** **0 VND** — bản đồ dùng tile như mục 8.1; nút `[Chỉ đường]` dùng link chuẩn của Google `https://www.google.com/maps/search/?api=1&query=<lat>,<lng>` (không cần key, không tính phí).
+* **Không cần cấu hình.**
+
+#### 8.5. Biến môi trường của Epic 15
+* **Bắt buộc:** **Không có** — thiếu biến thì app vẫn chạy (dùng tile OSM, User-Agent mặc định).
+* **Khuyên làm để có bản đồ CARTO đẹp (Story 15.1):**
+  * `VITE_MAP_TILE_URL` (**frontend** — Netlify + `frontend/.env.local`): URL tile CARTO **kèm `?key=`** (xem mục 8.1). Không khai báo → tile OpenStreetMap chuẩn.
+* **Tùy chọn:**
+  * `NOMINATIM_USER_AGENT` (**backend** — Render + `.env` gốc): định danh app khi gọi định vị tên đường (mặc định: `RoomMaster-Danang/1.0`).
+

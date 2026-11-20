@@ -6,7 +6,7 @@ import { PhotoSlider } from '../components/public/PhotoSlider.js';
 import { CtvContactBar } from '../components/public/CtvContactBar.js';
 import { ChatWidget } from '../components/public/ChatWidget.js';
 import { MapPin, LinkIcon } from 'lucide-react';
-import { marketLabels, roomParts, usdText, zoneText } from '../utils/apartmentLabels.js';
+import { marketLabels, roomParts, usdText } from '../utils/apartmentLabels.js';
 import { amenityLabels } from '../utils/amenities.js';
 import { isVideoUrl } from '../utils/media.js';
 import { usePublicLang } from '../hooks/usePublicLang.js';
@@ -14,24 +14,12 @@ import { LivingCostEstimator } from '../components/public/LivingCostEstimator.js
 import { PUBLIC_COPY } from '../utils/publicCopy.js';
 import { Lang } from '../utils/shareLang.js';
 import { headlineEn, addressEn, formatVndEn, feesEn, amenitiesEn, bedroomsEn, FURNISHING_EN, minStayEn, dateEn } from '../utils/listingEn.js';
+import { NeighborhoodMap } from '../components/public/NeighborhoodMap.js';
 
 // Story 12.4: trình xem ảnh toàn màn hình tải riêng khi khách chạm ảnh
 const MediaLightbox = lazy(() => import('../components/media/MediaLightbox.js'));
 
 const FURNISHING_LABEL = { FULL: 'Full đồ', BASIC: 'Đồ cơ bản', EMPTY: 'Nhà trống' } as const;
-
-// Bản đồ khu vực chung: tâm đã làm tròn ~500m từ backend, vòng tròn mờ thay cho ghim vị trí
-const AreaMap: React.FC<{ center: [number, number]; title: string }> = ({ center: [lng, lat], title }) => (
-  <div className="relative h-56 rounded-xl overflow-hidden border border-slate-200">
-    <iframe
-      title={title}
-      src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.012},${lat - 0.008},${lng + 0.012},${lat + 0.008}&layer=mapnik`}
-      className="w-full h-full border-0"
-      loading="lazy"
-    />
-    <div className="absolute top-1/2 left-1/2 w-28 h-28 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-500/20 border-2 border-indigo-500 pointer-events-none" />
-  </div>
-);
 
 // Nút đổi ngôn ngữ trang khách (Story 7.3)
 const LangSwitch: React.FC<{ lang: Lang; onChange: (lang: Lang) => void }> = ({ lang, onChange }) => (
@@ -71,7 +59,7 @@ function describe(listing: PublicListing, lang: Lang) {
   }
   return {
     title: listing.title,
-    place: [location.street, zoneText(location), location.city].filter(Boolean).join(', '),
+    place: location.fullAddress, // Story 15.5: địa chỉ đầy đủ
     price: formatVnd(listing.price),
     fees: [
       fees.electricity && `Điện ${formatVnd(fees.electricity)}/kWh`,
@@ -188,12 +176,8 @@ export const PublicListingPage: React.FC = () => {
 
           {listing.status !== 'RENTED' && <LivingCostEstimator listing={listing} lang={lang} />}
 
-          {listing.location.approximateCenter && (
-            <div className="space-y-1.5">
-              <AreaMap center={listing.location.approximateCenter} title={copy.mapTitle} />
-              <p className="text-[11px] text-slate-600">{copy.mapNote}</p>
-            </div>
-          )}
+          {/* Story 15.5: đúng vị trí + địa chỉ đầy đủ + khoảng cách tới biển / chợ / phố Tây */}
+          <NeighborhoodMap listing={listing} lang={lang} />
 
           {/* Lời chào CTV tự viết bằng tiếng Việt → chỉ hiện ở trang tiếng Việt */}
           {lang === 'vi' && listing.ctv.greetingMessage && (

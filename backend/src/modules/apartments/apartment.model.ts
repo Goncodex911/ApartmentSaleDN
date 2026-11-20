@@ -5,6 +5,13 @@ import { PROPERTY_TYPES, PropertyType, ZONES, Zone } from './listing-taxonomy.js
 export const INCLUDED_SERVICES = ['WIFI', 'CLEANING', 'ELECTRICITY', 'WATER', 'LAUNDRY'] as const;
 export type IncludedService = (typeof INCLUDED_SERVICES)[number];
 
+// Story 15.6 / 15.7 — độ chính xác tọa độ: EXACT = link Google Maps / ghim tay / GPS; STREET = theo tên đường; AREA = điểm mốc / tâm quận
+export const GEO_PRECISIONS = ['EXACT', 'STREET', 'AREA'] as const;
+export type GeoPrecision = (typeof GEO_PRECISIONS)[number];
+/** Căn cũ chưa có geoPrecision: có link Maps → EXACT, còn lại → AREA. */
+export const locationPrecision = (location: { geoPrecision?: GeoPrecision; mapUrl?: string }): GeoPrecision =>
+  location.geoPrecision ?? (location.mapUrl ? 'EXACT' : 'AREA');
+
 export interface ISubListing {
   _id?: Types.ObjectId;
   sourceType: 'TELEGRAM' | 'WHATSAPP' | 'ZALO' | 'FACEBOOK' | 'MANUAL';
@@ -51,6 +58,8 @@ export interface IApartment extends Document {
     district: string;
     city: string;
     coordinates?: [number, number]; // [kinh độ, vĩ độ] index 2dsphere
+    geoPrecision?: GeoPrecision; // Story 15.6 / 15.7: độ chính xác tọa độ (căn cũ không có → xem locationPrecision)
+    buildingName?: string; // Story 15.7: tên tòa nhà / dự án
   };
   attributes: {
     propertyType?: PropertyType; // Loại căn (Story 8.4)
@@ -143,6 +152,8 @@ const apartmentSchema = new Schema<IApartment>(
       district: { type: String, required: true, trim: true, index: true },
       city: { type: String, required: true, default: 'Đà Nẵng', trim: true },
       coordinates: { type: [Number], index: '2dsphere' },
+      geoPrecision: { type: String, enum: GEO_PRECISIONS },
+      buildingName: { type: String, trim: true },
     },
     attributes: {
       propertyType: { type: String, enum: PROPERTY_TYPES, index: true },
