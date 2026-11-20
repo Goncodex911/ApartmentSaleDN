@@ -11,7 +11,7 @@ export interface IAnalyzedQuery {
 
 // Các trường văn bản dùng để khớp từ khóa tự do
 const WARD_LIKE_ZONES = ['Mỹ An', 'Khuê Mỹ', 'An Hải', 'Hòa Xuân'];
-const KEYWORD_FIELDS = ['title', 'description', 'location.address', 'location.ward', 'location.district'];
+const KEYWORD_FIELDS = ['title', 'description', 'location.address', 'location.ward', 'location.district', 'location.buildingName']; // + tên tòa nhà (Story 15.7)
 const WORD_START = `(?:^|[\\s,.;:!?()/'"-])`;
 const WORD_END = `(?=$|[\\s,.;:!?()/'"-])`;
 

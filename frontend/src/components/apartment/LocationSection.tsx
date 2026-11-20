@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { Link2, MapPin } from 'lucide-react';
+import React, { lazy, Suspense, useState } from 'react';
+import { Check, Crosshair, Link2, MapPin } from 'lucide-react';
 import { Apartment } from '../../api/apartmentApi.js';
 import { OTHER_DISTRICTS, OTHER_ZONE, ZONES, Zone } from '../../utils/danang.js';
 import { Field, FormSection, ToggleChip, inputClass, textOr } from './formFields.js';
+
+const LocationPicker = lazy(() => import('./LocationPicker.js').then((m) => ({ default: m.LocationPicker }))); // Leaflet chỉ tải khi mở
 
 export interface LocationFormValues {
   street: string;
@@ -11,6 +13,8 @@ export interface LocationFormValues {
   ward: string;
   zone: Zone | '';
   district: string; // Chỉ dùng khi khu vực "Khác"
+  buildingName: string; // Story 15.7
+  pinned?: [number, number]; // Story 15.7: chỉ có khi vừa đặt ghim trong lần mở form này → gửi lên = vị trí chính xác
 }
 
 export const toLocationForm = (apartment?: Apartment | null): LocationFormValues => ({
@@ -20,6 +24,7 @@ export const toLocationForm = (apartment?: Apartment | null): LocationFormValues
   ward: apartment?.location?.ward || '',
   zone: apartment?.location?.zone || '', // Không chọn sẵn: tránh lưu nhầm khu vực
   district: apartment?.location?.district || '',
+  buildingName: apartment?.location?.buildingName || '',
 });
 
 export const isLocationComplete = (form: LocationFormValues) =>
@@ -36,6 +41,8 @@ export const fromLocationForm = (form: LocationFormValues, empty: null | undefin
   ward: textOr(form.ward, empty),
   zone: form.zone,
   district: form.zone === OTHER_ZONE ? form.district : undefined,
+  buildingName: textOr(form.buildingName, empty),
+  coordinates: form.pinned, // Không gửi tọa độ cũ: chỉ ghim mới đặt mới thành vị trí chính xác
   city,
 });
 
@@ -47,9 +54,12 @@ const MODES = [
 
 // Nhóm "Vị trí": khách chỉ thấy tên đường + khu vực; số nhà & link map chỉ nội bộ
 // Story 13.8: 2 chế độ nhập — đổi chế độ chỉ ẩn/hiện ô link, không xóa dữ liệu đã gõ (link cũ vẫn giữ khi sửa căn)
-export const LocationSection: React.FC<{ value: LocationFormValues; onChange: (next: LocationFormValues) => void }> = ({ value, onChange }) => {
+export const LocationSection: React.FC<{ value: LocationFormValues; onChange: (next: LocationFormValues) => void; saved?: Apartment['location'] }> = ({ value, onChange, saved }) => {
   const set = (patch: Partial<LocationFormValues>) => onChange({ ...value, ...patch });
   const [mode, setMode] = useState<InputMode>(() => (value.mapUrl ? 'MAP_LINK' : 'DIRECT'));
+  const [picking, setPicking] = useState(false);
+  // Story 15.7: độ chính xác hiện có (căn cũ chưa có trường → có link Maps coi là chính xác)
+  const exact = Boolean(value.pinned) || saved?.geoPrecision === 'EXACT' || (!saved?.geoPrecision && Boolean(saved?.mapUrl));
 
   return (
     <FormSection title="Vị trí">
@@ -114,10 +124,38 @@ export const LocationSection: React.FC<{ value: LocationFormValues; onChange: (n
           <input value={value.ward} onChange={(e) => set({ ward: e.target.value })} placeholder="Mỹ An" className={inputClass} />
         </Field>
       </div>
+      <Field label="Tên tòa nhà / dự án">
+        <input value={value.buildingName} onChange={(e) => set({ buildingName: e.target.value })} placeholder="VD: Monarchy, Hiyori" maxLength={100} className={inputClass} />
+      </Field>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setPicking(true)}
+          className="min-h-[44px] inline-flex items-center gap-1.5 px-4 rounded-xl border border-slate-300 text-sm font-semibold text-slate-800 active:bg-slate-100 transition-colors duration-100"
+        >
+          <Crosshair className="w-4 h-4" aria-hidden /> {exact ? 'Sửa vị trí trên bản đồ' : 'Đặt vị trí trên bản đồ'}
+        </button>
+        <span className={`inline-flex items-center gap-1 text-xs ${exact ? 'text-emerald-800' : 'text-amber-800'}`}>
+          {exact ? <Check className="w-4 h-4" aria-hidden /> : null}
+          {value.pinned ? 'Đã đặt vị trí chính xác' : exact ? 'Đã có vị trí chính xác' : 'Chưa có vị trí chính xác — nên đặt để bản đồ hiện đúng'}
+        </span>
+      </div>
       <p className="-mt-1 text-xs text-slate-600">
         {mode === 'DIRECT' && 'Không cần link: chi tiết căn tự mở Google Maps theo địa chỉ. '}
-        Khách chỉ thấy tên đường và khu vực. Số nhà, link bản đồ chỉ Quản lý, CTV xem được.
+        Trang gửi khách hiện địa chỉ đầy đủ và vị trí trên bản đồ. Link Google Maps chỉ Quản lý, CTV xem được.
       </p>
+      {picking && (
+        <Suspense fallback={null}>
+          <LocationPicker
+            initial={value.pinned || saved?.coordinates}
+            onClose={() => setPicking(false)}
+            onConfirm={(pinned) => {
+              set({ pinned });
+              setPicking(false);
+            }}
+          />
+        </Suspense>
+      )}
     </FormSection>
   );
 };

@@ -22,6 +22,8 @@ export interface ISearchOptions {
   lng?: number;
   radiusKm?: number;
   landmark?: string;
+  needsLocation?: boolean; // Story 15.7: [Quản lý] chỉ căn chưa có vị trí chính xác
+  bbox?: [number, number, number, number]; // Story 15.3: [minLng, minLat, maxLng, maxLat] — chỉ dùng cho ghim bản đồ
   // Faceted Filter Options (Story 4.3)
   priceRange?: string;
   roomType?: string;
@@ -39,6 +41,10 @@ export interface ISearchOptions {
   sauna?: boolean;
 }
 
+const KM_IN_QUERY = /(\d+(?:[.,]\d+)?)\s*km\b/i;
+const MIN_RADIUS_KM = 0.5;
+const MAX_RADIUS_KM = 20;
+
 export class SearchService {
   /**
    * Tìm kiếm thông minh: Tìm kiếm mờ, tiếng lóng BĐS, bán kính GPS & Bộ lọc 1-chạm
@@ -48,7 +54,10 @@ export class SearchService {
    * dựng điều kiện lọc MongoDB.
    */
   public static buildContext(options: ISearchOptions) {
-    const queryRaw = (options.q || '').trim();
+    // Story 15.4: "gần Cầu Rồng 2km" → bán kính 2km; bỏ cụm km khỏi từ khóa (trước đây "2km" thành từ bắt buộc → 0 kết quả)
+    const kmMatch = (options.q || '').match(KM_IN_QUERY);
+    const queryRaw = (options.q || '').replace(KM_IN_QUERY, ' ').replace(/\s+/g, ' ').trim();
+    const radiusFromText = kmMatch ? Math.min(MAX_RADIUS_KM, Math.max(MIN_RADIUS_KM, parseFloat(kmMatch[1].replace(',', '.')))) : undefined;
     // 1. Bóc tách tiếng lóng, từ đồng nghĩa & lỗi chính tả
     const { expandedConditions, recognizedDistrict } = QueryAnalyzer.analyze(queryRaw);
 
@@ -61,7 +70,7 @@ export class SearchService {
     } else if (queryRaw) {
       resolvedLandmark = GeocodingService.resolveCoordinates(queryRaw, { landmarksOnly: true });
     }
-    const radiusKm = options.radiusKm ? Number(options.radiusKm) : resolvedLandmark ? 2 : undefined;
+    const radiusKm = options.radiusKm ? Number(options.radiusKm) : resolvedLandmark ? (radiusFromText ?? 2) : undefined;
 
     // 3. Xây dựng điều kiện lọc bằng FilterBuilder
     const filter = FilterBuilder.build(options, recognizedDistrict, expandedConditions, resolvedLandmark);
@@ -234,7 +243,7 @@ export class SearchService {
           index: 'default',
           text: {
             query: q,
-            path: ['title', 'description', 'location.address', 'location.district'],
+            path: ['title', 'description', 'location.address', 'location.district', 'location.buildingName'],
             fuzzy: { maxEdits: 1, prefixLength: 1 },
           },
         },

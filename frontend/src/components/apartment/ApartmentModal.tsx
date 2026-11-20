@@ -218,7 +218,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
             </Field>
           </FormSection>
 
-          <LocationSection value={location} onChange={setLocation} />
+          <LocationSection value={location} onChange={setLocation} saved={initialData?.location} />
 
           <FormSection title="Căn hộ">
             <div className="grid grid-cols-2 gap-3 items-end">

@@ -7,6 +7,8 @@ export const searchRoutes = Router();
 
 // GET /api/v1/apartments/search/landmarks - Danh sách điểm mốc gợi ý
 searchRoutes.get('/landmarks', SearchController.getLandmarks); // Công khai: chỉ danh sách điểm mốc, không có dữ liệu kho
+// GET /api/v1/apartments/search/pois - Tiện ích Đà Nẵng hiển thị trên bản đồ (Story 15.4), công khai: chỉ địa điểm công cộng
+searchRoutes.get('/pois', SearchController.getPois);
 
 // POST & GET /api/v1/apartments/search/natural - Tìm kiếm câu tự nhiên AI (Story 4.4)
 // Có gọi Gemini → giới hạn tần suất theo TÀI KHOẢN (Story 14.4: CTV dùng chung mạng văn phòng không chặn lẫn nhau)

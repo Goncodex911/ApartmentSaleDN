@@ -57,6 +57,27 @@ export interface MapPin {
   approximate: boolean; // Toạ độ ước lượng (chưa có link Google Maps)
 }
 
+// Story 15.4: điểm mốc đang tìm (tâm + bán kính) & tiện ích Đà Nẵng trên bản đồ
+export interface MapLandmark {
+  name: string;
+  coordinates: [number, number];
+  radiusKm: number;
+}
+export interface MapPinsResult {
+  pins: MapPin[];
+  withoutLocation: number;
+  landmark: MapLandmark | null;
+  truncated?: boolean; // Story 15.3: khung nhìn có hơn 500 căn
+}
+export type PoiGroup = 'BEACH' | 'MARKET' | 'UNIVERSITY' | 'TRANSPORT';
+export interface Poi {
+  id: string;
+  name: string;
+  nameEn: string;
+  group: PoiGroup;
+  coordinates: [number, number];
+}
+
 export interface Apartment {
   _id: string;
   title: string;
@@ -75,6 +96,8 @@ export interface Apartment {
     district: string;
     city: string;
     coordinates?: [number, number];
+    geoPrecision?: 'EXACT' | 'STREET' | 'AREA'; // Story 15.6 / 15.7
+    buildingName?: string; // Story 15.7
   };
   attributes: {
     propertyType?: PropertyType;
@@ -163,7 +186,7 @@ export const apartmentApi = {
   },
 
   // Story 11.2: ghim bản đồ theo cùng bộ lọc (tối đa 500 căn, dữ liệu nhẹ)
-  getMapPins: async (params: Record<string, any> = {}): Promise<{ pins: MapPin[]; withoutLocation: number }> => {
+  getMapPins: async (params: Record<string, any> = {}): Promise<MapPinsResult> => {
     const res = await apiClient.get('/apartments/search/pins', { params });
     return res.data.data;
   },
@@ -177,6 +200,8 @@ export const apartmentApi = {
     const res = await apiClient.post('/apartments/search/natural', { query }, { params });
     return res.data;
   },
+
+  getPois: async (): Promise<Poi[]> => (await apiClient.get('/apartments/search/pois')).data.data,
 
   getLandmarks: async () => {
     const res = await apiClient.get('/apartments/search/landmarks');

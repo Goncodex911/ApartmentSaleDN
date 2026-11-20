@@ -2,7 +2,7 @@ import { ISearchOptions } from './search.service.js';
 import { IResolvedLocation } from './geocoding.service.js';
 import { buildDiacriticRegex, NEAR_BEACH_CONDITION, POOL_CONDITION, AMENITY_CONDITIONS, NEW_AMENITY_KEYS } from './slang.dictionary.js';
 import { removeVietnameseTones } from '../../utils/vietnamese.js';
-import { buildStatusFilter } from '../apartments/apartment.model.js';
+import { buildStatusFilter, isPrivilegedRole } from '../apartments/apartment.model.js';
 
 // Khoảng giá 1-chạm theo mặt bằng Đà Nẵng: [tối thiểu, tối đa] VNĐ/tháng ("above_12m" giữ cho link cũ)
 const PRICE_RANGES: Record<string, [number, number?]> = {
@@ -80,6 +80,16 @@ export class FilterBuilder {
     }
 
     if (options.furnishing) filter['attributes.furnishing'] = options.furnishing;
+    // Story 15.7: [Quản lý] căn chưa có vị trí chính xác (theo tên đường / khu vực; căn cũ không có link Maps) để bổ sung dần
+    if (options.needsLocation && isPrivilegedRole(options.userRole)) {
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { 'location.geoPrecision': { $in: ['STREET', 'AREA'] } },
+          { 'location.geoPrecision': { $exists: false }, 'location.mapUrl': { $in: [null, ''] } },
+        ],
+      });
+    }
     // Story 8.4: chip Khu vực & Loại căn (chọn nhiều) — giá trị đã lọc theo danh mục ở controller
     if (options.zones?.length) filter['location.zone'] = { $in: options.zones };
     if (options.propertyTypes?.length) filter['attributes.propertyType'] = { $in: options.propertyTypes };

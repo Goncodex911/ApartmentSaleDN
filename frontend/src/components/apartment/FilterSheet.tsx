@@ -58,6 +58,8 @@ interface FilterSheetProps {
 }
 
 // Bảng trượt Bộ lọc (Story 4.3 thu gọn): chọn trên bản nháp, chỉ áp dụng khi bấm "Xem kết quả"
+export const NEEDS_LOCATION_LABEL = 'Chưa có vị trí chính xác';
+
 export const FilterSheet: React.FC<FilterSheetProps> = ({ initial, isManager, onApply, onClose }) => {
   const [draft, setDraft] = useState(initial);
   const [landmarks, setLandmarks] = useState<Landmark[]>([]);
@@ -124,6 +126,10 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({ initial, isManager, on
             {STATUSES.filter((s) => isManager || !s.managerOnly).map((s) => (
               <Chip key={s.id} active={draft.status === s.id} onClick={() => pick('status', s.id)}>{s.label}</Chip>
             ))}
+            {/* Story 15.7: Quản lý lọc căn chưa có vị trí chính xác để bổ sung ghim */}
+            {isManager && (
+              <Chip active={draft.needsLocation} onClick={() => setDraft((d) => ({ ...d, needsLocation: !d.needsLocation }))}>{NEEDS_LOCATION_LABEL}</Chip>
+            )}
           </Section>
           <section className="space-y-2">
             <h3 className="text-sm font-semibold text-slate-900">Gần địa điểm</h3>

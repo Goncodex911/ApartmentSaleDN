@@ -4,6 +4,7 @@ import { vnPhone, toPatchSchema, DeepPartial } from '../../utils/validators.js';
 import { INCLUDED_SERVICES } from './apartment.model.js';
 import { isGoogleMapsUrl } from '../../utils/google-maps.js';
 import { LEASE_STEPS, PROPERTY_TYPES, ZONES } from './listing-taxonomy.js';
+import { inDanang } from '../search/landmarks.data.js';
 
 const statusEnum = z.enum(['AVAILABLE', 'UPCOMING', 'DEPOSITED', 'RENTED']);
 
@@ -28,7 +29,12 @@ export const createApartmentSchema = z.object({
     zone: z.enum(ZONES, 'Vui lòng chọn khu vực'),
     district: z.string().min(2, 'Quận/Huyện không được để trống').optional(),
     city: z.string().default('Đà Nẵng'),
-    coordinates: z.tuple([z.number(), z.number()]).optional(),
+    // Story 15.7: ghim kéo tay / GPS trong form → vị trí chính xác; chỉ nhận trong khung Đà Nẵng mở rộng (gồm Hội An)
+    coordinates: z
+      .tuple([z.number(), z.number()])
+      .refine(inDanang, 'Vị trí trên bản đồ phải nằm trong Đà Nẵng')
+      .optional(),
+    buildingName: z.string().trim().max(100, 'Tên tòa nhà tối đa 100 ký tự').optional(), // Story 15.7
   }),
   attributes: z
     .object({

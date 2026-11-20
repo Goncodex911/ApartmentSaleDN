@@ -1,5 +1,5 @@
 import { ApartmentFilterValues, AMENITY_KEYS } from '../../hooks/useApartmentSearch.js';
-import { PRICE_RANGES, ROOM_TYPES, AMENITIES, STATUSES } from './FilterSheet.js';
+import { PRICE_RANGES, ROOM_TYPES, AMENITIES, STATUSES, NEEDS_LOCATION_LABEL } from './FilterSheet.js';
 import { propertyTypeLabel, PropertyType } from '../../utils/danang.js';
 
 export interface FilterChip {
@@ -19,6 +19,7 @@ export function activeChips(f: ApartmentFilterValues): FilterChip[] {
   f.propertyTypes.forEach((type) =>
     chips.push({ key: `type-${type}`, label: propertyTypeLabel(type as PropertyType) || type, clear: { propertyTypes: f.propertyTypes.filter((t) => t !== type) } })
   );
+  if (f.needsLocation) chips.push({ key: 'needs-location', label: NEEDS_LOCATION_LABEL, clear: { needsLocation: false } });
   if (f.landmark) chips.push({ key: 'lm', label: `${f.landmarkName || 'Điểm mốc'} · ${f.radiusKm} km`, clear: { landmark: '', landmarkName: '' } });
   AMENITY_KEYS.forEach((key) => {
     if (f[key]) chips.push({ key, label: AMENITIES.find((a) => a.key === key)!.label, clear: { [key]: false } });

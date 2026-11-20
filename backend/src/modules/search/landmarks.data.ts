@@ -5,6 +5,9 @@
  * → dùng tên quận cũ làm "khu vực" (trường location.district).
  */
 
+/** Khung Đà Nẵng mở rộng (gồm Hội An) — kiểm tra tọa độ ghim tay (Story 15.7) & kết quả định vị tên đường (15.6). */
+export const inDanang = ([lng, lat]: [number, number]) => lng >= 107.9 && lng <= 108.4 && lat >= 15.8 && lat <= 16.25;
+
 export interface ILandmark {
   id: string;
   name: string;
@@ -84,4 +87,44 @@ export const LANDMARKS: ILandmark[] = [
   lm('dh-duy-tan', 'ĐH Duy Tân', 'ĐH Duy Tân', ['dh duy tan', 'dai hoc duy tan', 'dtu'] /* không dùng "duy tan" trơn: trùng tên đường ở Hải Châu */, [108.2119, 16.06], 'Thanh Khê', 'UNIVERSITY'),
   lm('dh-fpt', 'ĐH FPT Đà Nẵng', 'ĐH FPT', ['fpt', 'fpt city'], [108.26, 15.969], 'Ngũ Hành Sơn', 'UNIVERSITY'),
   lm('pho-co-hoi-an', 'Phố cổ Hội An', 'Phố cổ Hội An', ['pho co', 'ancient town'], [108.327, 15.877], 'Hội An', 'AREA'),
+];
+
+/**
+ * Story 15.4 / 15.5 — tiện ích hiển thị trên bản đồ & trang khách. Danh sách RIÊNG, KHÔNG dùng để tìm kiếm:
+ * "Phạm Văn Đồng" vừa là bãi biển vừa là tên đường — thêm vào LANDMARKS sẽ biến mọi lượt tìm theo đường đó thành tìm bán kính.
+ * Tọa độ [kinh độ, vĩ độ] gần đúng.
+ */
+export type PoiGroup = 'BEACH' | 'MARKET' | 'UNIVERSITY' | 'TRANSPORT' | 'NIGHTLIFE';
+export interface IPoi {
+  id: string;
+  name: string;
+  nameEn: string;
+  group: PoiGroup;
+  coordinates: [number, number];
+}
+const landmarkPoi = (id: string, nameEn: string, group: PoiGroup): IPoi => {
+  const landmark = LANDMARKS.find((lm) => lm.id === id)!;
+  return { id, name: landmark.shortName, nameEn, group, coordinates: landmark.coordinates };
+};
+
+export const POIS: IPoi[] = [
+  landmarkPoi('bien-my-khe', 'My Khe Beach', 'BEACH'),
+  landmarkPoi('bien-non-nuoc', 'Non Nuoc Beach', 'BEACH'),
+  { id: 'bien-pham-van-dong', name: 'Biển Phạm Văn Đồng', nameEn: 'Pham Van Dong Beach', group: 'BEACH', coordinates: [108.2462, 16.076] },
+  { id: 'bien-t20', name: 'Biển T20', nameEn: 'T20 Beach', group: 'BEACH', coordinates: [108.2445, 16.0985] },
+  landmarkPoi('cho-han', 'Han Market', 'MARKET'),
+  { id: 'cho-con', name: 'Chợ Cồn', nameEn: 'Con Market', group: 'MARKET', coordinates: [108.214, 16.068] },
+  { id: 'cho-bac-my-an', name: 'Chợ Bắc Mỹ An', nameEn: 'Bac My An Market', group: 'MARKET', coordinates: [108.2445, 16.0485] },
+  landmarkPoi('vincom', 'Vincom Plaza', 'MARKET'),
+  landmarkPoi('lotte', 'Lotte Mart', 'MARKET'),
+  landmarkPoi('dh-bach-khoa', 'University of Science and Technology', 'UNIVERSITY'),
+  landmarkPoi('dh-kinh-te', 'University of Economics', 'UNIVERSITY'),
+  landmarkPoi('dh-su-pham', 'University of Education', 'UNIVERSITY'),
+  landmarkPoi('dh-duy-tan', 'Duy Tan University', 'UNIVERSITY'),
+  landmarkPoi('dh-fpt', 'FPT University', 'UNIVERSITY'),
+  landmarkPoi('san-bay', 'Da Nang Airport', 'TRANSPORT'),
+  landmarkPoi('cau-rong', 'Dragon Bridge', 'TRANSPORT'),
+  landmarkPoi('cau-song-han', 'Han River Bridge', 'TRANSPORT'),
+  { id: 'cau-tran-thi-ly', name: 'Cầu Trần Thị Lý', nameEn: 'Tran Thi Ly Bridge', group: 'TRANSPORT', coordinates: [108.2325, 16.0485] },
+  { id: 'pho-tay-an-thuong', name: 'Phố Tây An Thượng', nameEn: 'An Thuong Area', group: 'NIGHTLIFE', coordinates: [108.2425, 16.051] }, // Chỉ dùng cho huy hiệu trang khách (15.5)
 ];

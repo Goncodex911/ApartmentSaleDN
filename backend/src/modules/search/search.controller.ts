@@ -6,6 +6,7 @@ import { AuthRequest } from '../../middlewares/auth.js';
 import { asyncHandler } from '../../utils/async-handler.js';
 import { PROPERTY_TYPES, ZONES } from '../apartments/listing-taxonomy.js';
 import { NEW_AMENITY_KEYS } from './slang.dictionary.js';
+import { POIS } from './landmarks.data.js';
 
 // Ép kiểu tham số query: qs có thể tạo object/mảng (?x[$ne]=1) → chỉ nhận chuỗi
 const text = (value: unknown) => (typeof value === 'string' && value ? value : undefined);
@@ -15,6 +16,17 @@ const list = (value: unknown, allowed: readonly string[]) => {
   const items = (text(value) || '').split(',').filter((item) => allowed.includes(item));
   return items.length ? items : undefined;
 };
+/**
+ * Story 15.3: khung nhìn "minLng,minLat,maxLng,maxLat" — 4 số hợp lệ, min < max, cạnh tối đa 1 độ (~110km).
+ * Sai định dạng → bỏ qua (không lỗi), bản đồ dùng bộ lọc thường.
+ */
+function parseBbox(value: unknown): ISearchOptions['bbox'] {
+  const parts = (text(value) || '').split(',').map(Number);
+  if (parts.length !== 4 || !parts.every(Number.isFinite)) return undefined;
+  const [minLng, minLat, maxLng, maxLat] = parts;
+  const valid = minLng >= -180 && maxLng <= 180 && minLat >= -90 && maxLat <= 90 && minLng < maxLng && minLat < maxLat && maxLng - minLng <= 1 && maxLat - minLat <= 1;
+  return valid ? [minLng, minLat, maxLng, maxLat] : undefined;
+}
 const bool = (value: unknown) => (value === 'true' ? true : value === 'false' ? false : undefined);
 
 /**
@@ -56,6 +68,8 @@ const parseSearchOptions = (req: AuthRequest): ISearchOptions => {
     lng: num(query.lng),
     radiusKm: num(query.radiusKm),
     landmark: text(query.landmark),
+    bbox: parseBbox(query.bbox),
+    needsLocation: bool(query.needsLocation),
     priceRange: text(query.priceRange),
     roomType: text(query.roomType),
     elevator: bool(query.elevator),
@@ -85,6 +99,11 @@ export class SearchController {
   });
 
   static searchNatural = asyncHandler(runNaturalSearch);
+
+  /** GET /api/v1/apartments/search/pois — tiện ích Đà Nẵng cho lớp phủ bản đồ (Story 15.4); "phố Tây" chỉ dùng cho trang khách */
+  static getPois = asyncHandler(async (_req, res) => {
+    res.status(200).json({ success: true, data: POIS.filter((poi) => poi.group !== 'NIGHTLIFE') });
+  });
 
   /**
    * GET /api/v1/apartments/search/landmarks — Danh sách trường đại học, bãi biển, bệnh viện & trung tâm thương mại tại Đà Nẵng

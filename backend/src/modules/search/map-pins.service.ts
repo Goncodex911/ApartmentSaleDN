@@ -1,4 +1,4 @@
-import { Apartment } from '../apartments/apartment.model.js';
+import { Apartment, locationPrecision } from '../apartments/apartment.model.js';
 import { withStreet } from '../apartments/apartment-location.js';
 import { ISearchOptions, SearchService } from './search.service.js';
 
@@ -11,18 +11,23 @@ const EARTH_RADIUS_KM = 6378.1;
  */
 export async function findMapPins(options: ISearchOptions) {
   const { filter, resolvedLandmark, radiusKm } = SearchService.buildContext(options);
-  // Có điểm mốc → giới hạn trong bán kính (find thường, không cần $geoNear vì bản đồ không sắp theo khoảng cách)
-  if (resolvedLandmark && radiusKm) {
-    filter['location.coordinates'] = { $geoWithin: { $centerSphere: [resolvedLandmark.coordinates, radiusKm / EARTH_RADIUS_KM] } };
+  const { bbox } = options;
+  // Story 15.3: tìm theo khung nhìn thay cho bán kính điểm mốc. $box tính phẳng — sai số không đáng kể trong 1 thành phố
+  const byLandmark = !bbox && resolvedLandmark && radiusKm ? { center: resolvedLandmark, radiusKm } : null;
+  if (bbox) {
+    filter['location.coordinates'] = { $geoWithin: { $box: [[bbox[0], bbox[1]], [bbox[2], bbox[3]]] } };
+  } else if (byLandmark) {
+    // Có điểm mốc → giới hạn trong bán kính (find thường, không cần $geoNear vì bản đồ không sắp theo khoảng cách)
+    filter['location.coordinates'] = { $geoWithin: { $centerSphere: [byLandmark.center.coordinates, byLandmark.radiusKm / EARTH_RADIUS_KM] } };
   }
   const hasCoordinates = { 'location.coordinates.1': { $exists: true } };
   const [items, withoutLocation] = await Promise.all([
     Apartment.find({ ...filter, ...hasCoordinates })
-      .select('price priceUsd status title images hiddenImages location.coordinates location.street location.address location.zone location.district location.mapUrl attributes.propertyType attributes.bedrooms')
+      .select('price priceUsd status title images hiddenImages location.coordinates location.street location.address location.zone location.district location.mapUrl location.geoPrecision attributes.propertyType attributes.bedrooms')
       .sort({ updatedAt: -1 })
       .limit(MAX_PINS)
       .lean(),
-    resolvedLandmark && radiusKm ? 0 : Apartment.countDocuments({ ...filter, 'location.coordinates.1': { $exists: false } }),
+    bbox || byLandmark ? 0 : Apartment.countDocuments({ ...filter, 'location.coordinates.1': { $exists: false } }),
   ]);
 
   return {
@@ -38,8 +43,11 @@ export async function findMapPins(options: ISearchOptions) {
       propertyType: attributes.propertyType,
       bedrooms: attributes.bedrooms,
       image: images?.find((url) => !hiddenImages?.includes(url) && !url.includes('/video/upload/')),
-      approximate: !location.mapUrl, // Không có link Google Maps → toạ độ ước lượng theo địa chỉ / tâm quận
+      approximate: locationPrecision(location) !== 'EXACT', // Story 15.6: theo tên đường / khu vực → viền nét đứt
     })),
     withoutLocation,
+    // Story 15.4: tâm + bán kính điểm mốc đang tìm → bản đồ vẽ vòng tròn
+    landmark: byLandmark ? { name: byLandmark.center.name, coordinates: byLandmark.center.coordinates, radiusKm: byLandmark.radiusKm } : null,
+    truncated: items.length === MAX_PINS, // Story 15.3: khung nhìn có hơn 500 căn → nhắc phóng to
   };
 }
