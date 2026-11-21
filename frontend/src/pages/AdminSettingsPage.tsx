@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
 import { WifiOff } from 'lucide-react';
-import { useApp } from '../components/layout/AppShell.js';
 import { ReviewPolicy, SystemSettings, adminApi } from '../api/adminApi.js';
 import { DashboardSection } from '../components/admin/DashboardParts.js';
 import { TelegramSourcesSection } from '../components/admin/TelegramSourcesSection.js';
@@ -18,24 +16,23 @@ const POLICIES: { id: ReviewPolicy; title: string; description: string }[] = [
 
 /** [ADMIN] Cấu hình hệ thống (Story 13.5): nguồn Telegram, chính sách duyệt tin cào, hotline / Zalo OA trên trang khách. */
 export const AdminSettingsPage: React.FC = () => {
-  const { user } = useApp();
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [brand, setBrand] = useState({ hotline: '', zaloOaUrl: '' });
+  const [thresholds, setThresholds] = useState({ ownerContactPerHour: '30', deletesPer10Min: '5' }); // Story 16.5 (chuỗi để xóa trắng ô khi gõ)
   const [saving, setSaving] = useState('');
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
   const apply = (next: SystemSettings) => {
     setSettings(next);
     setBrand({ hotline: next.hotline, zaloOaUrl: next.zaloOaUrl });
+    setThresholds({ ownerContactPerHour: String(next.alertThresholds.ownerContactPerHour), deletesPer10Min: String(next.alertThresholds.deletesPer10Min) });
   };
   const load = useCallback(() => {
     setLoadError(false);
     adminApi.getSettings().then(apply).catch(() => setLoadError(true));
   }, []);
   useEffect(load, [load]);
-
-  if (user && user.role !== 'ADMIN') return <Navigate to="/apartments" replace />;
 
   const save = async (key: string, data: Parameters<typeof adminApi.updateSettings>[0]) => {
     setSaving(key);
@@ -105,6 +102,26 @@ export const AdminSettingsPage: React.FC = () => {
               <input type="url" inputMode="url" value={brand.zaloOaUrl} onChange={(e) => setBrand({ ...brand, zaloOaUrl: e.target.value })} placeholder="https://zalo.me/..." className={fieldClass} />
             </label>
             <Button type="submit" loading={saving === 'brand'} className="sm:col-span-2">Lưu thông tin liên hệ</Button>
+          </form>
+        </DashboardSection>
+
+        <DashboardSection title="Ngưỡng cảnh báo bảo mật" note="Vượt ngưỡng → tạo cảnh báo trong mục Cảnh báo (tối đa 1 lần / người / giờ). Có hiệu lực ngay.">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              save('thresholds', { alertThresholds: { ownerContactPerHour: Number(thresholds.ownerContactPerHour), deletesPer10Min: Number(thresholds.deletesPer10Min) } });
+            }}
+            className="grid gap-2 sm:grid-cols-2"
+          >
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-slate-700">Số lần xem SĐT chủ / 1 giờ (5–500)</span>
+              <input type="number" inputMode="numeric" min={5} max={500} required value={thresholds.ownerContactPerHour} onChange={(e) => setThresholds({ ...thresholds, ownerContactPerHour: e.target.value })} className={fieldClass} />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-slate-700">Số căn bị xóa / 10 phút (2–50)</span>
+              <input type="number" inputMode="numeric" min={2} max={50} required value={thresholds.deletesPer10Min} onChange={(e) => setThresholds({ ...thresholds, deletesPer10Min: e.target.value })} className={fieldClass} />
+            </label>
+            <Button type="submit" loading={saving === 'thresholds'} className="sm:col-span-2">Lưu ngưỡng cảnh báo</Button>
           </form>
         </DashboardSection>
       </div>

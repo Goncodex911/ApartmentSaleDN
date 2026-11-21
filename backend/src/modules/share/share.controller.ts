@@ -1,6 +1,7 @@
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { asyncHandler } from '../../utils/async-handler.js';
+import { auditActor } from '../audit/audit.service.js';
 import { ShareLinkService, SHARE_CODE_PATTERN } from './share-link.service.js';
 
 const objectIdSchema = z.string().refine(isValidObjectId, 'Mã căn hộ không hợp lệ');
@@ -10,7 +11,7 @@ export class ShareController {
   // POST /api/v1/share/links — tìm/tạo link xem phòng của CTV (Story 5.3)
   static createLink = asyncHandler(async (req, res) => {
     const { apartmentId } = createLinkSchema.parse(req.body);
-    res.status(200).json({ success: true, data: await ShareLinkService.getOrCreateLink(apartmentId, req.user!.id) });
+    res.status(200).json({ success: true, data: await ShareLinkService.getOrCreateLink(apartmentId, req.user!.id, auditActor(req)) });
   });
 
   // GET /api/v1/share/public/:code — trang xem phòng công khai, không cần đăng nhập (Story 5.3)

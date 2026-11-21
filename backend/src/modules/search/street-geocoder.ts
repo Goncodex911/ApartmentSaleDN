@@ -2,6 +2,7 @@ import { Geocache } from './geocache.model.js';
 import { canonicalDistrict } from './district.js';
 import { streetKey } from '../dedup/street-key.js';
 import { inDanang } from './landmarks.data.js';
+import { outcomeOf, record } from '../health/service-health.js';
 
 /**
  * Story 15.6: tọa độ theo TÊN ĐƯỜNG ở Đà Nẵng qua OSM Nominatim (chính sách: ≤ 1 request/giây, User-Agent định danh, bắt buộc cache).
@@ -37,11 +38,13 @@ async function askNominatim(street: string, district?: string): Promise<[number,
       headers: { 'User-Agent': process.env.NOMINATIM_USER_AGENT || 'RoomMaster-Danang/1.0', 'Accept-Language': 'vi' },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
+    record('nominatim', outcomeOf(res.status), res.ok ? undefined : `HTTP ${res.status}`); // Story 16.8a
     if (!res.ok) return 'error'; // 429 / 403 / 5xx: không cache, lần sau thử lại
     const [hit] = (await res.json()) as { lon: string; lat: string }[];
     const coordinates: [number, number] | null = hit ? [Number(Number(hit.lon).toFixed(6)), Number(Number(hit.lat).toFixed(6))] : null;
     return coordinates && inDanang(coordinates) ? coordinates : null;
   } catch {
+    record('nominatim', 'error', 'Mất kết nối / quá 4 giây');
     return 'error'; // Mất mạng / quá 4 giây
   }
 }

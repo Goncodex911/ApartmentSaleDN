@@ -35,19 +35,21 @@ interface RateLimitOptions {
   message: string;
   key?: (req: Request) => string; // Mặc định theo IP; VD theo tài khoản: (req) => req.user.id
   resetOnSuccess?: boolean; // Story 14.5: chỉ đếm lần thất bại (VD đăng nhập đúng → xóa bộ đếm của SĐT đó)
+  onLimit?: (req: Request, key: string) => void; // Story 16.2: gọi khi request bị chặn (VD ghi nhật ký LOGIN_BLOCKED)
 }
 
 /**
  * Giới hạn tần suất: tối đa `max` request trong `windowMs` cho mỗi key (mặc định IP).
  * Lưu ý: chạy sau reverse proxy phải bật TRUST_PROXY để lấy đúng IP khách (xem app.ts).
  */
-export function rateLimit({ windowMs, max, message, key: keyOf = (req) => req.ip || 'unknown', resetOnSuccess }: RateLimitOptions) {
+export function rateLimit({ windowMs, max, message, key: keyOf = (req) => req.ip || 'unknown', resetOnSuccess, onLimit }: RateLimitOptions) {
   const counter = createCounter({ windowMs, max });
 
   return (req: Request, res: Response, next: NextFunction): void => {
     const key = keyOf(req);
     const waitSeconds = counter.hit(key);
     if (waitSeconds) {
+      onLimit?.(req, key);
       res.set('Retry-After', String(waitSeconds));
       res.status(429).json({ success: false, message });
       return;

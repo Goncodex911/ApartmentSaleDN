@@ -14,7 +14,7 @@ const apartmentId = (req: AuthRequest) => {
 export class ListingReportController {
   // POST /api/v1/reports/:apartmentId — CTV / Quản lý báo lỗi tin (Story 13.6)
   static create = asyncHandler(async (req, res) => {
-    await ListingReportService.report(apartmentId(req), req.user!, createReportSchema.parse(req.body));
+    await ListingReportService.report(apartmentId(req), auditActor(req), createReportSchema.parse(req.body));
     res.status(201).json({ success: true, message: 'Cảm ơn, Quản lý sẽ kiểm tra' });
   });
 

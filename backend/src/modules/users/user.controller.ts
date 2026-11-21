@@ -2,6 +2,10 @@ import { UserService } from './user.service.js';
 import { updateProfileSchema, updateUserStatusSchema, listUsersQuerySchema, updateUserRoleSchema, updateCanReportSchema } from './user.validation.js';
 import { asyncHandler } from '../../utils/async-handler.js';
 import { auditActor } from '../audit/audit.service.js';
+import { getUserOverview } from './user-overview.service.js';
+import { UserAdminService } from './user-admin.service.js';
+import { SessionService, sessionKey } from './session.service.js';
+import { adminUpdateUserSchema, createUserSchema, userNoteSchema } from './user.validation.js';
 
 export class UserController {
   // Xem hồ sơ cá nhân hiện tại
@@ -62,6 +66,58 @@ export class UserController {
   static resetPassword = asyncHandler(async (req, res) => {
     const { tempPassword } = await UserService.resetPassword(auditActor(req), String(req.params.id));
     res.set('Cache-Control', 'no-store').status(200).json({ success: true, data: { tempPassword } });
+  });
+
+  // [ADMIN] GET /api/v1/users/:id/overview?range=30d|all — Hồ sơ 360° (Story 16.3)
+  static overview = asyncHandler(async (req, res) => {
+    const range = req.query.range === 'all' ? 'all' : '30d';
+    res.status(200).json({ success: true, data: await getUserOverview(String(req.params.id), range) });
+  });
+
+  // [ADMIN] POST /api/v1/users — tạo CTV / Quản lý, trả mật khẩu tạm đúng 1 lần (Story 16.6)
+  static create = asyncHandler(async (req, res) => {
+    const { user, tempPassword } = await UserAdminService.create(auditActor(req), createUserSchema.parse(req.body));
+    res.set('Cache-Control', 'no-store').status(201).json({ success: true, message: 'Đã tạo tài khoản', data: { user, tempPassword } });
+  });
+
+  // [ADMIN] PATCH /api/v1/users/:id — sửa tên / SĐT / email (Story 16.6)
+  static adminUpdate = asyncHandler(async (req, res) => {
+    const data = await UserAdminService.update(auditActor(req), String(req.params.id), adminUpdateUserSchema.parse(req.body));
+    res.status(200).json({ success: true, message: 'Đã cập nhật thông tin', data });
+  });
+
+  // [ADMIN] Ghi chú nội bộ (Story 16.6)
+  static listNotes = asyncHandler(async (req, res) => {
+    res.status(200).json({ success: true, data: await UserAdminService.listNotes(String(req.params.id)) });
+  });
+  static addNote = asyncHandler(async (req, res) => {
+    const { text } = userNoteSchema.parse(req.body);
+    res.status(201).json({ success: true, data: await UserAdminService.addNote(auditActor(req), String(req.params.id), text) });
+  });
+  static deleteNote = asyncHandler(async (req, res) => {
+    res.status(200).json({ success: true, data: await UserAdminService.deleteNote(auditActor(req), String(req.params.id), String(req.params.noteId)) });
+  });
+
+  // Story 16.4 — thiết bị đang đăng nhập. [ADMIN] của thành viên bất kỳ; /me: của chính mình
+  static listSessions = asyncHandler(async (req, res) => {
+    res.status(200).json({ success: true, data: await SessionService.list(String(req.params.id), req.user!.sid) });
+  });
+  static revokeSession = asyncHandler(async (req, res) => {
+    await SessionService.revoke(auditActor(req), String(req.params.id), String(req.params.sessionId));
+    res.status(200).json({ success: true, message: 'Đã đăng xuất thiết bị' });
+  });
+  static revokeAllSessions = asyncHandler(async (req, res) => {
+    await SessionService.revokeAll(auditActor(req), String(req.params.id));
+    res.status(200).json({ success: true, message: 'Đã đăng xuất mọi thiết bị' });
+  });
+  static listMySessions = asyncHandler(async (req, res) => {
+    res.status(200).json({ success: true, data: await SessionService.list(req.user!.id, req.user!.sid) });
+  });
+  static revokeMySession = asyncHandler(async (req, res) => {
+    const id = String(req.params.sessionId);
+    if (req.user!.sid && sessionKey(req.user!.sid) === id) throw { status: 400, message: 'Dùng nút Đăng xuất để thoát thiết bị đang dùng' };
+    await SessionService.revoke(auditActor(req), req.user!.id, id);
+    res.status(200).json({ success: true, message: 'Đã đăng xuất thiết bị' });
   });
 
   // Lấy thông tin công khai của CTV theo ctvCode (Public)

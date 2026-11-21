@@ -72,6 +72,7 @@ export class ApartmentController {
   // Tạo mới căn hộ (Chỉ Manager/Admin)
   static create = asyncHandler(async (req, res) => {
     const data = await ApartmentService.create(createApartmentSchema.parse(req.body), req.user!.id);
+    AuditService.log(auditActor(req), 'CREATE_APARTMENT', { type: 'APARTMENT', id: data._id, title: data.title }, { price: data.price }); // Story 16.2
     res.status(201).json({ success: true, message: 'Thêm mới căn hộ thành công', data });
   });
 
@@ -90,7 +91,7 @@ export class ApartmentController {
   // Gia hạn hợp đồng thuê (Story 11.5)
   static renewLease = asyncHandler(async (req, res) => {
     const { months } = renewLeaseSchema.parse(req.body);
-    const data = await ApartmentService.renewLease(apartmentId(req), months, req.user!);
+    const data = await ApartmentService.renewLease(apartmentId(req), months, auditActor(req));
     res.status(200).json({ success: true, message: `Đã gia hạn thêm ${months} tháng`, data });
   });
 
@@ -102,7 +103,7 @@ export class ApartmentController {
 
   // Gỡ bỏ Nguồn tham chiếu khỏi Căn Master (Story 2.3)
   static removeSubListing = asyncHandler(async (req, res) => {
-    const data = await ApartmentService.removeSubListing(apartmentId(req), String(req.params.subId), req.user!);
+    const data = await ApartmentService.removeSubListing(apartmentId(req), String(req.params.subId), auditActor(req));
     res.status(200).json({ success: true, message: 'Gỡ bỏ nguồn tham chiếu thành công', data });
   });
 

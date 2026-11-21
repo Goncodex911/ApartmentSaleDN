@@ -18,6 +18,16 @@ export const updateProfileSchema = z.object({
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
+// Story 16.6: Admin tạo tài khoản (không tạo ADMIN qua giao diện / API) và sửa thông tin cơ bản
+export const createUserSchema = z.object({
+  name: z.string().trim().min(2, 'Tên phải có ít nhất 2 ký tự').max(100),
+  phone: vnPhone('Số điện thoại Việt Nam không hợp lệ (10 số)'),
+  role: z.enum(['MANAGER', 'COLLABORATOR'], 'Chỉ tạo được tài khoản CTV hoặc Quản lý'),
+  email: z.email('Email không hợp lệ').or(z.literal('')).optional(),
+});
+export const adminUpdateUserSchema = createUserSchema.omit({ role: true }).partial();
+export const userNoteSchema = z.object({ text: z.string().trim().min(1, 'Ghi chú không được để trống').max(500, 'Ghi chú tối đa 500 ký tự') });
+
 // ADMIN duyệt (ACTIVE) / khóa (BLOCKED) tài khoản
 export const updateUserStatusSchema = z.object({ status: z.enum(['ACTIVE', 'BLOCKED']) });
 // Story 13.2: lọc theo trạng thái / vai trò, tìm theo tên, SĐT, mã CTV; không gửi gì = tất cả
@@ -25,6 +35,7 @@ export const listUsersQuerySchema = z.object({
   status: z.enum(['ACTIVE', 'PENDING', 'BLOCKED']).optional(),
   role: z.enum(['ADMIN', 'MANAGER', 'COLLABORATOR']).optional(),
   search: z.string().trim().max(50).optional(),
+  sort: z.enum(['newest', 'lastActive', 'inactive']).optional(), // Story 16.3
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });

@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 export interface IUser extends Document {
@@ -28,7 +28,13 @@ export interface IUser extends Document {
   canReport: boolean;
   mustChangePassword: boolean; // Story 13.9: vừa nhận mật khẩu tạm từ Admin → app nhắc đổi
   // Story 14.5: refresh token đang hiệu lực theo thiết bị (jti) — đăng xuất máy nào thu hồi phiên máy đó
-  refreshSessions: { jti: string; prevJti?: string; rotatedAt?: Date; expiresAt: Date }[];
+  // Story 16.4: + thiết bị, IP gần nhất, lúc đăng nhập, lần dùng cuối (cập nhật khi xoay token, không phải mỗi request)
+  refreshSessions: { jti: string; prevJti?: string; rotatedAt?: Date; expiresAt: Date; userAgent?: string; ip?: string; createdAt?: Date; lastUsedAt?: Date }[];
+  // Story 16.3: lần đăng nhập bằng mật khẩu cuối / lần gọi API cuối (ghi tối đa 1 lần / 5 phút)
+  lastLoginAt?: Date;
+  lastActiveAt?: Date;
+  // Story 16.6: ghi chú nội bộ chỉ ADMIN thấy (ẩn khỏi toJSON — không lộ qua /auth/me, /users/profile)
+  adminNotes: { _id: Types.ObjectId; text: string; authorId: Types.ObjectId; authorName: string; createdAt: Date }[];
   comparePassword(candidate: string): Promise<boolean>;
   createdAt: Date;
   updatedAt: Date;
@@ -61,8 +67,14 @@ const userSchema = new Schema<IUser>(
     trustScore: { type: Number, default: 0 },
     canReport: { type: Boolean, default: true },
     mustChangePassword: { type: Boolean, default: false },
+    lastLoginAt: { type: Date },
+    lastActiveAt: { type: Date, index: true },
+    adminNotes: {
+      type: [{ text: { type: String, required: true, maxlength: 500 }, authorId: { type: Schema.Types.ObjectId, required: true }, authorName: String, createdAt: { type: Date, default: Date.now } }],
+      default: [],
+    },
     refreshSessions: {
-      type: [{ _id: false, jti: { type: String, required: true }, prevJti: String, rotatedAt: Date, expiresAt: { type: Date, required: true } }],
+      type: [{ _id: false, jti: { type: String, required: true }, prevJti: String, rotatedAt: Date, expiresAt: { type: Date, required: true }, userAgent: String, ip: String, createdAt: Date, lastUsedAt: Date }],
       default: [],
     },
   },
@@ -73,6 +85,7 @@ const userSchema = new Schema<IUser>(
         delete (ret as { password?: string }).password;
         delete (ret as { telegramLinkCode?: string }).telegramLinkCode;
         delete (ret as { refreshSessions?: unknown }).refreshSessions;
+        delete (ret as { adminNotes?: unknown }).adminNotes;
         return ret;
       },
     },

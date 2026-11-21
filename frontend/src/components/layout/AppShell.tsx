@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { User, authApi } from '../../api/authApi.js';
 import { submissionApi } from '../../api/submissionApi.js';
 import { useCurrentUser } from '../../hooks/useCurrentUser.js';
@@ -17,13 +17,16 @@ import { QuickPasteModal } from '../apartment/QuickPasteModal.js';
 import { ApartmentModal } from '../apartment/ApartmentModal.js';
 import { LiveToast } from './LiveToast.js';
 import { useRealtimeInventory } from '../../hooks/useRealtimeInventory.js';
+import { saveAdminMode } from '../admin/adminNav.js';
 
 interface AppContextValue {
   user: User | null;
   openQuickPaste: () => void;
   openSubmit: () => void;
+  openAccount: () => void; // Story 16.1: menu "Thêm" của khu Quản trị mở hộp Tài khoản
 }
-const AppContext = createContext<AppContextValue>({ user: null, openQuickPaste: () => undefined, openSubmit: () => undefined });
+const noop = () => undefined;
+const AppContext = createContext<AppContextValue>({ user: null, openQuickPaste: noop, openSubmit: noop, openAccount: noop });
 export const useApp = () => useContext(AppContext);
 
 type Panel = 'account' | 'profile' | 'password' | 'quickPaste' | 'submit' | null;
@@ -34,6 +37,7 @@ type Panel = 'account' | 'profile' | 'password' | 'quickPaste' | 'submit' | null
  */
 export const AppShell: React.FC = () => {
   const navigate = useNavigate();
+  const adminArea = useLocation().pathname.startsWith('/admin'); // Story 16.1: khu Quản trị có menu riêng (AdminLayout)
   const { user, setUser } = useCurrentUser();
   const [panel, setPanel] = useState<Panel>(null);
   const isManager = user?.role === 'ADMIN' || user?.role === 'MANAGER';
@@ -45,6 +49,11 @@ export const AppShell: React.FC = () => {
   useEffect(() => {
     if (mustChangePassword) setPanel('password');
   }, [mustChangePassword]);
+  // Story 16.1: Admin mở lại app ("/") vào chế độ dùng gần nhất
+  const isAdmin = user?.role === 'ADMIN';
+  useEffect(() => {
+    if (isAdmin) saveAdminMode(adminArea ? 'admin' : 'app');
+  }, [isAdmin, adminArea]);
 
   const logout = async () => {
     await authApi.logout().catch(() => undefined); // Lỗi mạng khi đăng xuất thì vẫn xóa phiên ở máy
@@ -54,7 +63,7 @@ export const AppShell: React.FC = () => {
   };
 
   const context = useMemo(
-    () => ({ user, openQuickPaste: () => setPanel('quickPaste'), openSubmit: () => setPanel('submit') }),
+    () => ({ user, openQuickPaste: () => setPanel('quickPaste'), openSubmit: () => setPanel('submit'), openAccount: () => setPanel('account') }),
     [user]
   );
   const accountMenu = user && (
@@ -67,7 +76,7 @@ export const AppShell: React.FC = () => {
   return (
     <AppContext.Provider value={context}>
       <div className="min-h-screen bg-slate-50">
-        <Navbar user={user} pendingCount={pendingCount} accountMenu={accountMenu} />
+        <Navbar user={user} pendingCount={pendingCount} accountMenu={accountMenu} adminArea={adminArea} />
         <Outlet />
         <LiveToast
           toast={liveUpdates.toast}
@@ -78,9 +87,10 @@ export const AppShell: React.FC = () => {
           }}
         />
         {user && !panel && <InstallPrompt />}
-        {user && (
+        {user && !adminArea && (
           <BottomNav
             isManager={isManager}
+            isAdmin={isAdmin}
             pendingCount={pendingCount}
             onMainAction={() => setPanel(isManager ? 'quickPaste' : 'submit')}
             onAccount={() => setPanel('account')}

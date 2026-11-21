@@ -4,6 +4,7 @@ import { Lead, OPEN_LEAD_STAGES } from '../leads/lead.model.js';
 import { ShareLink } from '../share/share-link.model.js';
 import { IngestionEvent } from '../ingestion/ingestion-event.model.js';
 import { ListingSubmission } from '../submissions/submission.model.js';
+import { SecurityAlertService } from '../security/security-alert.service.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Mốc khoảng giá khớp chip lọc của Bảng hàng (filter.builder.ts): <5tr · 5–8tr · 8–12tr · 12–20tr · ≥20tr
@@ -70,6 +71,7 @@ export class AdminService {
         failed: ingest.FAILED ?? 0,
       },
       market: { publicViews: views?.total ?? 0, openLeads, newLeads7d: newLeads, pendingSubmissions },
+      openAlerts: await SecurityAlertService.countOpen(), // Story 16.5
     };
   }
 }

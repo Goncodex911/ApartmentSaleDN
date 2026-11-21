@@ -1,6 +1,8 @@
 import { apiClient } from './client.js';
 
-export type RealtimeType = 'apartment.created' | 'apartment.status' | 'apartment.price' | 'apartment.flagged' | 'reset';
+export type RealtimeType = 'apartment.created' | 'apartment.status' | 'apartment.price' | 'apartment.flagged' | 'announcement.changed' | 'reset';
+// Story 16.9: thông báo chung vừa gửi / thu hồi → dải ghim tải lại
+export const ANNOUNCEMENT_CHANGED = 'announcement:changed';
 export interface RealtimeData {
   id: string;
   status: 'AVAILABLE' | 'UPCOMING' | 'DEPOSITED' | 'RENTED';

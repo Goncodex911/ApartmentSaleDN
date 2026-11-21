@@ -3,6 +3,7 @@ import { uploadBufferToCloudinary } from '../../config/cloudinary.js';
 import { User } from '../auth/user.model.js';
 import { UserService } from '../users/user.service.js';
 import { SystemConfigService } from '../admin/system-config.service.js';
+import { outcomeOf, record } from '../health/service-health.js';
 
 // Telegram gửi album thành NHIỀU message cùng media_group_id (mỗi message 1 ảnh, chỉ 1 message có caption).
 // Gom các message của album, chờ ALBUM_WAIT_MS kể từ ảnh cuối cùng rồi mới xử lý thành 1 bài đăng hoàn chỉnh.
@@ -67,6 +68,7 @@ export class TelegramService {
       try {
         const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${this.lastUpdateId}&timeout=20`;
         const res = await fetch(url, { signal: this.abortController?.signal });
+        record('telegram', outcomeOf(res.status === 404 ? 401 : res.status), res.ok ? undefined : `getUpdates HTTP ${res.status}`); // Story 16.8a: token sai → 401/404
         if (!res.ok) {
           await new Promise((r) => setTimeout(r, 3000));
           continue;

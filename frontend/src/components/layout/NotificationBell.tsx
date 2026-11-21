@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { AppNotification, notificationApi } from '../../api/notificationApi.js';
 import { User } from '../../api/authApi.js';
 import { MatchShareModal } from '../leads/MatchShareModal.js';
-import { Bell, Target, MessageSquare, ClipboardCheck, CalendarClock, X, AlertTriangle, RefreshCcw, HandCoins, LucideIcon } from 'lucide-react';
+import { Bell, Target, MessageSquare, ClipboardCheck, CalendarClock, X, AlertTriangle, RefreshCcw, HandCoins, LogOut, ShieldAlert, Activity, Megaphone, LucideIcon } from 'lucide-react';
+import { timeAgo } from '../../utils/format.js';
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -15,19 +16,15 @@ const ICONS: Partial<Record<AppNotification['type'], [LucideIcon, string]>> = {
   LEASE_EXPIRING: [CalendarClock, 'text-amber-600'],
   SOURCE_AVAILABLE_AGAIN: [RefreshCcw, 'text-amber-600'],
   LEAD_DEPOSITED: [HandCoins, 'text-emerald-600'],
+  SESSION_REVOKED: [LogOut, 'text-rose-600'], // Story 16.4
+  SECURITY_ALERT: [ShieldAlert, 'text-rose-600'], // Story 16.5
+  SERVICE_INCIDENT: [Activity, 'text-rose-600'], // Story 16.8a
+  ANNOUNCEMENT: [Megaphone, 'text-indigo-600'], // Story 16.9
 };
 
 const NotificationIcon: React.FC<{ type: AppNotification['type'] }> = ({ type }) => {
   const [Icon, color] = ICONS[type] ?? (type.startsWith('LISTING_') ? [ClipboardCheck, 'text-indigo-500'] : [MessageSquare, 'text-violet-500']);
   return <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${color}`} aria-hidden />;
-};
-
-const timeAgo = (iso: string) => {
-  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) return 'vừa xong';
-  if (minutes < 60) return `${minutes} phút trước`;
-  if (minutes < 24 * 60) return `${Math.round(minutes / 60)} giờ trước`;
-  return new Date(iso).toLocaleDateString('vi-VN');
 };
 
 // Chuông thông báo (Story 6.3 - AC2): hỏi server mỗi 30 giây, chỉ khi tab đang hiển thị
@@ -83,6 +80,14 @@ export const NotificationBell: React.FC<{ user: User }> = ({ user }) => {
       setMatch({ apartmentId: item.apartmentId, leadId: item.leadId });
     } else if (OPENS_APARTMENT.has(item.type) && item.apartmentId) {
       navigate('/apartments', { state: { openApartmentId: item.apartmentId } }); // Mở chi tiết căn (Story 11.5, 13.6, 14.2, 14.8)
+    } else if (item.type === 'SECURITY_ALERT') {
+      navigate('/admin/alerts'); // Story 16.5
+    } else if (item.type === 'SERVICE_INCIDENT') {
+      navigate('/admin/health'); // Story 16.8a
+    } else if (item.type === 'ANNOUNCEMENT') {
+      navigate('/apartments'); // Story 16.9: nội dung đầy đủ ở dải ghim đầu Bảng hàng
+    } else if (item.type === 'SESSION_REVOKED') {
+      // Story 16.4: chỉ để thông báo, không mở trang nào
     } else if (item.type.startsWith('LISTING_')) {
       navigate('/submissions'); // Tin đăng chờ duyệt / kết quả duyệt (Story 8.6)
     } else {

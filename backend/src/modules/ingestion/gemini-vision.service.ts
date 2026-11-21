@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import { GeminiService } from './gemini.service.js';
+import { outcomeOf, record } from '../health/service-health.js';
 
 const PHONE_DETECTION_PROMPT = `Bạn nhận được các ảnh căn hộ cho thuê, đánh số theo thứ tự từ 0.
 Hãy chỉ ra những ảnh có CHỮ hiển thị số điện thoại (VD: "0912 345 678", "LH 09xx", "Zalo: ..."),
@@ -36,6 +37,7 @@ export class GeminiVisionService {
         }),
         signal: AbortSignal.timeout(15000),
       });
+      record('gemini', outcomeOf(response.status), response.ok ? undefined : `HTTP ${response.status}`); // Story 16.8a
       if (!response.ok) return [];
 
       const data = (await response.json()) as any;

@@ -3,6 +3,8 @@ import { GeminiService } from './gemini.service.js';
 import { DedupService } from '../dedup/dedup.service.js';
 import { UserService } from '../users/user.service.js';
 import { asyncHandler } from '../../utils/async-handler.js';
+import { AuditService, auditActor } from '../audit/audit.service.js';
+import { AuthRequest } from '../../middlewares/auth.js';
 
 /**
  * Tạo handler cho các cổng nhập tin — chỉ khác nguồn mặc định (Story 3.3).
@@ -21,6 +23,11 @@ const ingestFrom = (defaults: { sourceType?: string; sourceName?: string } = {})
       mediaUrls: validated.mediaUrls,
       managerId: req.user?.id ?? (await UserService.findDefaultManagerId()),
     });
+    // Story 16.2: nhập tin AI do người dùng gửi (dán nhanh / extension) — cổng webhook không có người thực hiện thì bỏ qua
+    if (req.user && result.isRentalListing) {
+      const apartmentId = result.isDuplicate ? result.masterApartmentId : result.apartmentId;
+      AuditService.log(auditActor(req as AuthRequest), 'AI_IMPORT', { type: 'APARTMENT', id: apartmentId, title: result.apartment?.title }, { source: validated.sourceName, merged: Boolean(result.isDuplicate) });
+    }
     res.status(200).json({ success: true, data: { ...result, executionTimeMs: Date.now() - startTime } });
   });
 

@@ -13,7 +13,9 @@ import { notificationRoutes } from './modules/notifications/notification.routes.
 import { realtimeRoutes } from './modules/realtime/realtime.routes.js';
 import { adminRoutes } from './modules/admin/admin.routes.js';
 import { listingReportRoutes } from './modules/reports/listing-report.routes.js';
+import { announcementRoutes } from './modules/announcements/announcement.routes.js';
 import { errorHandler } from './middlewares/error.js';
+import './modules/security/alert-rules.js'; // Story 16.5: gắn bộ phát hiện bất thường vào nhật ký
 
 export const app = express();
 
@@ -40,6 +42,7 @@ app.use('/api/v1/apartments', apartmentRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/ingestion', ingestionRoutes);
 app.use('/api/v1/share', shareRoutes);
+app.use('/api/v1/announcements', announcementRoutes); // Story 16.9
 app.use('/api/v1/leads', leadRoutes);
 app.use('/api/v1/chat', chatRoutes);
 app.use('/api/v1/notifications', notificationRoutes);

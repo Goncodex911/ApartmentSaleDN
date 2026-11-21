@@ -3,6 +3,7 @@ import { User } from '../auth/user.model.js';
 import { ShareLink } from './share-link.model.js';
 import { slugify, toPublicListing } from './public-listing.util.js';
 import { randomCode } from '../../utils/random-code.js';
+import { AuditActor, AuditService } from '../audit/audit.service.js';
 import { SystemConfigService } from '../admin/system-config.service.js';
 
 export const SHARE_CODE_PATTERN = /^[a-z0-9]{8}$/;
@@ -14,15 +15,18 @@ const clientUrl = () => (process.env.CLIENT_URL || 'http://localhost:5173').repl
 
 export class ShareLinkService {
   /** Tìm hoặc tạo link duy nhất cho cặp (căn hộ, CTV). Upsert nguyên tử nên bấm 2 lần liên tiếp vẫn ra 1 link. */
-  static async getOrCreateLink(apartmentId: string, ctvId: string) {
+  static async getOrCreateLink(apartmentId: string, ctvId: string, actor?: AuditActor) {
     const apartment = await Apartment.findById(apartmentId).select('title').lean();
     if (!apartment) throw { status: 404, message: 'Không tìm thấy căn hộ' };
 
-    const link = await ShareLink.findOneAndUpdate(
+    const result = await ShareLink.findOneAndUpdate(
       { apartmentId, ctvId },
       { $setOnInsert: { code: generateCode() } },
-      { upsert: true, new: true }
-    ).lean();
+      { upsert: true, new: true, includeResultMetadata: true }
+    );
+    const link = result.value!;
+    // Story 16.2: chỉ ghi khi CTV tự tạo link lần đầu (bấm lại lấy link cũ / chat bot gợi ý căn không ghi)
+    if (actor && !result.lastErrorObject?.updatedExisting) AuditService.log(actor, 'CREATE_SHARE_LINK', { type: 'SHARE_LINK', id: link._id, title: apartment.title }, { apartmentId });
 
     return {
       url: `${clientUrl()}/p/${slugify(apartment.title)}-${link.code}`,

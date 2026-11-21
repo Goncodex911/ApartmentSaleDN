@@ -1,5 +1,6 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { PROPERTY_TYPES, PropertyType, ZONES, Zone } from './listing-taxonomy.js';
+import { softDeletePlugin } from './soft-delete.js';
 
 // Dịch vụ đã bao trong giá thuê (Story 7.2)
 export const INCLUDED_SERVICES = ['WIFI', 'CLEANING', 'ELECTRICITY', 'WATER', 'LAUNDRY'] as const;
@@ -105,6 +106,9 @@ export interface IApartment extends Document {
   needsReview?: boolean; // Tin AI bóc chưa chắc chắn (thiếu giá/SĐT/địa chỉ mơ hồ) — chỉ Quản lý thấy, KHÔNG đổi trạng thái
   reviewReason?: string;
   managerId: Types.ObjectId;
+  // Story 16.7: Thùng rác — có deletedAt = đã xóa mềm (mọi truy vấn kho tự bỏ qua, xem soft-delete.ts)
+  deletedAt?: Date;
+  deletedBy?: Types.ObjectId;
   submittedBy?: Types.ObjectId; // CTV đăng tin (Story 8.6) — chỉ Quản lý thấy
   lease?: ILease; // Hợp đồng thuê khi căn RENTED (Story 11.5) — chỉ Quản lý thấy
   verification?: { flaggedAt: Date; reasons: string[] }; // ≥ 2 người khác nhau báo lỗi → "Chờ xác minh" (Story 13.6)
@@ -201,6 +205,8 @@ const apartmentSchema = new Schema<IApartment>(
     },
     availableDate: { type: Date },
     needsReview: { type: Boolean, default: false },
+    deletedAt: { type: Date },
+    deletedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     reviewReason: { type: String, trim: true },
     managerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     submittedBy: { type: Schema.Types.ObjectId, ref: 'User' },
@@ -227,6 +233,9 @@ const apartmentSchema = new Schema<IApartment>(
 
 // Quét nhắc tái ký mỗi ngày: căn đã thuê sắp hết hạn (Story 11.5)
 apartmentSchema.index({ status: 1, 'lease.endDate': 1 });
+apartmentSchema.index({ deletedAt: 1 }, { sparse: true }); // Story 16.7: Thùng rác + dọn sau 30 ngày
+apartmentSchema.index({ status: 1, updatedAt: 1 }); // Story 16.7: Kho tồn (lâu không cập nhật)
+apartmentSchema.plugin(softDeletePlugin);
 
 export const Apartment = model<IApartment>('Apartment', apartmentSchema);
 

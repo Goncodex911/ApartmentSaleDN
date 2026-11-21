@@ -8,6 +8,7 @@ import { LeadMatchingService } from '../leads/lead-matching.service.js';
 import { publishApartmentEvent } from '../realtime/realtime.bus.js';
 import { buildLease, extendLease } from './apartment-lease.js';
 import { AuditActor, AuditService } from '../audit/audit.service.js';
+import { diffFields, snapshotFields } from '../audit/audit-diff.js';
 import { closeOpenReports, refreshVerification, TRUST_STEP } from '../reports/report-closing.js';
 import type { ReportReason } from '../reports/listing-report.model.js';
 
@@ -118,15 +119,14 @@ export class ApartmentService {
     // Gán từng trường con (VD: attributes.elevator) thay vì ghi đè cả object (Object.assign)
     // → gửi một phần attributes/location/ownerContact không làm mất các trường còn lại
     // null = Quản lý xóa trắng ô trên form → gán undefined để Mongoose xóa hẳn trường ($unset) (Story 8.1)
-    const assign = (path: string, value: unknown) => apartment.set(path, value === null ? undefined : value);
+    const updates: [string, unknown][] = [];
     for (const [key, value] of Object.entries(data)) {
       const isNestedObject = value !== null && typeof value === 'object' && !Array.isArray(value);
-      if (!isNestedObject) {
-        assign(key, value);
-        continue;
-      }
-      for (const [subKey, subValue] of Object.entries(value)) assign(`${key}.${subKey}`, subValue);
+      if (!isNestedObject) updates.push([key, value]);
+      else for (const [subKey, subValue] of Object.entries(value)) updates.push([`${key}.${subKey}`, subValue]);
     }
+    const fieldsBefore = snapshotFields(apartment, updates.map(([path]) => path)); // Story 16.2: nhật ký trường đã đổi
+    for (const [path, value] of updates) apartment.set(path, value === null ? undefined : value);
     // Quản lý đã mở form và lưu lại → coi như đã kiểm tra tin AI (Story 13.6)
     apartment.set({ needsReview: false, reviewReason: undefined });
     await apartment.save();
@@ -138,6 +138,7 @@ export class ApartmentService {
     } else if (apartment.price < before.price) publishApartmentEvent('apartment.price', apartment, user.id);
     if (apartment.status !== before.status) AuditService.log(user, 'CHANGE_STATUS', auditTarget(apartment), { from: before.status, to: apartment.status });
     if (apartment.price !== before.price) AuditService.log(user, 'UPDATE_PRICE', auditTarget(apartment), { from: before.price, to: apartment.price });
+    AuditService.logApartmentUpdate(user, auditTarget(apartment), diffFields(apartment, fieldsBefore));
     return this.maskApartment(apartment, user.role);
   }
 
@@ -182,10 +183,11 @@ export class ApartmentService {
   }
 
   // Gia hạn hợp đồng thuê thêm 1 / 3 / 6 / 12 tháng (Story 11.5)
-  static async renewLease(id: string, months: number, user: { id: string; role: string }) {
+  static async renewLease(id: string, months: number, user: AuditActor) {
     const apartment = await findOr404(id);
     extendLease(apartment, months);
     await apartment.save();
+    AuditService.log(user, 'RENEW_LEASE', auditTarget(apartment), { months });
     return this.maskApartment(apartment, user.role);
   }
 
@@ -199,27 +201,29 @@ export class ApartmentService {
     }
     apartment.subListings.push(subListingData as any);
     await apartment.save();
+    AuditService.log(user, 'ADD_SUBLISTING', auditTarget(apartment), { sourceType: subListingData.sourceType, sourceName: subListingData.sourceName });
     if (apartment.price < previousPrice) publishApartmentEvent('apartment.price', apartment, user.id); // Story 11.4
     if (apartment.price !== previousPrice) AuditService.log(user, 'UPDATE_PRICE', auditTarget(apartment), { from: previousPrice, to: apartment.price });
     return this.maskApartment(apartment, user.role);
   }
 
   // Gỡ bỏ Nguồn tham chiếu khỏi Căn Master
-  static async removeSubListing(id: string, subListingId: string, user: { id: string; role: string }) {
+  static async removeSubListing(id: string, subListingId: string, user: AuditActor) {
     const apartment = await findOr404(id);
     apartment.subListings = apartment.subListings.filter(
       (sub: any) => sub._id.toString() !== subListingId
     );
     await apartment.save();
+    AuditService.log(user, 'REMOVE_SUBLISTING', auditTarget(apartment), { subListingId });
     return this.maskApartment(apartment, user.role);
   }
 
-  // Xóa căn hộ
-  static async delete(id: string, user: AuditActor) {
+  // Story 16.7: xóa = chuyển vào Thùng rác (Admin khôi phục được trong 30 ngày); `bulk` = xóa hàng loạt từ trang Kho tồn
+  static async delete(id: string, user: AuditActor, bulk = false) {
     const apartment = await findOr404(id);
     await closeOpenReports(apartment._id, user.id, 'DISMISSED'); // Story 14.6: không để báo lỗi mồ côi, không đổi điểm
-    await apartment.deleteOne();
-    AuditService.log(user, 'DELETE_APARTMENT', auditTarget(apartment), { price: apartment.price, status: apartment.status });
+    await Apartment.updateOne({ _id: apartment._id }, { $set: { deletedAt: new Date(), deletedBy: user.id } }, { timestamps: false });
+    AuditService.log(user, 'DELETE_APARTMENT', auditTarget(apartment), { price: apartment.price, status: apartment.status, ...(bulk && { bulk: true }) });
     return true;
   }
 

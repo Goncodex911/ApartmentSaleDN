@@ -9,7 +9,7 @@ const MAX_CONNECTION_MS = 25_000;
 
 // CTV không xem căn đã cho thuê → chỉ báo id + trạng thái để gỡ / làm mờ thẻ, không gửi tên & giá
 const viewFor = (event: RealtimeEvent, role?: string) =>
-  event.data.status === 'RENTED' && !isPrivilegedRole(role) ? { id: event.data.id, status: 'RENTED' } : event.data;
+  'status' in event.data && event.data.status === 'RENTED' && !isPrivilegedRole(role) ? { id: event.data.id, status: 'RENTED' } : event.data;
 
 export class RealtimeController {
   /** GET /realtime/stream — luồng Server-Sent Events cập nhật kho phòng (Story 11.4). */

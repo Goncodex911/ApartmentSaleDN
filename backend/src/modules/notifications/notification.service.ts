@@ -38,9 +38,14 @@ export class NotificationService {
   }
 
   /** Gửi cho mọi Quản lý / Admin đang hoạt động (VD có tin CTV chờ duyệt — Story 8.6). */
-  static async notifyManagers(input: Omit<NotifyInput, 'userId'>) {
-    const managers = await User.find({ role: { $in: ['ADMIN', 'MANAGER'] }, status: 'ACTIVE' }).select('_id').lean();
-    await Promise.all(managers.map((manager) => this.notify({ ...input, userId: String(manager._id) })));
+  static notifyManagers(input: Omit<NotifyInput, 'userId'>) {
+    return this.notifyRoles(['ADMIN', 'MANAGER'], input);
+  }
+
+  // Gửi cho mọi tài khoản đang hoạt động thuộc các vai trò (Story 16.5: chỉ ADMIN)
+  static async notifyRoles(roles: string[], input: Omit<NotifyInput, 'userId'>) {
+    const users = await User.find({ role: { $in: roles }, status: 'ACTIVE' }).select('_id').lean();
+    await Promise.all(users.map((user) => this.notify({ ...input, userId: String(user._id) })));
   }
 
   static async listForUser(userId: string) {

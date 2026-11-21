@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api/authApi.js';
 import { clearOfflineData } from '../utils/offlineCache.js';
 import { Loader2, ArrowRight, Eye, EyeOff, Phone, Lock, UserRound } from 'lucide-react';
+import { ACTIVITY_LOG_NOTICE } from '../utils/format.js';
 
 type Role = 'MANAGER' | 'COLLABORATOR';
 const ROLES: { value: Role; label: string }[] = [
@@ -174,7 +175,9 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
         </div>
-        <p className="mt-6 text-center text-xs text-slate-500">© ApartmentDN · Đà Nẵng</p>
+        {/* Story 16.9 (Q5): minh bạch việc ghi nhật ký — Nghị định 13/2023 */}
+        <p className="mt-4 text-center text-xs text-slate-600">{ACTIVITY_LOG_NOTICE}</p>
+        <p className="mt-2 text-center text-xs text-slate-500">© ApartmentDN · Đà Nẵng</p>
       </main>
     </div>
   );

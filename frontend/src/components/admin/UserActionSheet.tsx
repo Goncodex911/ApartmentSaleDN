@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { ArrowDownCircle, ArrowUpCircle, Check, Copy, Flag, FlagOff, KeyRound, Lock, Unlock } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Check, Flag, FlagOff, KeyRound, Lock, Unlock } from 'lucide-react';
 import { AdminUser, userApi } from '../../api/userApi.js';
 import { BottomSheet } from '../layout/BottomSheet.js';
 import { Button } from '../ui/Button.js';
-import { copyText } from '../../utils/clipboard.js';
+import { TempPasswordReveal } from './TempPasswordReveal.js';
 import { ROLE_LABEL, UserBadges } from './UserBadges.js';
 
 type Action = {
@@ -29,7 +29,6 @@ export const UserActionSheet: React.FC<{ user: AdminUser; currentUserId?: string
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [tempPassword, setTempPassword] = useState('');
-  const [copied, setCopied] = useState(false);
   const locked = user.role === 'ADMIN' || user._id === currentUserId;
 
   const actions: Action[] = [];
@@ -70,10 +69,6 @@ export const UserActionSheet: React.FC<{ user: AdminUser; currentUserId?: string
     }
   };
 
-  const copyPassword = async () => {
-    if (await copyText(tempPassword)) setCopied(true);
-  };
-
   return (
     <BottomSheet title={user.name} onClose={onClose} showClose>
       <div className="px-4 pb-4 space-y-4">
@@ -88,13 +83,7 @@ export const UserActionSheet: React.FC<{ user: AdminUser; currentUserId?: string
         {error && <p role="alert" className="p-3 rounded-xl bg-rose-50 text-sm text-rose-700">{error}</p>}
 
         {tempPassword ? (
-          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-3" role="status">
-            <p className="text-sm text-amber-900">Mật khẩu tạm — chỉ hiện 1 lần. Gửi riêng cho {user.name} (Zalo / điện thoại), không đăng vào nhóm. Lần đăng nhập tới, app sẽ yêu cầu đặt mật khẩu mới.</p>
-            <p className="font-mono text-2xl font-bold tracking-wider text-slate-900 select-all break-all">{tempPassword}</p>
-            <Button variant="secondary" icon={copied ? Check : Copy} onClick={copyPassword} className="w-full">
-              {copied ? 'Đã sao chép' : 'Sao chép mật khẩu'}
-            </Button>
-          </div>
+          <TempPasswordReveal name={user.name} password={tempPassword} />
         ) : pending ? (
           <div className="space-y-3">
             <p className="text-sm text-slate-800">{pending.confirm}</p>

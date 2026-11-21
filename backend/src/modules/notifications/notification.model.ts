@@ -5,7 +5,7 @@ import { Schema, model, Document, Types } from 'mongoose';
 // LISTING_FLAGGED: căn bị ≥ 2 người báo lỗi (Story 13.6)
 // SOURCE_AVAILABLE_AGAIN: căn Đã cọc / Đã thuê được nguồn mới đăng lại (Story 14.2)
 // LEAD_DEPOSITED: CTV báo khách đã cọc căn (Story 14.8)
-export const NOTIFICATION_TYPES = ['NEW_CHAT_LEAD', 'APARTMENT_MATCH', 'LISTING_SUBMITTED', 'LISTING_APPROVED', 'LISTING_REJECTED', 'LEASE_EXPIRING', 'LISTING_FLAGGED', 'SOURCE_AVAILABLE_AGAIN', 'LEAD_DEPOSITED'] as const;
+export const NOTIFICATION_TYPES = ['NEW_CHAT_LEAD', 'APARTMENT_MATCH', 'LISTING_SUBMITTED', 'LISTING_APPROVED', 'LISTING_REJECTED', 'LEASE_EXPIRING', 'LISTING_FLAGGED', 'SOURCE_AVAILABLE_AGAIN', 'LEAD_DEPOSITED', 'SESSION_REVOKED', 'SECURITY_ALERT', 'SERVICE_INCIDENT', 'ANNOUNCEMENT'] as const; // ANNOUNCEMENT: thông báo chung (Story 16.9) // SESSION_REVOKED: Admin đăng xuất từ xa (Story 16.4)
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 // Thông báo trong app (Story 6.2, 6.3) — tự xóa sau 30 ngày
@@ -17,6 +17,7 @@ export interface INotification extends Document {
   leadId?: Types.ObjectId;
   apartmentId?: Types.ObjectId;
   submissionId?: Types.ObjectId;
+  announcementId?: Types.ObjectId; // Story 16.9
   readAt?: Date;
   createdAt: Date;
 }
@@ -30,6 +31,7 @@ const notificationSchema = new Schema<INotification>(
     leadId: { type: Schema.Types.ObjectId, ref: 'Lead' },
     apartmentId: { type: Schema.Types.ObjectId, ref: 'Apartment' },
     submissionId: { type: Schema.Types.ObjectId, ref: 'ListingSubmission' },
+    announcementId: { type: Schema.Types.ObjectId, ref: 'Announcement', index: { sparse: true } },
     readAt: { type: Date },
   },
   { timestamps: { createdAt: true, updatedAt: false } }

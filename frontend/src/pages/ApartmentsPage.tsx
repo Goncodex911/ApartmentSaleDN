@@ -19,6 +19,7 @@ import { useTourSelection } from '../hooks/useTourSelection.js';
 import { TourControls } from '../components/tour/TourControls.js';
 import { Button } from '../components/ui/Button.js';
 import { formatVnd } from '../utils/format.js';
+import { AnnouncementBanner } from '../components/layout/AnnouncementBanner.js';
 
 // Story 11.2: bản đồ + Leaflet chỉ tải khi bấm "Bản đồ" lần đầu
 const MapPanel = lazy(() => import('../components/map/MapPanel.js'));
@@ -86,7 +87,7 @@ export const ApartmentsPage: React.FC = () => {
   const chips = activeChips(filters);
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Xóa căn hộ này khỏi bảng hàng?')) return;
+    if (!window.confirm('Chuyển căn vào Thùng rác? Admin có thể khôi phục trong 30 ngày.')) return;
     try {
       await apartmentApi.deleteApartment(id);
       removeApartment(id);
@@ -106,6 +107,7 @@ export const ApartmentsPage: React.FC = () => {
       <PullIndicator {...pullState} />
       {/* --map-extra: hàng chip lọc chiếm thêm 44px → bản đồ thấp lại tương ứng (index.css .h-map) */}
       <main className="max-w-5xl mx-auto px-4 pt-4 pb-app space-y-3" style={{ '--map-extra': query || chips.length ? '44px' : '0px' } as React.CSSProperties}>
+        <AnnouncementBanner /> {/* Story 16.9: thông báo chung từ Admin */}
         <ListingsHeader
           total={pagination.total}
           view={view}

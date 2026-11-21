@@ -3,7 +3,8 @@ import { SubmissionService } from './submission.service.js';
 import { approveSubmissionSchema, listSubmissionsQuerySchema, rejectSubmissionSchema, submissionDataSchema } from './submission.validation.js';
 import { AuthRequest } from '../../middlewares/auth.js';
 import { asyncHandler } from '../../utils/async-handler.js';
-import { auditActor } from '../audit/audit.service.js';
+import { AuditService, auditActor } from '../audit/audit.service.js';
+import type { AuditAction } from '../audit/audit-log.model.js';
 
 const submissionId = (req: AuthRequest) => {
   const id = String(req.params.id);
@@ -12,9 +13,14 @@ const submissionId = (req: AuthRequest) => {
 };
 
 // Tin CTV đăng chờ duyệt (Story 8.6): controller chỉ kiểm tra dữ liệu, nghiệp vụ nằm ở SubmissionService
+// Story 16.2: CTV gửi / sửa / rút tin
+const logSubmission = (req: AuthRequest, action: AuditAction, submission: { _id: unknown; data: { title: string } }) =>
+  AuditService.log(auditActor(req), action, { type: 'SUBMISSION', id: submission._id, title: submission.data.title });
+
 export class SubmissionController {
   static create = asyncHandler(async (req, res) => {
     const data = await SubmissionService.create(req.user!.id, submissionDataSchema.parse(req.body));
+    logSubmission(req, 'SUBMIT_LISTING', data);
     res.status(201).json({ success: true, message: 'Đã gửi tin, chờ Quản lý duyệt', data });
   });
 
@@ -36,11 +42,13 @@ export class SubmissionController {
 
   static update = asyncHandler(async (req, res) => {
     const data = await SubmissionService.update(submissionId(req), req.user!, submissionDataSchema.parse(req.body));
+    logSubmission(req, 'UPDATE_SUBMISSION', data);
     res.status(200).json({ success: true, message: 'Đã cập nhật tin', data });
   });
 
   static withdraw = asyncHandler(async (req, res) => {
     const data = await SubmissionService.withdraw(submissionId(req), req.user!.id);
+    logSubmission(req, 'WITHDRAW_SUBMISSION', data);
     res.status(200).json({ success: true, message: 'Đã rút tin', data });
   });
 

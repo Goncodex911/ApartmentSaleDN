@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { User } from '../../api/authApi.js';
 import { NotificationBell } from './NotificationBell.js';
 
@@ -7,6 +8,7 @@ interface NavbarProps {
   user: User | null;
   pendingCount: number;
   accountMenu: React.ReactNode; // Nội dung menu avatar (AccountMenu) — AppShell truyền vào
+  adminArea: boolean; // Story 16.1: đang ở khu Quản trị → nhãn "Quản trị" + [Về Bảng hàng] thay cho tab
 }
 
 const NAV_ITEMS = [
@@ -20,7 +22,7 @@ const ADMIN_ITEM = { to: '/admin', label: 'Quản trị' }; // Story 13.1 — ch
  * Thanh trên. Máy tính: logo + tab + chuông + avatar. Điện thoại (Story 9.3): chỉ logo + chuông —
  * tab và tài khoản chuyển xuống menu đáy trong tầm ngón cái.
  */
-export const Navbar: React.FC<NavbarProps> = ({ user, pendingCount, accountMenu }) => {
+export const Navbar: React.FC<NavbarProps> = ({ user, pendingCount, accountMenu, adminArea }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const isManager = user?.role === 'ADMIN' || user?.role === 'MANAGER';
@@ -41,7 +43,15 @@ export const Navbar: React.FC<NavbarProps> = ({ user, pendingCount, accountMenu 
             <img src="/icons/favicon-64.png" alt="" className="w-8 h-8 rounded-lg" />
             <span className="text-base font-bold text-[#0f2a45]">ApartmentDN</span>
           </NavLink>
-          {user &&
+          {adminArea && (
+            <>
+              <span className="px-2 py-0.5 rounded-md bg-indigo-600 text-white text-xs font-semibold">Quản trị</span>
+              <NavLink to="/apartments" className="hidden lg:flex h-9 ml-2 px-3 items-center gap-1.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+                <ArrowLeft className="w-4 h-4" aria-hidden /> Về Bảng hàng
+              </NavLink>
+            </>
+          )}
+          {user && !adminArea &&
             [...NAV_ITEMS, ...(user.role === 'ADMIN' ? [ADMIN_ITEM] : [])].map(({ to, label }) => (
               <NavLink
                 key={to}
