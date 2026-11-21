@@ -149,8 +149,12 @@ export const LocationSection: React.FC<{ value: LocationFormValues; onChange: (n
           <LocationPicker
             initial={value.pinned || saved?.coordinates}
             onClose={() => setPicking(false)}
-            onConfirm={(pinned) => {
-              set({ pinned });
+            onConfirm={(pinned, info) => {
+              const patch: Partial<LocationFormValues> = { pinned };
+              if (!value.street.trim() && info?.street) patch.street = info.street;
+              if (!value.zone && info?.zone) patch.zone = info.zone;
+              if (!value.ward?.trim() && info?.ward) patch.ward = info.ward;
+              set(patch);
               setPicking(false);
             }}
           />

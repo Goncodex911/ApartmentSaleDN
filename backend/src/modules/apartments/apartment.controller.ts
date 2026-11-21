@@ -126,4 +126,23 @@ export class ApartmentController {
     // meta.usdRate: bảng so sánh căn quy giá ra USD (Story 11.6)
     res.status(200).json({ success: true, data, meta: { usdRate: usdToVndRate() } });
   });
+
+  // Story 17.6: Lấy danh sách căn chờ chuẩn hóa bản đồ
+  static getMapQAPending = asyncHandler(async (req, res) => {
+    const { zone, page, limit } = req.query as { zone?: string; page?: string; limit?: string };
+    const data = await ApartmentService.getMapQAPending({
+      zone,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
+    res.status(200).json({ success: true, data });
+  });
+
+  // Story 17.6: Căn chỉnh vị trí 1-chạm
+  static calibrateLocation = asyncHandler(async (req, res) => {
+    const id = apartmentId(req);
+    const { coordinates } = req.body || {};
+    const data = await ApartmentService.calibrateLocation(id, coordinates, auditActor(req));
+    res.status(200).json({ success: true, message: 'Đã chuẩn hóa vị trí chính xác', data });
+  });
 }

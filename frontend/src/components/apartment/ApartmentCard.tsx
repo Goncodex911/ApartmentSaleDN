@@ -6,6 +6,7 @@ import { formatVnd } from '../../utils/format.js';
 import { imageCors } from '../../utils/offlineCache.js';
 import { splitMedia } from '../../utils/media.js';
 import { CopyShareButton } from './CopyShareButton.js';
+import { MultiChannelSharePopover } from './MultiChannelSharePopover.js';
 import { ShareLinkButton } from './ShareLinkButton.js';
 import { CardPhotoCarousel } from './CardPhotoCarousel.js';
 import { beachDistanceText, roomParts, zoneText } from '../../utils/apartmentLabels.js';
@@ -70,6 +71,7 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
     selection.disabledReason && <span className="text-xs text-slate-600">{selection.disabledReason}</span>
   ) : (
     <div className="flex gap-1.5 shrink-0">
+      <MultiChannelSharePopover apartment={apartment} ctv={currentUser} compact />
       <CopyShareButton apartment={apartment} ctv={currentUser} compact />
       {layout === 'card' && <ShareLinkButton apartmentId={apartment._id} disabled={apartment.status === 'RENTED'} compact />}
     </div>

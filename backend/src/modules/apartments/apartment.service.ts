@@ -11,6 +11,7 @@ import { AuditActor, AuditService } from '../audit/audit.service.js';
 import { diffFields, snapshotFields } from '../audit/audit-diff.js';
 import { closeOpenReports, refreshVerification, TRUST_STEP } from '../reports/report-closing.js';
 import type { ReportReason } from '../reports/listing-report.model.js';
+import { isValidDanangCoordinates } from '../../utils/google-maps.js';
 
 // Story 13.3: đối tượng ghi nhật ký
 const auditTarget = (apartment: IApartment) => ({ type: 'APARTMENT' as const, id: apartment._id, title: apartment.title });
@@ -274,5 +275,69 @@ export class ApartmentService {
   // Lấy chi tiết căn hộ
   static async findById(id: string, role?: string) {
     return this.maskApartment(await findOr404(id), role);
+  }
+
+  // Story 17.6: Danh sách căn cần rà soát vị trí (geoPrecision !== 'EXACT')
+  static async getMapQAPending(params: { zone?: string; page?: number; limit?: number }) {
+    const page = Math.max(1, Number(params.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(params.limit) || 30));
+    const skip = (page - 1) * limit;
+
+    const baseFilter: any = { deletedAt: null };
+    if (params.zone) baseFilter['location.zone'] = params.zone;
+
+    const pendingFilter = {
+      ...baseFilter,
+      $or: [
+        { 'location.geoPrecision': { $ne: 'EXACT' } },
+        { 'location.geoPrecision': { $exists: false } },
+        { 'location.coordinates': { $exists: false } },
+      ],
+    };
+
+    const [apartments, pendingCount, totalCount, exactCount] = await Promise.all([
+      Apartment.find(pendingFilter)
+        .sort({ updatedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('_id title price location attributes media status updatedAt'),
+      Apartment.countDocuments(pendingFilter),
+      Apartment.countDocuments({ deletedAt: null }),
+      Apartment.countDocuments({ deletedAt: null, 'location.geoPrecision': 'EXACT' }),
+    ]);
+
+    return {
+      apartments,
+      totalCount,
+      exactCount,
+      pendingCount,
+      page,
+      limit,
+    };
+  }
+
+  // Story 17.6: Hiệu chỉnh nhanh vị trí chính xác của căn
+  static async calibrateLocation(id: string, coordinates: [number, number], user: AuditActor) {
+    if (!Array.isArray(coordinates) || coordinates.length !== 2) {
+      throw { status: 400, message: 'Tọa độ không hợp lệ' };
+    }
+    const [lng, lat] = coordinates;
+    if (!isValidDanangCoordinates(lng, lat)) {
+      throw { status: 400, message: 'Vị trí phải nằm trong khu vực Đà Nẵng' };
+    }
+
+    const apartment = await findOr404(id);
+    const oldCoords = apartment.location?.coordinates;
+    apartment.location.coordinates = [Number(lng.toFixed(6)), Number(lat.toFixed(6))];
+    apartment.location.geoPrecision = 'EXACT';
+    await apartment.save();
+
+    AuditService.log(user, 'UPDATE_APARTMENT', auditTarget(apartment), {
+      action: 'CALIBRATE_LOCATION',
+      from: oldCoords,
+      to: apartment.location.coordinates,
+    });
+
+    return apartment;
   }
 }

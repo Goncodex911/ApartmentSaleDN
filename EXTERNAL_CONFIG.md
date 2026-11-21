@@ -217,3 +217,78 @@ Epic 15 tiếp tục trung thành với triết lý **Ponytail (Tối giản, 0 
 * **Tùy chọn:**
   * `NOMINATIM_USER_AGENT` (**backend** — Render + `.env` gốc): định danh app khi gọi định vị tên đường (mặc định: `RoomMaster-Danang/1.0`).
 
+---
+
+### 9. EPIC-16: Bảng Điều Khiển Quản Trị & Giám Sát Hoạt Động (Admin Console)
+Epic 16 hoạt động hoàn toàn **nội bộ**, tái sử dụng hạ tầng sẵn có:
+* **Hạ tầng sử dụng:** MongoDB Atlas (lưu Activity Log, Sessions, Alerts, Announcements), JWT Auth, WebSocket/SSE.
+* **Chi phí:** **0 VND**.
+* **Biến môi trường bắt buộc:** **Không có** (tái sử dụng `MONGODB_URI`, `JWT_SECRET`).
+* **Tính năng theo dõi hạn mức bên ngoài (Story 16.8):** Hệ thống tự động kiểm tra trạng thái các key đã cấu hình (Cloudinary credits, Gemini AI, Atlas Storage 512MB, CARTO tiles, Telegram bot) để cảnh báo Admin khi key hỏng hoặc gần chạm trần gói miễn phí.
+
+---
+
+### 10. EPIC-17: Tự Động Hóa Đăng Tin Đa Kênh (Zalo, WhatsApp) & Chuẩn Hóa Bản Đồ Google
+
+Epic 17 giải quyết triệt để bài toán **phân phối tin đa kênh cho CTV** và **chuẩn hóa vị trí bản đồ 100%**, tuân thủ triệt để triết lý **Ponytail (0 VND chi phí hàng tháng, không mua Google Maps API, không dùng bot lậu tránh bị khóa tài khoản Zalo)**:
+
+#### 10.1. Tự Động Đăng Bài Lên Zalo (An Toàn Tuyệt Đối, 0 VND)
+* **Thực tế kỹ thuật Zalo:** Zalo không cấp Open API miễn phí cho tài khoản cá nhân đăng bài lên Nhật ký (Timeline) hay nhóm chat. Mọi công cụ bot cào/gửi tự động không chính thức đều có nguy cơ bị Zalo quét khóa tài khoản vĩnh viễn.
+* **Giải pháp 1-Chạm Bán Tự Động (Story 17.1 & 17.2):**
+  * **Cơ chế:** Khi CTV bấm `[💬 Đăng Zalo]`, hệ thống tự động:
+    1. Soạn bài viết tối ưu SEO Zalo (Tiêu đề, Giá, Tiện ích, Link phòng kèm mã định danh CTV).
+    2. Tự động áp dụng thuật toán **Spin Text (Spintax Engine)** hoán đổi từ đồng nghĩa để bài viết không bị trùng lặp khi đăng nhiều nhóm.
+    3. Tự động copy bài vào Clipboard và tải 4 ảnh phòng nét nhất (1600px từ Cloudinary).
+    4. Kích hoạt Universal Deep-link Scheme `zalo://` (mobile) hoặc mở `https://chat.zalo.me/` (desktop).
+  * **Yêu cầu & Cấu hình:**
+    * **Chi phí:** **0 VND (Miễn phí 100%)**.
+    * **API Key:** **KHÔNG CẦN**. Không cần đăng ký Zalo Developers hay Zalo OA tốn phí.
+    * **Điều kiện trình duyệt:** Cần kết nối **HTTPS** để chạy Clipboard API (`navigator.clipboard.writeText`) — Netlify đã có sẵn.
+
+#### 10.2. Tự Động Đăng Bài & Chào Khách Qua WhatsApp (0 VND)
+* **Phục vụ thị trường khách ngoại quốc / Expat tại Đà Nẵng (Story 17.1 & 17.3):**
+  * **Cơ chế:** Khi bấm `[📱 Đăng WhatsApp]`, hệ thống tự động:
+    1. Dịch thông tin căn hộ sang Tiếng Anh chuẩn văn phong Expat.
+    2. Tự động quy đổi giá thuê VND sang USD.
+    3. Tự động tính cự ly đi bộ ra bãi biển Mỹ Khê (`~350m to My Khe Beach - 4 mins walk`) bằng công thức toán học Haversine (không tốn phí Distance Matrix API).
+    4. Định dạng chuẩn WhatsApp Markdown (`*bold*`, `_italic_`).
+    5. Mở thẳng deep-link `https://wa.me/?text={encoded_content}` để CTV gửi ngay vào các nhóm chat Expat.
+  * **Yêu cầu & Cấu hình:**
+    * **Chi phí:** **0 VND**.
+    * **API Key:** **KHÔNG CẦN**. Sử dụng giao thức WhatsApp Click-to-Chat URI Scheme chuẩn của Meta.
+
+#### 10.3. Giải Mã Tọa Độ Mọi Link Google Maps (Omnichannel URL Resolver - Story 17.5)
+* **Vấn đề:** Môi giới thường dán link Google Maps rút gọn từ điện thoại di động (`https://maps.app.goo.gl/...`), link Plus Code (`7P28+3F Đà Nẵng`), hoặc link tìm kiếm. Trước đây các link này dễ bị lỗi khi chuyển hướng nhiều tầng hoặc gặp trang đồng ý cookie của Google.
+* **Giải pháp backend:**
+  * Bộ giải mã `resolveMapCoordinates` theo dõi sâu tối đa 5 bước redirect HTTP Header `location`.
+  * Bóc tách chuẩn xác tọa độ cắm ghim `!3d..!4d..` hoặc `@lat,lng` mà **KHÔNG CẦN MUA GOOGLE MAPS GEOCODING / PLACES API** (tiết kiệm $200–$500/tháng).
+  * Giải mã Plus Code (Open Location Code) bằng thuật toán mã nguồn mở chạy offline trên máy chủ.
+  * Bảo vệ an ninh tuyệt đối: Chống tấn công SSRF bằng whitelist tên miền Google Maps (`maps.app.goo.gl`, `goo.gl/maps`, `maps.google.com`).
+* **Yêu cầu & Cấu hình:**
+  * **Chi phí:** **0 VND**.
+  * **API Key:** **KHÔNG CẦN**.
+  * **Cấu hình mạng:** Máy chủ Render (Backend) cần có kết nối Internet bình thường để gọi HTTP HEAD/GET lấy header redirect (Render đã có sẵn).
+
+#### 10.4. Ghim Vị Trí Trên Form & Rà Soát Chất Lượng Bản Đồ (Story 17.4 & 17.6)
+* **Interactive Pin-on-Map Picker (`ApartmentModal.tsx`) & Map QA (`/admin/map-qa`):**
+  * Tích hợp bản đồ Leaflet có marker kéo thả trực quan.
+  * Hỗ trợ nút `[🎯 Vị trí hiện tại]` sử dụng GPS thiết bị (`navigator.geolocation`).
+  * Tùy chọn xem ảnh Vệ tinh (Satellite Imagery) qua CDN Esri World Imagery công cộng miễn phí (`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}`) — không cần key.
+* **Yêu cầu & Cấu hình:**
+  * **Chi phí:** **0 VND**.
+  * **Điều kiện bắt buộc:** Điện thoại của môi giới phải bật "Dịch vụ định vị" (Location Services) và bấm **Cho phép** khi trình duyệt hỏi quyền truy cập GPS.
+
+---
+
+#### 10.5. Bảng Tổng Hợp Cấu Hình Cho Epic 17
+
+| Thông số / Biến | Nơi cấu hình | Bắt buộc? | Mục đích sử dụng | Giá trị mặc định nếu bỏ trống |
+| :--- | :--- | :---: | :--- | :--- |
+| **`USD_VND_RATE`** | Backend (Render / `.env`) | Không | Tỷ giá quy đổi tiền thuê sang USD trên bài đăng WhatsApp (Story 17.3) | `25000` (1 USD = 25.000 VNĐ) |
+| **`VITE_MAP_TILE_URL`** | Frontend (Netlify / `.env.local`) | Không | URL bản đồ nền CARTO (đẹp mắt) hoặc để trống dùng OpenStreetMap | Tile OpenStreetMap chuẩn |
+| **`NOMINATIM_USER_AGENT`** | Backend (Render / `.env`) | Không | Định danh app khi gọi reverse geocoding điền tên đường ngược | `RoomMaster-Danang/1.0` |
+| **HTTPS (SSL)** | Netlify & Render | **Có** | Bắt buộc cho Clipboard API & HTML5 Geolocation API | Đã có sẵn trên Netlify & Render |
+| **Google Maps API Key** | — | **KHÔNG CẦN** | Hệ thống tự giải mã link HTTP & dùng Leaflet | **0 VND — Không tốn chi phí** |
+| **Zalo OA / WhatsApp Cloud API Key** | — | **KHÔNG CẦN** | Dùng Deep-link 1-chạm cá nhân, không bị khóa tài khoản | **0 VND — Không tốn chi phí** |
+
+
