@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthService } from './auth.service.js';
 import { registerSchema, loginSchema, changePasswordSchema } from './auth.validation.js';
 import { auditActor } from '../audit/audit.service.js';
+import { requestContext } from '../../utils/request-context.js';
 import { AuthRequest } from '../../middlewares/auth.js';
 import { runDailyJobsIfDue } from '../jobs/daily-jobs.js';
 
@@ -18,7 +19,7 @@ export class AuthController {
   static async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const validatedData = registerSchema.parse(req.body);
-      const result = await AuthService.register(validatedData);
+      const result = await AuthService.register(validatedData, requestContext(req));
 
       if ('pendingApproval' in result) {
         res.status(201).json({
@@ -45,7 +46,7 @@ export class AuthController {
   static async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const validatedData = loginSchema.parse(req.body);
-      const { user, accessToken, refreshToken } = await AuthService.login(validatedData);
+      const { user, accessToken, refreshToken } = await AuthService.login(validatedData, requestContext(req));
 
       res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS);
       res.status(200).json({
@@ -61,7 +62,7 @@ export class AuthController {
   // Cấp lại Access Token từ Refresh Token (HttpOnly Cookie) — xoay vòng cấp luôn refresh token mới
   static async refresh(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { user, accessToken, refreshToken } = await AuthService.refresh(req.cookies?.refreshToken);
+      const { user, accessToken, refreshToken } = await AuthService.refresh(req.cookies?.refreshToken, requestContext(req));
       res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS);
       res.status(200).json({ success: true, data: { user, accessToken } });
     } catch (error) {
@@ -73,7 +74,7 @@ export class AuthController {
   // Đăng xuất — Story 14.5: thu hồi phiên của thiết bị này (lỗi vẫn xóa cookie, vẫn trả 200)
   static async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      await AuthService.logout(req.cookies?.refreshToken).catch(() => undefined);
+      await AuthService.logout(req.cookies?.refreshToken, requestContext(req)).catch(() => undefined);
       res.clearCookie('refreshToken');
       res.status(200).json({ success: true, message: 'Đăng xuất thành công' });
     } catch (error) {

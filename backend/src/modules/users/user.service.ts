@@ -9,11 +9,15 @@ import { AuditActor, AuditService } from '../audit/audit.service.js';
 import { ListUsersQuery, UpdateProfileInput } from './user.validation.js';
 
 // Mật khẩu tạm: bỏ ký tự dễ nhầm khi đọc qua điện thoại (0/O, 1/l/I)
+// Story 16.3: lastActive = hoạt động gần nhất trước; inactive = lâu không dùng app trước (chưa từng hoạt động = null xếp đầu)
+const SORTS = { newest: { createdAt: -1 }, lastActive: { lastActiveAt: -1 }, inactive: { lastActiveAt: 1 } } as const;
 const PASSWORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+// Mật khẩu tạm 12 ký tự (bỏ ký tự dễ nhầm 0/O, 1/l/I) — reset 13.2 và tạo tài khoản 16.6
+export const generateTempPassword = () => Array.from({ length: 12 }, () => PASSWORD_ALPHABET[randomInt(PASSWORD_ALPHABET.length)]).join('');
 
-const userTarget = (user: { _id: unknown; name: string; ctvCode: string }) => ({ type: 'USER' as const, id: user._id, title: `${user.name} (${user.ctvCode})` });
+export const userTarget = (user: { _id: unknown; name: string; ctvCode: string }) => ({ type: 'USER' as const, id: user._id, title: `${user.name} (${user.ctvCode})` });
 
-const findTarget = async (userId: string) => {
+export const findTarget = async (userId: string) => {
   const user = isValidObjectId(userId) ? await User.findById(userId) : null;
   if (!user) throw { status: 404, message: 'Không tìm thấy người dùng' };
   return user;
@@ -64,8 +68,8 @@ export class UserService {
     return String(manager._id);
   }
 
-  // [ADMIN] Danh sách thành viên (Story 13.2): lọc trạng thái / vai trò, tìm tên – SĐT – mã CTV, phân trang
-  static async list({ status, role, search, page, limit }: ListUsersQuery) {
+  // [ADMIN] Danh sách thành viên (Story 13.2) — Story 16.3: sắp theo hoạt động cuối (người chưa từng hoạt động xếp cuối / đầu): lọc trạng thái / vai trò, tìm tên – SĐT – mã CTV, phân trang
+  static async list({ status, role, search, sort, page, limit }: ListUsersQuery) {
     const filter: Record<string, unknown> = {};
     if (status) filter.status = status;
     if (role) filter.role = role;
@@ -74,7 +78,9 @@ export class UserService {
       filter.$or = [{ name: pattern }, { phone: pattern }, { ctvCode: pattern }];
     }
     const [items, total] = await Promise.all([
-      User.find(filter).select('name phone role ctvCode status createdAt trustScore canReport').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      User.find(filter)
+        .select('name phone role ctvCode status createdAt trustScore canReport lastActiveAt')
+        .sort(SORTS[sort ?? 'newest']).skip((page - 1) * limit).limit(limit).lean(),
       User.countDocuments(filter),
     ]);
     return { items, total, page, limit };
@@ -135,7 +141,7 @@ export class UserService {
     if (actor.id === userId) throw { status: 400, message: 'Đổi mật khẩu của chính mình trong Hồ sơ cá nhân' };
     const user = await findTarget(userId);
     if (user.role === 'ADMIN') throw { status: 403, message: 'Không thể đặt lại mật khẩu tài khoản ADMIN' };
-    const tempPassword = Array.from({ length: 12 }, () => PASSWORD_ALPHABET[randomInt(PASSWORD_ALPHABET.length)]).join('');
+    const tempPassword = generateTempPassword();
     user.password = tempPassword; // pre('save') băm bcrypt
     user.mustChangePassword = true; // Story 13.9: lần đăng nhập tới app nhắc đổi mật khẩu
     user.tokenVersion = (user.tokenVersion ?? 0) + 1;

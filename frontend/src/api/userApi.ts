@@ -1,12 +1,38 @@
 import { apiClient } from './client.js';
 import { User } from './authApi.js';
 
-export type AdminUser = Pick<User, '_id' | 'name' | 'phone' | 'role' | 'ctvCode' | 'status'> & { createdAt: string; trustScore?: number; canReport?: boolean };
+export type AdminUser = Pick<User, '_id' | 'name' | 'phone' | 'role' | 'ctvCode' | 'status'> & { createdAt: string; trustScore?: number; canReport?: boolean; lastActiveAt?: string };
+
+// Story 16.4 — phiên đăng nhập theo thiết bị (id là mã băm, không phải mã phiên thật)
+export type DeviceSession = { id: string; userAgent: string; ip: string; createdAt: string | null; lastUsedAt: string | null; current: boolean };
+
+// Story 16.6
+export type UserFormInput = { name: string; phone: string; email?: string };
+export type AdminNote = { _id: string; text: string; authorId: string; authorName: string; createdAt: string };
+
+// Story 16.3 — Hồ sơ 360° (khách CRM chỉ có số lượng theo giai đoạn)
+export interface UserOverview {
+  user: AdminUser & { email?: string; lastLoginAt?: string; telegramLinked: boolean; activeSessions: number };
+  stats: {
+    apartmentsCreated: number;
+    apartmentsUpdated: number;
+    submissions: Record<string, number>;
+    reviewed: Record<string, number>;
+    shareLinks: number;
+    shareViews: number;
+    leadsByStage: Record<string, number>;
+    deals: number;
+    reports: Record<string, number>;
+    contactViews: number;
+  };
+}
 export interface UserListParams {
   status?: User['status'];
   role?: User['role'];
   search?: string;
   page?: number;
+  limit?: number;
+  sort?: 'newest' | 'lastActive' | 'inactive'; // Story 16.3
 }
 
 export const userApi = {
@@ -41,6 +67,21 @@ export const userApi = {
     const res = await apiClient.get('/users', { params });
     return { items: res.data.data, total: res.data.meta.total };
   },
+
+  // [ADMIN] Story 16.3: Hồ sơ 360°
+  getOverview: async (userId: string, range: '30d' | 'all'): Promise<UserOverview> => (await apiClient.get(`/users/${userId}/overview`, { params: { range } })).data.data,
+
+  // [ADMIN] Story 16.6: tạo tài khoản (mật khẩu tạm trả đúng 1 lần), sửa thông tin, ghi chú nội bộ
+  createUser: async (data: UserFormInput & { role: 'MANAGER' | 'COLLABORATOR' }): Promise<{ user: AdminUser; tempPassword: string }> => (await apiClient.post('/users', data)).data.data,
+  updateUser: async (userId: string, data: Partial<UserFormInput>): Promise<AdminUser> => (await apiClient.patch(`/users/${userId}`, data)).data.data,
+  listNotes: async (userId: string): Promise<AdminNote[]> => (await apiClient.get(`/users/${userId}/notes`)).data.data,
+  addNote: async (userId: string, text: string): Promise<AdminNote[]> => (await apiClient.post(`/users/${userId}/notes`, { text })).data.data,
+  deleteNote: async (userId: string, noteId: string): Promise<AdminNote[]> => (await apiClient.delete(`/users/${userId}/notes/${noteId}`)).data.data,
+
+  // Story 16.4: không truyền userId = thiết bị của chính mình
+  listSessions: async (userId?: string): Promise<DeviceSession[]> => (await apiClient.get(`/users/${userId ?? 'me'}/sessions`)).data.data,
+  revokeSession: async (sessionId: string, userId?: string) => apiClient.delete(`/users/${userId ?? 'me'}/sessions/${sessionId}`),
+  revokeAllSessions: async (userId: string) => apiClient.delete(`/users/${userId}/sessions`),
 
   // [ADMIN] Duyệt (ACTIVE) hoặc khóa (BLOCKED) tài khoản
   updateUserStatus: async (userId: string, status: 'ACTIVE' | 'BLOCKED'): Promise<AdminUser> => {

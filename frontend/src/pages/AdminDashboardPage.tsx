@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
-import { ChevronRight, ScrollText, Settings, ShieldAlert, Trophy, Users, WifiOff } from 'lucide-react';
-import { useApp } from '../components/layout/AppShell.js';
+import { Link } from 'react-router-dom';
+import { ChevronRight, ShieldAlert, WifiOff } from 'lucide-react';
 import { DashboardStats, adminApi } from '../api/adminApi.js';
 import { BarList, DashboardSection, StatTile } from '../components/admin/DashboardParts.js';
 import { EmptyState } from '../components/ui/EmptyState.js';
@@ -11,18 +10,9 @@ import { STATUS_ORDER, STATUS_STYLE } from '../utils/statusStyle.js';
 import { ZONES } from '../utils/danang.js';
 import { PRICE_RANGES } from '../components/apartment/FilterSheet.js';
 
-// Lối vào các trang quản trị (Epic 13)
-const ADMIN_LINKS = [
-  { to: '/admin/users', label: 'Thành viên', icon: Users },
-  { to: '/admin/performance', label: 'Hiệu suất CTV', icon: Trophy },
-  { to: '/admin/audit-logs', label: 'Nhật ký truy vết', icon: ScrollText },
-  { to: '/admin/settings', label: 'Cấu hình', icon: Settings },
-  { to: '/moderation', label: 'Kiểm duyệt báo lỗi', icon: ShieldAlert },
-];
 
 /** [ADMIN] Trung tâm điều hành (Story 13.1): kho căn, thành viên, cào tin 24h, tương tác khách, phân bố khu vực & giá. */
 export const AdminDashboardPage: React.FC = () => {
-  const { user } = useApp();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState(false);
 
@@ -33,8 +23,6 @@ export const AdminDashboardPage: React.FC = () => {
   }, []);
   useEffect(load, [load]);
 
-  if (user && user.role !== 'ADMIN') return <Navigate to="/apartments" replace />;
-
   const renderStats = () => {
     if (error) return <EmptyState icon={WifiOff} title="Không tải được số liệu" description="Vui lòng kiểm tra mạng rồi thử lại." action={<Button onClick={load}>Thử lại</Button>} />;
     if (!stats) {
@@ -44,7 +32,7 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       );
     }
-    const { apartments, members, ingestion24h, market } = stats;
+    const { apartments, members, ingestion24h, market, openAlerts = 0 } = stats;
     const onMarket = apartments.total - (apartments.byStatus.RENTED ?? 0);
     const zoneRows = [...ZONES, 'UNKNOWN']
       .map((zone) => ({ label: zone === 'UNKNOWN' ? 'Chưa rõ khu vực' : zone, count: apartments.byZone[zone] ?? 0 }))
@@ -54,6 +42,12 @@ export const AdminDashboardPage: React.FC = () => {
 
     return (
       <div className="grid gap-3 lg:grid-cols-2">
+        {/* Story 16.5: cảnh báo chưa xử lý nằm đầu trang */}
+        <Link to="/admin/alerts" className={`lg:col-span-2 flex items-center gap-3 p-4 rounded-2xl border transition-colors ${openAlerts ? 'bg-rose-50 border-rose-200 hover:border-rose-300' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
+          <ShieldAlert className={`w-6 h-6 shrink-0 ${openAlerts ? 'text-rose-700' : 'text-emerald-700'}`} aria-hidden />
+          <span className="flex-1 text-sm font-semibold text-slate-900">{openAlerts ? `${openAlerts} cảnh báo bảo mật chưa xử lý` : 'Không có cảnh báo bảo mật nào'}</span>
+          <ChevronRight className="w-5 h-5 text-slate-500" aria-hidden />
+        </Link>
         <DashboardSection title={`Kho căn hộ · ${apartments.total} căn`}>
           <div className="grid grid-cols-2 gap-2">
             {STATUS_ORDER.map((status) => (
@@ -108,16 +102,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   return (
     <main className="max-w-5xl mx-auto px-4 pt-4 pb-app space-y-3">
-      <h1 className="text-xl font-bold text-slate-900">Quản trị</h1>
-      <nav aria-label="Trang quản trị" className="grid grid-cols-2 gap-2">
-        {ADMIN_LINKS.map(({ to, label, icon: Icon }) => (
-          <Link key={to} to={to} className="flex items-center gap-2 min-h-[52px] px-3 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-800 hover:border-slate-300">
-            <Icon className="w-5 h-5 text-indigo-600 shrink-0" aria-hidden />
-            <span className="flex-1">{label}</span>
-            <ChevronRight className="w-4 h-4 text-slate-400" aria-hidden />
-          </Link>
-        ))}
-      </nav>
+      <h1 className="text-xl font-bold text-slate-900">Tổng quan</h1>
       {renderStats()}
     </main>
   );

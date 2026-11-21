@@ -12,7 +12,7 @@ const NOT_FOUND = { status: 404, message: 'Không tìm thấy căn hộ' };
 
 export class ListingReportService {
   /** CTV / Quản lý báo lỗi 1 căn đang chào. Mỗi người 1 báo lỗi đang mở / căn — gửi lại là cập nhật lý do. */
-  static async report(apartmentId: string, actor: { id: string }, input: CreateReportInput) {
+  static async report(apartmentId: string, actor: AuditActor, input: CreateReportInput) {
     const [apartment, user] = await Promise.all([Apartment.findById(apartmentId), User.findById(actor.id).select('canReport').lean()]);
     if (!apartment) throw NOT_FOUND;
     if (apartment.status !== 'AVAILABLE' && apartment.status !== 'UPCOMING') throw { status: 400, message: 'Chỉ báo lỗi căn đang Trống hoặc Sắp trống' };
@@ -26,6 +26,7 @@ export class ListingReportService {
       if (err.code !== 11000) throw err; // Bấm 2 lần cùng lúc: lần kia đã tạo báo lỗi → bỏ qua
     });
     await this.refreshFlag(apartment);
+    AuditService.log(actor, 'CREATE_REPORT', { type: 'APARTMENT', id: apartment._id, title: apartment.title }, { reason: input.reason }); // Story 16.2
   }
 
   /** Đủ ngưỡng → gắn "Chờ xác minh" (phát real-time), lần đầu thì báo cả đội Quản lý (Story 14.3). */
@@ -97,6 +98,7 @@ export class ListingReportService {
       AuditService.log(actor, 'DISMISS_REPORT', { type: 'APARTMENT', id: apartment._id, title: apartment.title }, { reporters: reporters.length, wrongReport: input.wrongReport });
     }
 
+    if (input.action !== 'DISMISS') AuditService.log(actor, 'RESOLVE_REPORT', { type: 'APARTMENT', id: apartment._id, title: apartment.title }, { action: input.action, reporters: reporters.length });
     // Phản hồi cho màn hình hàng đợi: số người báo được tính điểm (không tính người đang xử lý) và mức điểm
     const others = reporters.filter((id) => id !== actor.id).length;
     const delta = input.action === 'DISMISS' ? (input.wrongReport ? -TRUST_STEP : 0) : TRUST_STEP;

@@ -1,9 +1,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { ClipboardCheck, ClipboardList, LayoutGrid, Plus, Sparkles, UserRound, Users, LucideIcon } from 'lucide-react';
+import { ClipboardCheck, ClipboardList, LayoutGrid, Plus, ShieldCheck, Sparkles, UserRound, Users, LucideIcon } from 'lucide-react';
 
 interface BottomNavProps {
   isManager: boolean;
+  isAdmin: boolean; // Story 16.1: Admin thấy lối vào Quản trị thay cho Duyệt tin (Duyệt tin nằm trong menu Thêm của khu Quản trị)
   pendingCount: number;
   onMainAction: () => void; // Quản lý: Nhập tin AI · CTV: Đăng tin
   onAccount: () => void;
@@ -31,7 +32,7 @@ const Tab: React.FC<{ to: string; label: string; icon: LucideIcon; badge?: numbe
  * Menu đáy cho thao tác 1 tay (Story 9.3) — chỉ trên điện thoại (< 768px), chỉ hiện icon (tên đọc qua aria-label / title).
  * Nằm phía trên huy hiệu "Powered by Netlify" (gói Free không tắt được, không ẩn bằng CSS) và thanh Home của iPhone.
  */
-export const BottomNav: React.FC<BottomNavProps> = ({ isManager, pendingCount, onMainAction, onAccount }) => {
+export const BottomNav: React.FC<BottomNavProps> = ({ isManager, isAdmin, pendingCount, onMainAction, onAccount }) => {
   const mainLabel = isManager ? 'Nhập tin AI' : 'Đăng tin';
   const MainIcon = isManager ? Sparkles : Plus;
 
@@ -51,12 +52,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({ isManager, pendingCount, o
             <MainIcon className="w-6 h-6" aria-hidden />
           </button>
         </div>
+        {isAdmin ? (
+          <Tab to="/admin" label="Quản trị" icon={ShieldCheck} />
+        ) : (
         <Tab
           to="/submissions"
           label={isManager ? 'Duyệt tin' : 'Tin đăng'}
           icon={isManager ? ClipboardCheck : ClipboardList}
           badge={isManager ? pendingCount : 0}
         />
+        )}
         <button type="button" onClick={onAccount} aria-label="Tài khoản" title="Tài khoản" className={`${cell} text-slate-500`}>
           <UserRound className="w-6 h-6" aria-hidden />
         </button>

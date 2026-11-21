@@ -1,3 +1,4 @@
+import { outcomeOf, record } from '../health/service-health.js';
 import {
   GEMINI_REAL_ESTATE_SYSTEM_PROMPT,
   GEMINI_JSON_SCHEMA_INSTRUCTION,
@@ -145,8 +146,10 @@ ${rawText.trim()}
 
       if (!response.ok) {
         const errorText = await response.text();
+        record('gemini', outcomeOf(response.status, errorText), `HTTP ${response.status}: ${errorText}`); // Story 16.8a
         throw new Error(`Google Gemini API trả về lỗi HTTP ${response.status}: ${errorText}`);
       }
+      record('gemini', 'ok');
 
       const data = (await response.json()) as any;
       const textOutput = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -159,6 +162,7 @@ ${rawText.trim()}
       return this.sanitizeResult(parsedJson, rawText);
     } catch (err: any) {
       if (err.name === 'AbortError') {
+        record('gemini', 'error', 'Quá thời gian chờ');
         throw new Error('Quá thời gian chờ (Timeout) khi gọi Gemini API');
       }
       throw err;

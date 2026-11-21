@@ -1,6 +1,7 @@
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { Readable } from 'stream';
 import { randomCode } from '../utils/random-code.js';
+import { outcomeOf, record } from '../modules/health/service-health.js';
 
 // .env đã được nạp từ config/env.ts trước mọi module; đọc cấu hình lúc upload để luôn lấy giá trị mới nhất
 function initCloudinary() {
@@ -31,8 +32,10 @@ export function uploadBufferToCloudinary(
       },
       (error, result) => {
         if (error || !result) {
+          record('cloudinary', error?.http_code ? outcomeOf(error.http_code) : 'error', error?.message); // Story 16.8a
           return reject(error || new Error('Upload lên Cloudinary thất bại'));
         }
+        record('cloudinary', 'ok');
         resolve(result);
       }
     );
@@ -45,7 +48,10 @@ export function uploadBufferToCloudinary(
 export async function deleteCloudinaryMedia(publicIds: string[], resourceType: 'image' | 'video') {
   if (publicIds.length === 0) return;
   initCloudinary();
-  await cloudinary.api.delete_resources(publicIds, { resource_type: resourceType });
+  await cloudinary.api.delete_resources(publicIds, { resource_type: resourceType }).catch((err) => {
+    record('cloudinary', err?.error?.http_code ? outcomeOf(err.error.http_code) : 'error', err?.error?.message || err?.message);
+    throw err;
+  });
 }
 
 /**

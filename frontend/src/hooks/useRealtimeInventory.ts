@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { User } from '../api/authApi.js';
-import { APARTMENT_REALTIME, connectRealtime, RealtimeMessage } from '../api/realtimeStream.js';
+import { ANNOUNCEMENT_CHANGED, APARTMENT_REALTIME, connectRealtime, RealtimeMessage } from '../api/realtimeStream.js';
 import { formatVnd } from '../utils/format.js';
 import { APARTMENTS_CHANGED } from './useApartmentSearch.js';
 
@@ -32,6 +32,7 @@ export function useRealtimeInventory(user: User | null) {
     return connectRealtime((message) => {
       // Máy chủ vừa khởi động lại / mất quá nhiều sự kiện → tải lại toàn bộ danh sách
       if (message.type === 'reset') return void window.dispatchEvent(new Event(APARTMENTS_CHANGED));
+      if (message.type === 'announcement.changed') return void window.dispatchEvent(new Event(ANNOUNCEMENT_CHANGED)); // Story 16.9
       window.dispatchEvent(new CustomEvent<RealtimeMessage>(APARTMENT_REALTIME, { detail: message }));
       if (message.data.by === userId) return; // Thay đổi do chính mình → không báo lại
       const next = toastFor(message);

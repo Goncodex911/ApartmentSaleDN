@@ -23,6 +23,8 @@ export interface ISystemConfig {
   reviewPolicy: ReviewPolicy;
   hotline?: string;
   zaloOaUrl?: string;
+  // Story 16.5: ngưỡng cảnh báo bất thường (Admin chỉnh trong Cấu hình)
+  alertThresholds?: { ownerContactPerHour: number; deletesPer10Min: number };
   updatedAt?: Date;
 }
 
@@ -41,6 +43,10 @@ const systemConfigSchema = new Schema<ISystemConfig>(
     reviewPolicy: { type: String, enum: REVIEW_POLICIES, default: 'FLAG_ONLY' },
     hotline: { type: String, trim: true },
     zaloOaUrl: { type: String, trim: true },
+    alertThresholds: {
+      ownerContactPerHour: { type: Number, default: 30 },
+      deletesPer10Min: { type: Number, default: 5 },
+    },
   },
   { timestamps: { createdAt: false, updatedAt: true }, collection: 'system_config', versionKey: false }
 );

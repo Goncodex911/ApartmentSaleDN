@@ -1,6 +1,8 @@
 import { Schema, model } from 'mongoose';
 import { scanLeaseReminders } from './lease-reminder.service.js';
 import { cleanupSubmissionMedia } from '../submissions/submission-cleanup.js';
+import { TrashService } from '../apartments/trash.service.js';
+import { checkQuotaAlerts } from '../health/quota-meters.js';
 
 // Bản ghi khoá theo ngày: đảm bảo việc hằng ngày chỉ chạy 1 lần dù nhiều người mở app cùng lúc / nhiều máy chủ
 const JobRun = model(
@@ -10,6 +12,9 @@ const JobRun = model(
 
 /** Ngày hiện tại theo giờ Việt Nam dạng "2026-11-19" (máy chủ Render chạy giờ UTC). */
 export const vnDate = (now = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(now);
+
+// Story 16.8a: ngày chạy gần nhất (giờ VN) — hiện trên trang Sức khỏe hệ thống
+export const lastDailyRun = async () => (await JobRun.findById('daily').lean())?.lastRunDate ?? null;
 
 let lastCheckedDate = ''; // Đã kiểm tra hôm nay trong tiến trình này → không hỏi DB ở mỗi request
 
@@ -32,7 +37,7 @@ export async function runDailyJobsIfDue(now = new Date()): Promise<boolean> {
     throw err;
   }
 
-  const jobs: [string, Promise<unknown>][] = [['Nhắc tái ký', scanLeaseReminders(now)]];
+  const jobs: [string, Promise<unknown>][] = [['Nhắc tái ký', scanLeaseReminders(now)], ['Dọn Thùng rác', TrashService.purgeExpired(now)], ['Kiểm tra hạn mức', checkQuotaAlerts()]]; // Story 16.7, 16.8b
   if (process.env.CLOUDINARY_API_KEY) jobs.push(['Dọn ảnh tin CTV', cleanupSubmissionMedia(now)]);
   const results = await Promise.allSettled(jobs.map(([, job]) => job));
   results.forEach((result, index) => {

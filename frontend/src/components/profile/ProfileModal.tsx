@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { User } from '../../api/authApi.js';
 import { userApi } from '../../api/userApi.js';
 import { TelegramLinkSection } from './TelegramLinkSection.js';
+import { SessionList } from '../admin/SessionList.js';
 import { X, UserCircle, Phone, MessageSquare, ExternalLink, Loader2, Check, KeyRound } from 'lucide-react';
+import { ACTIVITY_LOG_NOTICE } from '../../utils/format.js';
 
 // Trang cha chỉ render modal khi đang mở → mỗi lần mở là một lần mount mới, state tự lấy theo user hiện tại
 interface ProfileModalProps {
@@ -181,6 +183,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
             <KeyRound className="w-4 h-4 text-indigo-600" aria-hidden />
             Đổi mật khẩu
           </button>
+
+          {/* Story 16.4: tự xem / đăng xuất thiết bị khác của mình */}
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold text-slate-800">Thiết bị đang đăng nhập</h3>
+            <SessionList />
+            <p className="text-xs text-slate-600">{ACTIVITY_LOG_NOTICE}</p>
+          </section>
 
           {/* Footer */}
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">

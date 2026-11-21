@@ -37,7 +37,7 @@ export const AccountMenu: React.FC<{
         <button type="button" className={`${itemClass} text-slate-700`} onClick={() => onNavigate('/admin')}>Quản trị</button>
       )}
       {user.role !== 'COLLABORATOR' && (
-        <button type="button" className={`${itemClass} text-slate-700`} onClick={() => onNavigate('/moderation')}>Kiểm duyệt báo lỗi</button>
+        <button type="button" className={`${itemClass} text-slate-700`} onClick={() => onNavigate(user.role === 'ADMIN' ? '/admin/moderation' : '/moderation')}>Kiểm duyệt báo lỗi</button>
       )}
       <button type="button" className={`${itemClass} text-rose-600`} onClick={onLogout}>Đăng xuất</button>
     </div>

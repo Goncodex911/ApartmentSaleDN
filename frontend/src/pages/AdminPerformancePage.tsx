@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
 import { Download, Trophy, WifiOff } from 'lucide-react';
-import { useApp } from '../components/layout/AppShell.js';
 import { BrokerPerformance, PerformanceRange, adminApi } from '../api/adminApi.js';
 import { AdminFilterTabs } from '../components/admin/AdminListControls.js';
 import { LeaderboardItem } from '../components/admin/LeaderboardItem.js';
@@ -19,7 +17,6 @@ const TABS = [
 
 /** [ADMIN] Bảng xếp hạng & hiệu suất CTV (Story 13.4): lọc theo tháng, tab CTV không hoạt động 30 ngày, xuất CSV. */
 export const AdminPerformancePage: React.FC = () => {
-  const { user } = useApp();
   const [tab, setTab] = useState('this_month');
   const [rows, setRows] = useState<BrokerPerformance[] | null>(null);
   const [error, setError] = useState(false);
@@ -39,8 +36,6 @@ export const AdminPerformancePage: React.FC = () => {
     };
   }, [range]);
   useEffect(load, [load]);
-
-  if (user && user.role !== 'ADMIN') return <Navigate to="/apartments" replace />;
 
   const visible = (inactiveTab ? rows?.filter((row) => row.inactive) : rows) ?? [];
   const exportCsv = () => {

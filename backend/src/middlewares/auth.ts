@@ -9,6 +9,7 @@ export interface AuthRequest extends Request {
     role: 'ADMIN' | 'MANAGER' | 'COLLABORATOR';
     ctvCode: string;
     tv?: number; // tokenVersion lúc cấp token (Story 13.2) — token cũ không có = 0
+    sid?: string; // Story 16.4: jti phiên thiết bị — token cấp trước Story 16.4 không có
   };
 }
 
@@ -34,7 +35,8 @@ export function readAccessToken(req: Request): AuthRequest['user'] | null {
  * server khác (nếu sau này chạy nhiều bản) chậm tối đa 30 giây.
  */
 const SESSION_TTL_MS = 30_000;
-type SessionState = Pick<IUser, 'role' | 'status' | 'tokenVersion'> & { expiresAt: number };
+// sids: jti + prevJti (đang trong 60 giây ân hạn xoay token) của các phiên còn hạn — Story 16.4
+type SessionState = Pick<IUser, 'role' | 'status' | 'tokenVersion'> & { sids: Set<string>; expiresAt: number };
 const sessionCache = new Map<string, SessionState>();
 
 export const forgetSession = (userId: string) => sessionCache.delete(userId);
@@ -42,14 +44,30 @@ export const forgetSession = (userId: string) => sessionCache.delete(userId);
 async function loadSession(userId: string): Promise<SessionState | null> {
   const cached = sessionCache.get(userId);
   if (cached && cached.expiresAt > Date.now()) return cached;
-  const user = await User.findById(userId).select('role status tokenVersion').lean();
+  const user = await User.findById(userId).select('role status tokenVersion refreshSessions.jti refreshSessions.prevJti refreshSessions.expiresAt').lean();
   if (!user) {
     sessionCache.delete(userId);
     return null;
   }
-  const state = { role: user.role, status: user.status, tokenVersion: user.tokenVersion ?? 0, expiresAt: Date.now() + SESSION_TTL_MS };
+  const now = Date.now();
+  const live = (user.refreshSessions ?? []).filter((session) => new Date(session.expiresAt).getTime() > now);
+  const sids = new Set(live.flatMap((session) => [session.jti, session.prevJti].filter((id): id is string => Boolean(id))));
+  const state = { role: user.role, status: user.status, tokenVersion: user.tokenVersion ?? 0, sids, expiresAt: now + SESSION_TTL_MS };
   sessionCache.set(userId, state);
   return state;
+}
+
+/**
+ * Story 16.3: "Hoạt động cuối" — ghi DB tối đa 1 lần / 5 phút / người (không ghi mỗi request), chạy nền, lỗi bỏ qua.
+ */
+const ACTIVE_WRITE_GAP_MS = 5 * 60 * 1000;
+const lastActiveWrites = new Map<string, number>();
+function touchActivity(userId: string) {
+  const now = Date.now();
+  if ((lastActiveWrites.get(userId) ?? 0) > now - ACTIVE_WRITE_GAP_MS) return;
+  if (lastActiveWrites.size > 5000) lastActiveWrites.clear();
+  lastActiveWrites.set(userId, now);
+  User.updateOne({ _id: userId }, { $set: { lastActiveAt: new Date(now) } }).catch(() => lastActiveWrites.delete(userId));
 }
 
 const SESSION_INVALID = { status: 401, message: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn' };
@@ -64,9 +82,12 @@ export async function resolveSession(req: Request): Promise<{ user?: AuthRequest
   if (!user) return { error: SESSION_INVALID };
   const state = await loadSession(user.id);
   if (state?.status === 'BLOCKED') return { error: ACCOUNT_BLOCKED };
-  if (!state || state.status !== 'ACTIVE' || (user.tv ?? 0) !== state.tokenVersion || user.role !== state.role) {
+  // Story 16.4: token mang sid của phiên đã bị đăng xuất từ xa → hết hiệu lực ngay (token cũ không có sid vẫn nhận tới khi hết hạn)
+  const revoked = user.sid !== undefined && !state?.sids.has(user.sid);
+  if (!state || state.status !== 'ACTIVE' || (user.tv ?? 0) !== state.tokenVersion || user.role !== state.role || revoked) {
     return { error: SESSION_INVALID };
   }
+  touchActivity(user.id);
   return { user };
 }
 

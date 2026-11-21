@@ -5,6 +5,7 @@ import { ListingSubmission } from '../submissions/submission.model.js';
 import { ShareLink } from '../share/share-link.model.js';
 import { Lead, OPEN_LEAD_STAGES } from '../leads/lead.model.js';
 import { Apartment } from '../apartments/apartment.model.js';
+import { ANY_DELETION_STATE } from '../apartments/soft-delete.js';
 
 export const brokerPerformanceQuerySchema = z.object({ range: z.enum(['this_month', 'last_month', 'all']).default('this_month') });
 type Range = z.infer<typeof brokerPerformanceQuerySchema>['range'];
@@ -44,7 +45,8 @@ export async function brokerPerformance(range: Range) {
     Lead.aggregate<Row>([{ $match: created }, { $group: { _id: '$ctvId', n: { $sum: 1 } } }]),
     Lead.aggregate<Row>([{ $match: { stage: { $in: OPEN_LEAD_STAGES } } }, { $group: { _id: '$ctvId', n: { $sum: 1 } } }]),
     Apartment.aggregate<Row>([
-      { $match: { 'lease.closedBy': { $exists: true }, ...(period ? { 'lease.startDate': period } : {}) } },
+      // Story 16.7: căn chốt đã vào Thùng rác vẫn tính (deletedAt ở $match → middleware xóa mềm không lọc)
+      { $match: { 'lease.closedBy': { $exists: true }, deletedAt: ANY_DELETION_STATE, ...(period ? { 'lease.startDate': period } : {}) } },
       { $group: { _id: '$lease.closedBy', n: { $sum: 1 } } },
     ]),
     ListingSubmission.aggregate<Row>([{ $group: { _id: '$ctvId', at: { $max: '$createdAt' } } }]),

@@ -50,7 +50,25 @@ Bổ sung đủ công cụ để Admin **nhìn thấy và kiểm soát toàn b�
 
 ---
 
-## ⚠️ Quyết định cần Project Owner chốt trước khi tạo Story chi tiết
+## ✅ Cập nhật 21/11/2026 — Đã chốt & điều chỉnh sau rà soát code
+* **Q1–Q5:** Project Owner đồng ý toàn bộ đề xuất mặc định trong bảng dưới.
+* **16.7:**
+  * Căn chốt đã vào thùng rác **vẫn tính** vào bảng xếp hạng CTV.
+  * Tin mới trùng căn trong thùng rác thì **tạo căn mới**.
+  * Lọc căn đã xoá bằng **middleware ở tầng model**, không sửa từng truy vấn.
+* **16.2:** giữ TTL index `createdAt` 180 ngày làm mức trần, thêm TTL `expiresAt` cho mục Thông thường (60 ngày). **Không xoá index trên Atlas**.
+* **16.8 tách đôi:**
+  * **16.8a:** kiểm tra kết nối, phát hiện key hỏng, dải cảnh báo.
+  * **16.8b:** đồng hồ hạn mức.
+* **Điều chỉnh 16.8:**
+  * Kiểm tra CARTO chạy trên trình duyệt (server không thấy `VITE_MAP_TILE_URL`).
+  * Cloudinary dùng Admin API `usage`.
+  * Không ghi cứng hạn mức Gemini.
+  * Bỏ emoji / hiệu ứng nhấp nháy.
+* **Thứ tự làm:** 16.1 → 16.2 → 16.3 → 16.6 → 16.4 → 16.5 → 16.7 → 16.8a → 16.8b → 16.9.
+* **Story chi tiết:** `tasks/STORY-16.*.md`.
+
+## Quyết định của Project Owner (đã chốt theo đề xuất mặc định)
 | # | Câu hỏi | Đề xuất mặc định |
 | :-: | :--- | :--- |
 | Q1 | Thời gian lưu nhật ký theo mức độ | Thông thường **60 ngày**, bảo mật / quan trọng **180 ngày** (giữ như 13.3) |
@@ -72,7 +90,8 @@ Bổ sung đủ công cụ để Admin **nhìn thấy và kiểm soát toàn b�
 | **Story 16.5** | Cảnh Báo Bảo Mật & Hành Vi Bất Thường (Security Alerts) | Quy tắc phát hiện: cào SĐT chủ, đăng nhập sai liên tục, xóa hàng loạt, Admin đăng nhập thiết bị mới; hộp cảnh báo + thông báo | P1 |
 | **Story 16.6** | Admin Tạo & Sửa Tài Khoản Trực Tiếp (Admin User Provisioning) | Tạo CTV / Quản lý với mật khẩu tạm (bắt đổi), sửa tên / SĐT, ghi chú nội bộ | P1 |
 | **Story 16.7** | Thùng Rác Căn Hộ & Dọn Kho Tồn (Recycle Bin & Stale Inventory) | Xóa mềm 30 ngày, khôi phục / xóa vĩnh viễn, danh sách căn lâu không cập nhật + thao tác hàng loạt | P1 |
-| **Story 16.8** | Giám Sát Sức Khỏe Hệ Thống, Hạn Mức Gói Cấu Hình & Cảnh Báo Thay Key | Trạng thái từng gói cấu hình (Cloudinary, Gemini, Atlas, CARTO, Telegram), đồng hồ hạn mức & cảnh báo quá tải, phát hiện lỗi key (401/403) + nút test key | P1 |
+| **Story 16.8a** | Sức Khỏe Dịch Vụ, Kiểm Tra Key & Cảnh Báo Sự Cố | Trạng thái từng dịch vụ (Atlas, Gemini, Cloudinary, Telegram, Nominatim, CARTO), kiểm tra 1 chạm, phát hiện lỗi key (401/403), dải cảnh báo + hướng dẫn thay key | P1 |
+| **Story 16.8b** | Đồng Hồ Hạn Mức Dịch Vụ | Dung lượng Atlas (`dbStats`), credits Cloudinary (`usage`), lượt gọi / 429 của Gemini & Nominatim, cảnh báo chạm trần | P1 |
 | **Story 16.9** | Thông Báo Từ Admin Tới Thành Viên (Broadcast Announcements) | Gửi thông báo trong app + Telegram theo vai trò, ghim trên đầu Bảng hàng có hạn hiển thị | P2 |
 
 ---
