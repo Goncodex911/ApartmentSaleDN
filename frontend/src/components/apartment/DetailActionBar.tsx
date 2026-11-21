@@ -4,6 +4,7 @@ import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { Lang } from '../../utils/shareLang.js';
 import { CopyShareButton } from './CopyShareButton.js';
+import { MultiChannelSharePopover } from './MultiChannelSharePopover.js';
 import { DownloadPhotosButton } from './DownloadPhotosButton.js';
 import { ShareLinkButton } from './ShareLinkButton.js';
 import { ShareLangToggle } from './ShareLangToggle.js';
@@ -39,7 +40,8 @@ export const DetailActionBar: React.FC<DetailActionBarProps> = ({ apartment, cur
         <DownloadPhotosButton photos={sendablePhotos} fileName={`can-ho-${apartment._id}`} compact />
       </div>
     </div>
-    <div className="grid grid-cols-[3fr_2fr] gap-2">
+    <div className="grid grid-cols-[auto_1fr_1fr] gap-2 items-center">
+      <MultiChannelSharePopover apartment={apartment} ctv={currentUser} compact />
       <CopyShareButton apartment={apartment} ctv={currentUser} lang={shareLang} primary />
       <ShareLinkButton apartmentId={apartment._id} disabled={apartment.status === 'RENTED'} lang={shareLang} />
     </div>

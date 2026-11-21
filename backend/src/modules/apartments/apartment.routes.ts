@@ -41,6 +41,10 @@ router.post(
   ApartmentController.checkDuplicate
 );
 
+// 2b. Map QA & Căn chỉnh vị trí bản đồ (Story 17.6 — Chỉ Quản lý / Admin)
+router.get('/admin/map-qa/pending', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.getMapQAPending);
+router.patch('/:id/calibrate-location', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.calibrateLocation);
+
 // 3. Thao tác CRUD Căn hộ (Chỉ Manager / Admin)
 router.post('/', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.create);
 router.put('/:id', authMiddleware, requireRoles('ADMIN', 'MANAGER'), ApartmentController.update);

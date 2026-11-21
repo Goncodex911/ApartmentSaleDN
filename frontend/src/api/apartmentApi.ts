@@ -179,6 +179,15 @@ export interface Pagination {
   totalPages: number;
 }
 
+export interface MapQAPendingResponse {
+  apartments: Apartment[];
+  totalCount: number;
+  exactCount: number;
+  pendingCount: number;
+  page: number;
+  limit: number;
+}
+
 export const apartmentApi = {
   getApartments: async (params: Record<string, any> = {}) => {
     const res = await apiClient.get('/apartments', { params });
@@ -269,6 +278,18 @@ export const apartmentApi = {
   }): Promise<CheckDuplicateResponse> => {
     const res = await apiClient.post<CheckDuplicateResponse>('/apartments/check-duplicate', payload);
     return res.data;
+  },
+
+  // Story 17.6: Lấy danh sách căn cần chuẩn hóa vị trí bản đồ
+  getMapQAPending: async (params: { zone?: string; page?: number; limit?: number } = {}): Promise<MapQAPendingResponse> => {
+    const res = await apiClient.get('/apartments/admin/map-qa/pending', { params });
+    return res.data.data;
+  },
+
+  // Story 17.6: Chuẩn hóa tọa độ vị trí 1-chạm
+  calibrateLocation: async (id: string, coordinates: [number, number]): Promise<Apartment> => {
+    const res = await apiClient.patch(`/apartments/${id}/calibrate-location`, { coordinates });
+    return res.data.data;
   },
 };
 

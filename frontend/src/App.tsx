@@ -17,6 +17,7 @@ import { AdminAnnouncementsPage } from './pages/AdminAnnouncementsPage.js';
 import { AdminAuditLogsPage } from './pages/AdminAuditLogsPage.js';
 import { AdminPerformancePage } from './pages/AdminPerformancePage.js';
 import { AdminSettingsPage } from './pages/AdminSettingsPage.js';
+import { MapQAPage } from './pages/admin/MapQAPage.js';
 import { ModerationPage } from './pages/ModerationPage.js';
 import { PwaStatus } from './components/layout/PwaStatus.js';
 import { AppShell } from './components/layout/AppShell.js';
@@ -53,6 +54,7 @@ export const App: React.FC = () => {
             <Route path="alerts" element={<AdminAlertsPage />} /> {/* Cảnh báo bảo mật (Story 16.5) */}
             <Route path="trash" element={<AdminTrashPage />} /> {/* Thùng rác (Story 16.7) */}
             <Route path="stale" element={<AdminStalePage />} /> {/* Kho tồn (Story 16.7) */}
+            <Route path="map-qa" element={<MapQAPage />} /> {/* Rà soát bản đồ (Story 17.6) */}
             <Route path="health" element={<AdminHealthPage />} /> {/* Sức khỏe hệ thống (Story 16.8) */}
             <Route path="announcements" element={<AdminAnnouncementsPage />} /> {/* Thông báo chung (Story 16.9) */}
             <Route path="moderation" element={<ModerationPage />} /> {/* Kiểm duyệt báo lỗi trong khung Quản trị */}
