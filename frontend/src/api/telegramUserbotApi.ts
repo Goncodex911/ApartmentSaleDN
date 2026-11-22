@@ -26,6 +26,16 @@ export const telegramUserbotApi = {
     return res.data;
   },
 
+  startQrAuth: async (): Promise<{ success: boolean; tgUrl: string; expiresAt: number }> => {
+    const res = await apiClient.post('/ingestion/telegram-userbot/auth/qr/start');
+    return res.data;
+  },
+
+  checkQrAuth: async (password?: string): Promise<{ status: 'WAITING' | 'SUCCESS' | 'REQUIRES_2FA' | 'EXPIRED'; user?: any; message?: string }> => {
+    const res = await apiClient.post('/ingestion/telegram-userbot/auth/qr/check', { password });
+    return res.data;
+  },
+
   sendCode: async (phone: string) => {
     const res = await apiClient.post('/ingestion/telegram-userbot/auth/send-code', { phone });
     return res.data;

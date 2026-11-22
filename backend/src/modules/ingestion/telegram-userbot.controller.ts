@@ -4,6 +4,43 @@ import { TelegramUserbotService } from './telegram-userbot.service.js';
 
 export class TelegramUserbotController {
   /**
+   * POST /api/v1/ingestion/telegram-userbot/auth/qr/start
+   */
+  public static async startQrAuth(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
+        return;
+      }
+
+      const result = await TelegramUserbotService.startQrAuth(userId);
+      res.status(200).json(result);
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message || 'Lỗi khởi tạo xác thực QR' });
+    }
+  }
+
+  /**
+   * POST /api/v1/ingestion/telegram-userbot/auth/qr/check
+   */
+  public static async checkQrAuth(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
+        return;
+      }
+
+      const { password } = req.body;
+      const result = await TelegramUserbotService.checkQrAuth(userId, password);
+      res.status(200).json({ success: true, ...result });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message || 'Lỗi kiểm tra xác thực QR' });
+    }
+  }
+
+  /**
    * POST /api/v1/ingestion/telegram-userbot/auth/send-code
    */
   public static async sendAuthCode(req: AuthRequest, res: Response): Promise<void> {

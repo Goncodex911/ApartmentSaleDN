@@ -16,6 +16,9 @@ import {
   Search,
   KeyRound,
   History,
+  QrCode,
+  Smartphone,
+  Zap,
 } from 'lucide-react';
 import { telegramUserbotApi, TelegramDialog, TelegramSessionStatus } from '../../api/telegramUserbotApi.js';
 import { priceShort } from '../../utils/priceShort.js';
@@ -26,6 +29,13 @@ export const TelegramScraperPage: React.FC = () => {
   const [loadingStatus, setLoadingStatus] = useState(true);
 
   // Form đăng nhập SĐT & OTP
+  const [authMode, setAuthMode] = useState<'1TAP' | 'OTP'>('1TAP');
+  const [qrData, setQrData] = useState<{ tgUrl: string; expiresAt: number } | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrRequires2FA, setQrRequires2FA] = useState(false);
+  const [qrPassword, setQrPassword] = useState('');
+  const pollIntervalRef = useRef<any>(null);
+
   const [phone, setPhone] = useState('');
   const [phoneCodeHash, setPhoneCodeHash] = useState('');
   const [otp, setOtp] = useState('');
@@ -115,6 +125,52 @@ export const TelegramScraperPage: React.FC = () => {
   useEffect(() => {
     void loadStatus();
   }, []);
+
+  // Bắt đầu luồng xác thực 1-Chạm (Deep-link & QR)
+  const startQrFlow = async () => {
+    setQrLoading(true);
+    setAuthError(null);
+    setQrRequires2FA(false);
+    try {
+      const res = await telegramUserbotApi.startQrAuth();
+      setQrData(res);
+      startPollingQr();
+    } catch (err: any) {
+      setAuthError(err.response?.data?.message || err.message || 'Lỗi khởi tạo liên kết 1-chạm');
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  const startPollingQr = () => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const res = await telegramUserbotApi.checkQrAuth(qrPassword || undefined);
+        if (res.status === 'SUCCESS') {
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          setQrData(null);
+          void loadStatus();
+        } else if (res.status === 'REQUIRES_2FA') {
+          setQrRequires2FA(true);
+        } else if (res.status === 'EXPIRED') {
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          setQrData(null);
+        }
+      } catch {
+        // tiếp tục polling
+      }
+    }, 2500);
+  };
+
+  useEffect(() => {
+    if (authMode === '1TAP' && !session?.isConnected && !qrData && !qrLoading) {
+      void startQrFlow();
+    }
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [authMode, session?.isConnected]);
 
   // 1. Gửi mã OTP xác thực
   const handleSendCode = async (e: React.FormEvent) => {
@@ -347,76 +403,196 @@ export const TelegramScraperPage: React.FC = () => {
               </div>
             )}
 
-            {!codeSent ? (
-              <form onSubmit={handleSendCode} className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Phone className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Nhập số điện thoại Telegram (Ví dụ: 0905123456 hoặc +84905123456)"
-                    className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={authLoading || !phone.trim()}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-lg hover:bg-sky-500 disabled:opacity-50 transition"
-                >
-                  {authLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Gửi mã OTP về Telegram
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyCode} className="space-y-3">
-                <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-xs text-amber-800 dark:text-amber-300">
-                  Telegram vừa gửi mã xác thực 5 số vào <strong>ứng dụng Telegram</strong> trên điện thoại của bạn ({phone}).
-                </div>
+            {/* Chuyển đổi phương thức: 1-Chạm vs Nhập SĐT/OTP */}
+            <div className="flex border-b border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setAuthMode('1TAP')}
+                className={`flex items-center gap-2 py-2 px-4 text-xs font-semibold border-b-2 transition ${
+                  authMode === '1TAP'
+                    ? 'border-sky-500 text-sky-600 dark:text-sky-400 bg-sky-50/50 dark:bg-sky-950/20'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                }`}
+              >
+                <Zap className="w-4 h-4 text-amber-500" />
+                Xác nhận 1-Chạm / Quét QR (Khuyên dùng)
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMode('OTP')}
+                className={`flex items-center gap-2 py-2 px-4 text-xs font-semibold border-b-2 transition ${
+                  authMode === 'OTP'
+                    ? 'border-sky-500 text-sky-600 dark:text-sky-400 bg-sky-50/50 dark:bg-sky-950/20'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                }`}
+              >
+                <Phone className="w-4 h-4" />
+                Nhập Số Điện Thoại & OTP
+              </button>
+            </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <div className="relative flex-1">
-                    <KeyRound className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                    <input
-                      type="text"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      placeholder="Nhập mã 5 chữ số từ Telegram..."
-                      maxLength={8}
-                      className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono text-slate-900 dark:text-white"
-                    />
+            {authMode === '1TAP' ? (
+              <div className="space-y-4 py-2">
+                {qrLoading ? (
+                  <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-500 text-xs">
+                    <Loader2 className="w-5 h-5 animate-spin text-sky-500" />
+                    <span>Đang kết nối cổng xác thực Telegram...</span>
                   </div>
+                ) : qrData ? (
+                  <div className="flex flex-col items-center text-center space-y-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                    <div className="space-y-1">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        Đang chờ bạn xác nhận trên Telegram...
+                      </span>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">
+                        Không cần chờ OTP hay SMS! Bạn chỉ cần bấm nút bên dưới:
+                      </p>
+                    </div>
 
-                  {requires2FA && (
-                    <div className="relative flex-1">
-                      <input
-                        type="password"
-                        value={password2FA}
-                        onChange={(e) => setPassword2FA(e.target.value)}
-                        placeholder="Mật khẩu 2FA (nếu có cài)..."
-                        className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
+                    {/* Nút bấm 1-chạm cho điện thoại */}
+                    <a
+                      href={qrData.tgUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 text-sm sm:text-base font-bold text-white bg-gradient-to-r from-sky-600 to-indigo-600 rounded-xl hover:from-sky-500 hover:to-indigo-500 shadow-lg shadow-sky-500/25 transition"
+                    >
+                      <Smartphone className="w-5 h-5" />
+                      📲 Mở App Telegram Xác Nhận 1-Chạm (Dành Cho Điện Thoại)
+                    </a>
+
+                    <div className="w-full border-t border-slate-200 dark:border-slate-800 pt-4 flex flex-col items-center gap-2">
+                      <p className="text-xs text-slate-400">
+                        Hoặc nếu đang dùng máy tính: Mở Telegram trên điện thoại $\rightarrow$ <strong>Cài đặt → Thiết bị → Quét mã QR</strong>
+                      </p>
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrData.tgUrl)}`}
+                        alt="Telegram Login QR"
+                        className="w-44 h-44 rounded-xl border border-slate-200 dark:border-slate-700 p-1 bg-white shadow-sm"
                       />
                     </div>
-                  )}
 
-                  <button
-                    type="submit"
-                    disabled={authLoading || !otp.trim()}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-500 disabled:opacity-50 transition"
-                  >
-                    {authLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                    Xác nhận & Kết nối
-                  </button>
+                    {qrRequires2FA && (
+                      <div className="w-full max-w-sm space-y-2 pt-2 text-left">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          Mật khẩu 2FA (Tài khoản của bạn có bật bảo mật 2 lớp)
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="password"
+                            value={qrPassword}
+                            onChange={(e) => setQrPassword(e.target.value)}
+                            placeholder="Nhập mật khẩu 2FA..."
+                            className="flex-1 px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void telegramUserbotApi.checkQrAuth(qrPassword)}
+                            className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-500"
+                          >
+                            Xác nhận
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
-                  <button
-                    type="button"
-                    onClick={() => { setCodeSent(false); setRequires2FA(false); }}
-                    className="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                  >
-                    Đổi SĐT
-                  </button>
-                </div>
-              </form>
+                    <button
+                      type="button"
+                      onClick={startQrFlow}
+                      className="text-xs text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 pt-1"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Tải lại mã liên kết mới
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <button
+                      type="button"
+                      onClick={startQrFlow}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-sky-600 rounded-xl hover:bg-sky-500 transition"
+                    >
+                      <Zap className="w-4 h-4" />
+                      Bấm để tạo liên kết xác nhận 1-chạm
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* OTP Form */
+              <div>
+                {!codeSent ? (
+                  <form onSubmit={handleSendCode} className="flex flex-col sm:flex-row gap-3 pt-2">
+                    <div className="relative flex-1">
+                      <Phone className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                      <input
+                        type="text"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="Nhập số điện thoại Telegram (Ví dụ: 0905123456 hoặc +84905123456)"
+                        className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={authLoading || !phone.trim()}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-lg hover:bg-sky-500 disabled:opacity-50 transition"
+                    >
+                      {authLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                      Gửi mã OTP về Telegram
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleVerifyCode} className="space-y-3 pt-2">
+                    <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-xs text-amber-800 dark:text-amber-300">
+                      Telegram vừa gửi mã xác thực 5 số vào <strong>ứng dụng Telegram</strong> trên điện thoại của bạn ({phone}).
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="relative flex-1">
+                        <KeyRound className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                        <input
+                          type="text"
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value)}
+                          placeholder="Nhập mã 5 chữ số từ Telegram..."
+                          maxLength={8}
+                          className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono text-slate-900 dark:text-white"
+                        />
+                      </div>
+
+                      {requires2FA && (
+                        <div className="relative flex-1">
+                          <input
+                            type="password"
+                            value={password2FA}
+                            onChange={(e) => setPassword2FA(e.target.value)}
+                            placeholder="Mật khẩu 2FA (nếu có cài)..."
+                            className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
+                          />
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={authLoading || !otp.trim()}
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-500 disabled:opacity-50 transition"
+                      >
+                        {authLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Xác nhận & Kết nối
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => { setCodeSent(false); setRequires2FA(false); }}
+                        className="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                      >
+                        Đổi SĐT
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
             )}
           </div>
         )}

@@ -13,6 +13,13 @@ interface PendingAuth {
   expiresAt: number;
 }
 
+interface PendingQrAuth {
+  client: TelegramClient;
+  tokenBase64: string;
+  tgUrl: string;
+  expiresAt: number;
+}
+
 interface ActiveListener {
   client: TelegramClient;
   handler: (event: any) => Promise<void>;
@@ -24,6 +31,7 @@ interface ActiveListener {
 
 export class TelegramUserbotService {
   private static pendingAuths = new Map<string, PendingAuth>();
+  private static pendingQrAuths = new Map<string, PendingQrAuth>();
   private static activeClients = new Map<string, TelegramClient>();
   private static activeListeners = new Map<string, ActiveListener>();
 
@@ -45,7 +53,163 @@ export class TelegramUserbotService {
   }
 
   /**
-   * Bước 1: Gửi mã OTP xác nhận tới ứng dụng Telegram của người dùng
+   * Phương thức 1: Khởi tạo phiên xác thực bằng Deep-link 1-Chạm (hoặc Quét mã QR)
+   */
+  public static async startQrAuth(userId: string) {
+    const { apiId, apiHash } = this.getApiCredentials();
+
+    // Dọn dẹp phiên QR cũ nếu có
+    const old = this.pendingQrAuths.get(userId);
+    if (old) {
+      try { await old.client.disconnect(); } catch { /* ignore */ }
+      this.pendingQrAuths.delete(userId);
+    }
+
+    const client = new TelegramClient(new StringSession(''), apiId, apiHash, {
+      connectionRetries: 5,
+      deviceModel: 'ApartmentSaleDN Web',
+      systemVersion: 'Web/Node',
+      appVersion: '1.0.0',
+    });
+    await client.connect();
+
+    const res: any = await client.invoke(
+      new Api.auth.ExportLoginToken({
+        apiId,
+        apiHash,
+        exceptIds: [],
+      })
+    );
+
+    if (!(res instanceof Api.auth.LoginToken)) {
+      throw new Error('Không thể khởi tạo mã xác nhận Telegram');
+    }
+
+    const tokenBase64 = Buffer.from(res.token).toString('base64url');
+    const tgUrl = `tg://login?token=${tokenBase64}`;
+    const expiresAt = res.expires * 1000;
+
+    this.pendingQrAuths.set(userId, {
+      client,
+      tokenBase64,
+      tgUrl,
+      expiresAt,
+    });
+
+    return {
+      success: true,
+      tgUrl,
+      expiresAt,
+    };
+  }
+
+  /**
+   * Kiểm tra trạng thái người dùng đã xác nhận trên App Telegram qua Deep-link/QR hay chưa
+   */
+  public static async checkQrAuth(userId: string, password2FA?: string) {
+    const pending = this.pendingQrAuths.get(userId);
+    if (!pending) {
+      return { status: 'EXPIRED', message: 'Mã xác thực đã hết hạn, vui lòng bấm thử lại' };
+    }
+
+    const { client } = pending;
+    const { apiId, apiHash } = this.getApiCredentials();
+
+    try {
+      const res: any = await client.invoke(
+        new Api.auth.ExportLoginToken({
+          apiId,
+          apiHash,
+          exceptIds: [],
+        })
+      );
+
+      let user: any = null;
+
+      if (res instanceof Api.auth.LoginTokenSuccess && res.authorization instanceof Api.auth.Authorization) {
+        user = res.authorization.user;
+      } else if (res instanceof Api.auth.LoginTokenMigrateTo) {
+        await (client as any)._switchDC(res.dcId);
+        const migrated: any = await client.invoke(new Api.auth.ImportLoginToken({ token: res.token }));
+        if (migrated instanceof Api.auth.LoginTokenSuccess && migrated.authorization instanceof Api.auth.Authorization) {
+          user = migrated.authorization.user;
+        }
+      }
+
+      if (user) {
+        // Đã xác thực thành công trên Telegram!
+        const sessionString = (client.session as StringSession).save();
+        const { encrypted, iv, tag } = encryptSession(sessionString);
+
+        await User.findByIdAndUpdate(userId, {
+          telegramSession: {
+            encryptedString: encrypted,
+            iv,
+            tag,
+            phone: user.phone ? `+${user.phone}` : '',
+            telegramUserId: user.id?.toString() || '',
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            username: user.username || '',
+            connectedAt: new Date(),
+            isActive: true,
+          },
+        });
+
+        this.pendingQrAuths.delete(userId);
+        this.activeClients.set(userId, client);
+
+        return {
+          status: 'SUCCESS',
+          user: {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            phone: user.phone ? `+${user.phone}` : '',
+            username: user.username,
+          },
+        };
+      }
+
+      return { status: 'WAITING' };
+    } catch (err: any) {
+      if (err.errorMessage === 'SESSION_PASSWORD_NEEDED') {
+        if (!password2FA) {
+          return { status: 'REQUIRES_2FA', message: 'Tài khoản yêu cầu mật khẩu xác thực 2 bước (2FA)' };
+        }
+        await client.signInWithPassword(
+          { apiId, apiHash },
+          {
+            password: async () => password2FA,
+            onError: (e) => { throw e; },
+          }
+        );
+        const sessionString = (client.session as StringSession).save();
+        const me: any = await client.getMe();
+        const { encrypted, iv, tag } = encryptSession(sessionString);
+        await User.findByIdAndUpdate(userId, {
+          telegramSession: {
+            encryptedString: encrypted,
+            iv,
+            tag,
+            phone: me?.phone ? `+${me.phone}` : '',
+            telegramUserId: me?.id?.toString() || '',
+            firstName: me?.firstName || '',
+            lastName: me?.lastName || '',
+            username: me?.username || '',
+            connectedAt: new Date(),
+            isActive: true,
+          },
+        });
+        this.pendingQrAuths.delete(userId);
+        this.activeClients.set(userId, client);
+        return { status: 'SUCCESS', user: { firstName: me?.firstName, phone: me?.phone } };
+      }
+      return { status: 'WAITING' };
+    }
+  }
+
+  /**
+   * Phương thức 2: Gửi mã OTP xác nhận tới ứng dụng Telegram của người dùng
    */
   public static async sendAuthCode(userId: string, rawPhone: string) {
     const { apiId, apiHash } = this.getApiCredentials();
