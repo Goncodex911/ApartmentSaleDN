@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { IngestionController } from './ingestion.controller.js';
+import { telegramUserbotRoutes } from './telegram-userbot.routes.js';
 import { authMiddleware } from '../../middlewares/auth.js';
 import { requireRoles } from '../../middlewares/rbac.js';
 import { requireWebhookSecret } from '../../middlewares/webhook-secret.js';
@@ -27,3 +28,7 @@ ingestionRoutes.post('/extension-import-public', requireWebhookSecret, Ingestion
 
 // 5. AC4: Hộp thoại Nhập Nhanh trên Portal Web
 ingestionRoutes.post('/quick-paste', ...managerOnly, IngestionController.quickPaste);
+
+// 6. Story CE-01: Cổng Userbot Telegram Scraper tự phục vụ & Lắng nghe thời gian thực
+ingestionRoutes.use('/telegram-userbot', telegramUserbotRoutes);
+

@@ -1,4 +1,4 @@
-import { Activity, Archive, BellRing, LayoutDashboard, LucideIcon, MapPin, Megaphone, ScrollText, Settings, ShieldAlert, Trash2, Trophy, Users } from 'lucide-react';
+import { Activity, Archive, BellRing, LayoutDashboard, LucideIcon, MapPin, Megaphone, ScrollText, Send, Settings, ShieldAlert, Trash2, Trophy, Users } from 'lucide-react';
 
 /**
  * Story 16.1: điều hướng khu Quản trị — 1 nguồn cho sidebar (máy tính) và menu đáy (điện thoại).
@@ -21,6 +21,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { to: '/admin/moderation', label: 'Kiểm duyệt báo lỗi', short: 'Kiểm duyệt', icon: ShieldAlert },
   { to: '/admin/announcements', label: 'Thông báo chung', icon: Megaphone }, // Story 16.9
   { to: '/admin/stale', label: 'Kho tồn', icon: Archive }, // Story 16.7
+  { to: '/admin/telegram-scraper', label: 'Cào tin Telegram', short: 'Cào Tele', icon: Send }, // Story CE-01
   { to: '/admin/map-qa', label: 'Rà soát bản đồ', short: 'Bản đồ', icon: MapPin }, // Story 17.6
   { to: '/admin/trash', label: 'Thùng rác', icon: Trash2 },
   { to: '/admin/performance', label: 'Hiệu suất CTV', icon: Trophy },
