@@ -1,6 +1,19 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+export interface ITelegramUserbotSession {
+  encryptedString: string;
+  iv: string;
+  tag: string;
+  phone: string;
+  telegramUserId?: string;
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  connectedAt: Date;
+  isActive: boolean;
+}
+
 export interface IUser extends Document {
   name: string;
   phone: string;
@@ -21,6 +34,8 @@ export interface IUser extends Document {
   telegramChatId?: string;
   telegramLinkCode?: string;
   telegramLinkExpiresAt?: Date;
+  // Story CE-01: Phiên kết nối Telegram MTProto cá nhân (Userbot cào tin & đón tin thời gian thực)
+  telegramSession?: ITelegramUserbotSession;
   // Story 13.2: tăng khi khóa tài khoản / reset mật khẩu → mọi token cũ (kể cả refresh) mất hiệu lực
   tokenVersion: number;
   // Story 13.6: điểm tín nhiệm báo lỗi (+5 đúng, −5 sai); dưới −15 tự khóa quyền báo lỗi
@@ -77,6 +92,21 @@ const userSchema = new Schema<IUser>(
       type: [{ _id: false, jti: { type: String, required: true }, prevJti: String, rotatedAt: Date, expiresAt: { type: Date, required: true }, userAgent: String, ip: String, createdAt: Date, lastUsedAt: Date }],
       default: [],
     },
+    telegramSession: {
+      type: {
+        encryptedString: { type: String, required: true },
+        iv: { type: String, required: true },
+        tag: { type: String, required: true },
+        phone: { type: String, required: true },
+        telegramUserId: String,
+        firstName: String,
+        lastName: String,
+        username: String,
+        connectedAt: { type: Date, default: Date.now },
+        isActive: { type: Boolean, default: true },
+      },
+      required: false,
+    },
   },
   {
     timestamps: true,
@@ -86,6 +116,11 @@ const userSchema = new Schema<IUser>(
         delete (ret as { telegramLinkCode?: string }).telegramLinkCode;
         delete (ret as { refreshSessions?: unknown }).refreshSessions;
         delete (ret as { adminNotes?: unknown }).adminNotes;
+        if ((ret as any).telegramSession) {
+          delete (ret as any).telegramSession.encryptedString;
+          delete (ret as any).telegramSession.iv;
+          delete (ret as any).telegramSession.tag;
+        }
         return ret;
       },
     },

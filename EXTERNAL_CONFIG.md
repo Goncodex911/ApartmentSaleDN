@@ -23,6 +23,7 @@ Tài liệu này tổng hợp toàn bộ các dịch vụ bên ngoài, API Key v
 | **[EPIC-15](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_15_GEOSPATIAL_MAP_AND_SMART_DISCOVERY.md)** | Bản Đồ Địa Không Gian, GPS Thực Địa & Bán Kính Bảo Mật | `VITE_MAP_TILE_URL` (cần key CARTO miễn phí, ≤ 1 triệu tile/tháng), `NOMINATIM_USER_AGENT` (tùy chọn) | ⚠️ **Cần đăng ký key CARTO (miễn phí) — xem mục 8.1** |
 | **[EPIC-16](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_16_ADMIN_CONSOLE_AND_ACTIVITY_MONITORING.md)** | Bảng Điều Khiển Quản Trị Riêng & Giám Sát Hoạt Động | Tái sử dụng MongoDB Atlas & JWT có sẵn (0 VND) | ✅ **Sẵn sàng (Thuần nội bộ)** |
 | **[EPIC-17](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_17_MULTI_CHANNEL_AUTO_POSTING_AND_PRECISION_MAPS.md)** | Đăng Tin Đa Kênh (Zalo, WhatsApp) & Chuẩn Hóa Google Maps | Web Share API, WhatsApp Deep-links, HTTP Resolver (0 VND) | ✅ **Sẵn sàng (0 VND)** |
+| **[COVER-EPIC](file:///d:/CODE/AppartmentSaleProject/docs/stories/coverEpic.md)** | Telegram MTProto Client (API ID & Hash) | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` | 📝 **Cần lấy API ID/Hash miễn phí từ Telegram (Xem mục 11)** |
 
 ---
 
@@ -290,5 +291,139 @@ Epic 17 giải quyết triệt để bài toán **phân phối tin đa kênh cho
 | **HTTPS (SSL)** | Netlify & Render | **Có** | Bắt buộc cho Clipboard API & HTML5 Geolocation API | Đã có sẵn trên Netlify & Render |
 | **Google Maps API Key** | — | **KHÔNG CẦN** | Hệ thống tự giải mã link HTTP & dùng Leaflet | **0 VND — Không tốn chi phí** |
 | **Zalo OA / WhatsApp Cloud API Key** | — | **KHÔNG CẦN** | Dùng Deep-link 1-chạm cá nhân, không bị khóa tài khoản | **0 VND — Không tốn chi phí** |
+
+---
+
+### 11. COVER EPIC: Cấu Hình Telegram MTProto Client (Userbot Scraper Tự Động & Lắng Nghe Thời Gian Thực)
+
+#### 11.1. Tại sao cần `TELEGRAM_API_ID` & `TELEGRAM_API_HASH` thay vì Bot Telegram thông thường?
+
+* **Hạn chế của Bot Telegram thông thường (`@BotFather` ở Epic 3):**
+  * Theo cơ chế bảo mật **Privacy Mode** của Telegram, một Bot thông thường **hoàn toàn KHÔNG THỂ đọc được lịch sử tin nhắn cũ** trong nhóm trước thời điểm bot được thêm vào.
+  * Bot cũng **không thể tự tham gia nhóm kín** nếu không có admin nhóm trực tiếp mời/add bot vào.
+  * Vì vậy, nếu muốn cào 30–50 bài đăng cũ của một tài khoản cụ thể (ví dụ: *"Trần Minh Hiếu"*) trong các nhóm BĐS Đà Nẵng, Bot thông thường hoàn toàn bất khả thi.
+
+* **Sức mạnh của Telegram MTProto Client (Userbot):**
+  * Sử dụng giao thức chính thống **MTProto** của Telegram (thông qua thư viện mã nguồn mở `telegram` / GramJS trên Node.js).
+  * Chạy dưới danh nghĩa một **phiên làm việc của người dùng thật** (User Session).
+  * Cho phép:
+    1. Đọc lại toàn bộ lịch sử tin nhắn cũ trong bất kỳ nhóm nào mà tài khoản đó đang tham gia (kể cả nhóm kín kiểm duyệt gắt gao).
+    2. Lọc chính xác các bài đăng của tài khoản mục tiêu (`Trần Minh Hiếu`).
+    3. Tải trực tiếp **toàn bộ album ảnh gốc** với độ phân giải cao nhất từ Telegram CDN.
+    4. Tự động lắng nghe thời gian thực: khi tài khoản mục tiêu đăng bài mới, hệ thống nạp ngay vào kho hàng trong 3 giây.
+
+* **Kiến Trúc Tự Phục Vụ Thông Minh (Self-Service Architecture) — Người dùng tự kết nối:**
+  * **Tầng 1 (Hệ Thống — Lập trình viên làm 1 lần duy nhất):** Đăng ký một bộ App Credentials (`TELEGRAM_API_ID` và `TELEGRAM_API_HASH`) trên `my.telegram.org` (miễn phí 100%, 0 VND trọn đời) để định danh ứng dụng của bạn với máy chủ Telegram.
+  * **Tầng 2 (Người dùng cuối — Môi giới / Quản lý tự thao tác trên Web):**
+    * Môi giới truy cập vào trang Web (`/admin/telegram-scraper`), bấm **"Kết nối Telegram cá nhân"**, nhập Số điện thoại và mã OTP nhận từ app Telegram.
+    * **Môi giới KHÔNG CẦN đăng ký tài khoản lập trình viên hay lấy bất kỳ API Key nào!**
+    * Hệ thống lưu chuỗi phiên an toàn (`sessionString` được mã hóa AES-256) gắn liền với tài khoản của họ trong cơ sở dữ liệu.
+    * Nhờ vậy, môi giới vốn đã ở sẵn trong các nhóm BĐS kín có thể dùng ngay quyền thành viên của mình để cào tin, mà lập trình viên không cần phải có mặt trong những nhóm đó!
+
+---
+
+#### 11.2. Hướng dẫn chi tiết từng bước lấy `TELEGRAM_API_ID` và `TELEGRAM_API_HASH` (Dành cho Lập trình viên / Quản trị viên)
+
+Việc đăng ký này hoàn toàn **miễn phí 100%**, chỉ thực hiện **duy nhất 1 lần**:
+
+##### 📍 Bước 1: Truy cập cổng quản lý Telegram Developer
+* Mở trình duyệt web truy cập: [https://my.telegram.org](https://my.telegram.org)
+
+##### 📍 Bước 2: Đăng nhập bằng số điện thoại Telegram của bạn
+* Tại ô **Your Phone Number**, nhập số điện thoại Telegram của bạn theo định dạng quốc tế (bắt đầu bằng dấu `+` và mã quốc gia `84`, bỏ số 0 ở đầu).
+  * *Ví dụ:* Số của bạn là `0912 345 678` $\rightarrow$ Nhập: `+84912345678`.
+* Bấm nút **Next**.
+
+##### 📍 Bước 3: Nhập mã xác nhận (Confirmation Code)
+* **LƯU Ý QUAN TRỌNG:** Telegram **KHÔNG gửi tin nhắn SMS**, mà gửi mã trực tiếp vào ứng dụng Telegram trên điện thoại/máy tính của bạn từ tài khoản thông báo chính thức có tích xanh mang tên **"Telegram"**.
+* Mở ứng dụng Telegram, tìm tin nhắn mới nhất từ **Telegram**.
+* Sao chép chuỗi mã xác nhận (chuỗi gồm chữ hoa, chữ thường và chữ số, ví dụ: `kLm89A1b2C`).
+* Quay lại trang web [https://my.telegram.org](https://my.telegram.org), dán mã vào ô **Confirmation code**.
+* Bấm nút **Sign In**.
+
+##### 📍 Bước 4: Vào mục API development tools
+* Sau khi đăng nhập thành công, bạn sẽ thấy trang chủ tài khoản với 3 lựa chọn:
+  1. **API development tools** *(Công cụ phát triển API)*
+  2. *Delete account*
+  3. *Log out*
+* Nhấp chuột vào dòng chữ **"API development tools"**.
+
+##### 📍 Bước 5: Điền biểu mẫu tạo ứng dụng (Create new application)
+* Bạn điền thông tin vào các trường như sau:
+  * **App title:** Tên ứng dụng của bạn (ví dụ: `Danang Apartment Scraper` hoặc `RoomMaster Telegram`).
+  * **Short name:** Tên viết tắt viết liền không dấu, từ 5–32 ký tự (ví dụ: `dn_scraper` hoặc `roommaster_app`).
+  * **URL:** Điền địa chỉ web ứng dụng hoặc để `http://localhost:5173`.
+  * **Platform:** Chọn `Web` hoặc `Other`.
+  * **Description:** Điền mô tả ngắn hoặc để trống (ví dụ: `Scraper bot for Danang apartment listings`).
+* Nhấp nút **"Create application"**.
+
+##### 📍 Bước 6: Sao chép `api_id` và `api_hash`
+* Sau khi bấm tạo, trang web sẽ hiển thị ngay thông tin ứng dụng của bạn:
+  * **`App api_id:`** Một dãy số nguyên (ví dụ: `28475921`).
+  * **`App api_hash:`** Một chuỗi mã hóa ký tự hexa (ví dụ: `d8f2a1b3c4e5f67890abcdef12345678`).
+* ⚠️ **Bảo mật:** Sao chép 2 giá trị này và lưu trữ cẩn thận. Tuyệt đối không đẩy file `.env` chứa `api_hash` lên kho mã nguồn công khai (GitHub public).
+
+---
+
+#### 11.3. Cấu hình vào dự án
+
+##### A. Môi trường phát triển cục bộ (Local Development)
+* Mở file `.env` ở thư mục gốc của dự án (`d:\CODE\AppartmentSaleProject\.env`), điền 2 giá trị vừa lấy:
+  ```env
+  # ==========================================
+  # CẤU HÌNH TELEGRAM USERBOT (COVER EPIC CE-01)
+  # ==========================================
+  TELEGRAM_API_ID=28475921
+  TELEGRAM_API_HASH=d8f2a1b3c4e5f67890abcdef12345678
+  ```
+
+##### B. Môi trường Máy chủ chạy thật (Production — Render.com)
+1. Đăng nhập [Render Dashboard](https://dashboard.render.com).
+2. Chọn dịch vụ Web Service của Backend (`apartment-sale-api`).
+3. Nhấp vào mục **Environment** ở menu bên trái.
+4. Bấm **Add Environment Variable** và thêm 2 cặp biến:
+   * Key: `TELEGRAM_API_ID` — Value: `28475921`
+   * Key: `TELEGRAM_API_HASH` — Value: `d8f2a1b3c4e5f67890abcdef12345678`
+5. Bấm **Save changes** để Render tự động nạp cấu hình mới.
+
+---
+
+#### 11.4. Quy trình Môi giới / Quản lý tự kết nối Telegram trên Web (Self-Service User Experience)
+
+Khi tính năng hoàn tất, quy trình người dùng sử dụng cực kỳ đơn giản và an toàn:
+
+1. **Truy cập trang công cụ:** Môi giới vào trang Quản trị $\rightarrow$ **Cào tin Telegram** (`/admin/telegram-scraper`).
+2. **Bắt đầu kết nối:** Màn hình hiển thị thẻ *"Kết nối tài khoản Telegram cá nhân"*. Môi giới bấm `[🔗 Kết nối tài khoản]`.
+3. **Nhập số điện thoại:** Nhập số điện thoại cá nhân (ví dụ: `0905123456` hoặc `+84905123456`). Bấm `[Gửi mã xác nhận]`.
+4. **Nhận OTP:** Ứng dụng Telegram trên điện thoại của môi giới sẽ nhận được thông báo mã OTP 5 chữ số từ Telegram.
+5. **Xác nhận OTP:** Môi giới nhập mã 5 chữ số trên giao diện web. (Nếu tài khoản có cài mật khẩu 2 lớp 2FA, web sẽ hiện thêm ô nhập mật khẩu 2FA).
+6. **Hoàn tất:**
+   * Màn hình lập tức báo xanh: `✅ Đã kết nối: Trần Minh Hiếu (+84 905***456)`.
+   * Danh sách các nhóm Telegram mà người này đang tham gia sẽ tự động hiển thị trong ô chọn nhóm.
+   * Người dùng nhập tên tài khoản mục tiêu (*"Trần Minh Hiếu"*), chọn số lượng bài cần lấy $\rightarrow$ Bấm `[🚀 Bắt đầu quét & Nạp căn hộ]`.
+7. **Quyền riêng tư & Ngắt kết nối:** Người dùng có thể bấm nút `[❌ Hủy kết nối Telegram]` bất kỳ lúc nào để xóa phiên làm việc khỏi hệ thống.
+
+---
+
+#### 11.5. Hạn mức & Cơ chế An toàn tuyệt đối (Anti-Flood & Rate Limiting)
+
+* **Chi phí:** **0 VND vĩnh viễn** — Telegram MTProto API không thu bất kỳ khoản phí nào của lập trình viên hay người dùng.
+* **Bảo vệ tài khoản không bị Telegram khóa / giới hạn (Anti-Ban / Anti-Flood):**
+  1. **Giãn cách tự động (Rate Limiter):** Hệ thống lập trình sẵn khoảng chờ (delay) từ **1.5 đến 2.0 giây** giữa mỗi lần tải bài viết và tải ảnh.
+  2. **Bắt lỗi `FloodWaitError` thông minh:** Nếu gửi yêu cầu quá nhanh và Telegram trả về mã yêu cầu chờ (ví dụ: chờ 10 giây), hệ thống tự động tạm dừng đúng 10 giây và tiếp tục một cách êm ái, không gây ra lỗi sập hoặc bị đánh cờ spam.
+  3. **Mã hóa phiên đăng nhập:** Chuỗi `sessionString` được mã hóa chuẩn **AES-256** bằng khóa bí mật `JWT_SECRET` trước khi lưu vào MongoDB, chống rò rỉ phiên kể cả khi bị lộ database.
+
+---
+
+#### 11.6. Bảng Tổng Hợp Cấu Hình Cho Cover Epic
+
+| Thông số / Biến | Nơi cấu hình | Bắt buộc? | Mục đích sử dụng | Nguồn lấy |
+| :--- | :--- | :---: | :--- | :--- |
+| **`TELEGRAM_API_ID`** | Backend (Render / `.env`) | **Có** | ID ứng dụng MTProto Client kết nối máy chủ Telegram | Đăng ký miễn phí tại [my.telegram.org](https://my.telegram.org) |
+| **`TELEGRAM_API_HASH`** | Backend (Render / `.env`) | **Có** | Mã bí mật ứng dụng MTProto Client | Đăng ký miễn phí tại [my.telegram.org](https://my.telegram.org) |
+| **`JWT_SECRET`** | Backend (Render / `.env`) | **Có** | Dùng làm khóa dẫn xuất mã hóa `sessionString` của người dùng | Đã có sẵn từ Epic 01 |
+| **Số điện thoại & OTP** | Giao diện Web (`/admin/telegram-scraper`) | Khi dùng | Người dùng tự nhập trên trình duyệt để kết nối | Ứng dụng Telegram cá nhân của người dùng |
+| **Chi phí hàng tháng** | — | — | Toàn bộ giao thức MTProto Client | **0 VND — Miễn phí 100% trọn đời** |
+
 
 
