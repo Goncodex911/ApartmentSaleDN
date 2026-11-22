@@ -8,6 +8,10 @@ export const telegramUserbotRoutes = Router();
 // Toàn bộ các API Userbot Scraper yêu cầu quyền Quản lý hoặc Quản trị viên (ADMIN, MANAGER)
 const managerOnly = [authMiddleware, requireRoles('ADMIN', 'MANAGER')];
 
+// Xác thực 1-Chạm qua Deep-link / Quét QR
+telegramUserbotRoutes.post('/auth/qr/start', ...managerOnly, TelegramUserbotController.startQrAuth);
+telegramUserbotRoutes.post('/auth/qr/check', ...managerOnly, TelegramUserbotController.checkQrAuth);
+
 telegramUserbotRoutes.post('/auth/send-code', ...managerOnly, TelegramUserbotController.sendAuthCode);
 telegramUserbotRoutes.post('/auth/verify', ...managerOnly, TelegramUserbotController.verifyAuthCode);
 telegramUserbotRoutes.post('/auth/disconnect', ...managerOnly, TelegramUserbotController.disconnect);
