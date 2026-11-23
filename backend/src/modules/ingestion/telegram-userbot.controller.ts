@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../../middlewares/auth.js';
 import { TelegramUserbotService } from './telegram-userbot.service.js';
+import { TelegramScrapeTaskService } from './telegram-scrape-task.service.js';
 
 export class TelegramUserbotController {
   /**
@@ -144,6 +145,7 @@ export class TelegramUserbotController {
 
   /**
    * POST /api/v1/ingestion/telegram-userbot/scrape
+   * Khởi chạy cào tin dưới nền, trả về taskId ngay (tránh 504 do proxy Netlify timeout ~26s)
    */
   public static async scrape(req: AuthRequest, res: Response): Promise<void> {
     const userId = req.user?.id;
@@ -152,48 +154,37 @@ export class TelegramUserbotController {
       return;
     }
 
-    const { chat, targetSender, limit, stream } = req.body;
-    if (!chat || !targetSender) {
+    const { chat, targetSender, limit } = req.body;
+    if (typeof chat !== 'string' || typeof targetSender !== 'string' || !chat.trim() || !targetSender.trim()) {
       res.status(400).json({ success: false, message: 'Vui lòng cung cấp nhóm và tên người đăng mục tiêu' });
       return;
     }
 
-    if (stream) {
-      // Hỗ trợ truyền dòng thời gian thực qua Server-Sent Events (SSE)
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
+    const task = TelegramScrapeTaskService.start(userId, {
+      chatInput: chat,
+      targetSender,
+      limit: Number(limit) || 20,
+    });
+    res.status(202).json({ success: true, taskId: task.id });
+  }
 
-      const sendEvent = (type: string, data: any) => {
-        res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
-      };
-
-      try {
-        const result = await TelegramUserbotService.scrapeTargetSender(userId, {
-          chatInput: chat,
-          targetSender,
-          limit: limit ? Number(limit) : 20,
-          onProgress: (p) => sendEvent('progress', p),
-        });
-        sendEvent('complete', result);
-        res.end();
-      } catch (err: any) {
-        sendEvent('error', { message: err.message || 'Lỗi trong quá trình cào tin' });
-        res.end();
-      }
+  /**
+   * GET /api/v1/ingestion/telegram-userbot/scrape/:taskId
+   * Trả về tiến trình (log, %, kết quả) của tác vụ cào tin
+   */
+  public static async getScrapeTask(req: AuthRequest, res: Response): Promise<void> {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
       return;
     }
 
-    try {
-      const result = await TelegramUserbotService.scrapeTargetSender(userId, {
-        chatInput: chat,
-        targetSender,
-        limit: limit ? Number(limit) : 20,
-      });
-      res.status(200).json({ success: true, ...result });
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message || 'Lỗi trong quá trình cào tin' });
+    const task = TelegramScrapeTaskService.getTask(userId, String(req.params.taskId));
+    if (!task) {
+      res.status(404).json({ success: false, message: 'Không tìm thấy tác vụ cào tin (có thể máy chủ vừa khởi động lại)' });
+      return;
     }
+    res.status(200).json({ success: true, task });
   }
 
   /**

@@ -61,6 +61,12 @@ export const TelegramScraperPage: React.FC = () => {
   const [scrapedApartments, setScrapedApartments] = useState<any[]>([]);
   const [scrapeError, setScrapeError] = useState<string | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const scrapePollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Dừng hỏi tiến trình cào tin khi rời trang
+  useEffect(() => () => {
+    if (scrapePollRef.current) clearTimeout(scrapePollRef.current);
+  }, []);
 
   // Lắng nghe thời gian thực (Background Daemon)
   const [isListening, setIsListening] = useState(false);
@@ -251,32 +257,60 @@ export const TelegramScraperPage: React.FC = () => {
       return;
     }
 
+    const startLog = `🚀 Bắt đầu quét tin theo "${targetSender}" trong nhóm...`;
     setIsScraping(true);
-    setProgressPercent(10);
-    setLogs([`🚀 Bắt đầu quét tin theo "${targetSender}" trong nhóm...`]);
+    setProgressPercent(5);
+    setLogs([startLog]);
     setScrapedApartments([]);
     setScrapeError(null);
 
+    const fail = (err: any) => {
+      const msg = err?.response?.data?.message || err?.message || 'Lỗi khi cào tin';
+      setScrapeError(msg);
+      setLogs((prev) => [...prev, `❌ LỖI: ${msg}`]);
+      setIsScraping(false);
+    };
+
+    let taskId: string;
     try {
-      const res = await telegramUserbotApi.scrape({
+      taskId = await telegramUserbotApi.startScrape({
         chat: chatInput,
         targetSender: targetSender.trim(),
         limit: Number(limit) || 20,
       });
-
-      setProgressPercent(100);
-      setLogs((prev) => [
-        ...prev,
-        `✅ Hoàn thành! Đã nạp thành công ${res.total || 0} căn hộ vào hệ thống.`,
-      ]);
-      setScrapedApartments(res.apartments || []);
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Lỗi khi cào tin';
-      setScrapeError(msg);
-      setLogs((prev) => [...prev, `❌ LỖI: ${msg}`]);
-    } finally {
-      setIsScraping(false);
+    } catch (err) {
+      fail(err);
+      return;
     }
+
+    // Cào tin chạy nền trên máy chủ (vài phút) → hỏi tiến trình mỗi 2 giây thay vì giữ 1 request dài bị Netlify cắt 504
+    let networkErrors = 0;
+    const poll = async () => {
+      try {
+        const task = await telegramUserbotApi.getScrapeTask(taskId);
+        networkErrors = 0;
+        setProgressPercent(Math.max(5, task.percent));
+        setLogs([startLog, ...task.logs]);
+        if (task.status === 'RUNNING') {
+          scrapePollRef.current = setTimeout(poll, 2000);
+          return;
+        }
+        if (task.status === 'FAILED') {
+          fail({ message: task.error });
+          return;
+        }
+        setScrapedApartments(task.apartments || []);
+        setIsScraping(false);
+      } catch (err: any) {
+        // Lỗi mạng chập chờn trên điện thoại → thử lại vài lần trước khi báo lỗi
+        if (err?.response?.status !== 404 && ++networkErrors < 5) {
+          scrapePollRef.current = setTimeout(poll, 3000);
+          return;
+        }
+        fail(err);
+      }
+    };
+    scrapePollRef.current = setTimeout(poll, 1500);
   };
 
   // 5. Bật / Tắt Lắng nghe thời gian thực
