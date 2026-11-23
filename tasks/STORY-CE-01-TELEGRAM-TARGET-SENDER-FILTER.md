@@ -86,8 +86,8 @@ Xây dựng module cào tin và lắng nghe thời gian thực thông minh từ 
    - Dán link nhóm công khai BĐS Đà Nẵng $\rightarrow$ Userbot tự động tham gia nhóm và bắt đầu quét lịch sử.
 3. [x] **Test 3 — Quét Nhóm Kín:**
    - Sử dụng tài khoản người dùng đã ở sẵn trong nhóm kín $\rightarrow$ Quét thành công bài đăng cũ trong nhóm mà không cần duyệt lại.
-4. [x] **Test 4 — Lọc Đúng Người Đăng:**
-   - Đặt bộ lọc tên *"Trần Minh Hiếu"* $\rightarrow$ Toàn bộ bài đăng của các thành viên khác trong nhóm bị bỏ qua tức thì, chỉ bài của Trần Minh Hiếu được nạp.
+4. [x] **Test 4 — Lọc Đúng Người Đăng & Số Điện Thoại Đầu Chủ:**
+   - Đặt bộ lọc tên *"Trần Minh Hiếu"* HOẶC Số điện thoại (ví dụ: `0905123456`, `0905.123.456`, `+84905...`) $\rightarrow$ Hệ thống tự động so khớp cả nội dung bài viết và tài khoản người gửi; bài của các thành viên khác trong nhóm bị bỏ qua tức thì, chỉ bài khớp SĐT/tên được nạp chuẩn 100%.
 5. [x] **Test 5 — Đầy Đủ Album Ảnh Gốc:**
    - Kiểm tra căn hộ nạp vào: Album 5–8 ảnh nét căng từ Telegram CDN được lưu trữ đầy đủ trên Cloudinary.
 6. [x] **Test 6 — Trích Xuất AI & Khử Trùng Lặp:**
