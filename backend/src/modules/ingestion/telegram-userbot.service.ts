@@ -443,7 +443,49 @@ export class TelegramUserbotService {
   }
 
   /**
-   * Chuẩn hóa chuỗi tiếng Việt không dấu để so sánh tên người gửi
+   * Kiểm tra xem chuỗi có phải là số điện thoại hay không
+   */
+  public static isPhoneNumber(input: string): boolean {
+    if (!input) return false;
+    // Bỏ qua các ký tự định dạng phổ biến: khoảng trắng, dấu chấm, gạch ngang, ngoặc, dấu +
+    const digits = input.replace(/[\s.\-+()]/g, '');
+    // SĐT Việt Nam thông thường có 9 đến 12 chữ số
+    return /^\d{9,12}$/.test(digits);
+  }
+
+  /**
+   * Chuẩn hóa số điện thoại về dạng số thuần túy (bắt đầu bằng 0)
+   */
+  public static normalizeDomesticPhone(phone: string): string {
+    let digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('84') && digits.length >= 11) {
+      digits = '0' + digits.slice(2);
+    }
+    return digits;
+  }
+
+  /**
+   * Tạo biểu thức chính quy (Regex) bắt trúng số điện thoại bất kể người đăng viết cách nào
+   * Ví dụ: SĐT 0905123456 sẽ khớp với:
+   * "0905123456", "0905.123.456", "0905 123 456", "0905-123-456", "+84905123456", "+84 905 123 456"
+   */
+  public static buildPhoneRegex(phone: string): RegExp | null {
+    const norm = this.normalizeDomesticPhone(phone);
+    if (!norm || norm.length < 8) return null;
+
+    // Lấy chuỗi số sau số 0 đầu tiên (ví dụ 0905123456 -> 905123456)
+    const coreDigits = norm.startsWith('0') ? norm.slice(1) : norm;
+    // Mỗi số có thể cách nhau bởi dấu chấm, khoảng trắng, gạch nối hoặc dấu ngoặc
+    const sep = '[\\s.\\-()]*';
+    const digitsPattern = coreDigits.split('').join(sep);
+
+    // Bắt đầu bằng 0 hoặc (+84) hoặc +84 hoặc 84
+    const prefixPattern = `(?:\\+?84|0)${sep}`;
+    return new RegExp(`${prefixPattern}${digitsPattern}`, 'i');
+  }
+
+  /**
+   * Chuẩn hóa chuỗi tiếng Việt không dấu để so sánh tên hoặc từ khóa
    */
   private static normalizeText(str: string): string {
     return str
@@ -454,31 +496,98 @@ export class TelegramUserbotService {
   }
 
   /**
-   * Kiểm tra xem tin nhắn có phải do người đăng mục tiêu đăng hay không
+   * So khớp toàn diện: Kiểm tra bài đăng (hoặc nhóm tin nhắn album) có khớp với định danh mục tiêu
+   * Hỗ trợ:
+   * 1. Số điện thoại trong nội dung bài viết (chuẩn 100% cho bài BĐS)
+   * 2. Tên / từ khóa nhận diện trong nội dung bài viết (ví dụ: "LH: Trần Minh Hiếu")
+   * 3. Tên người gửi Telegram (firstName, lastName, username, senderId)
+   * 4. Tên tác giả bài đăng (postAuthor) hoặc tin chuyển tiếp (fwdFrom)
    */
-  public static matchesSender(msg: any, target: string): boolean {
-    if (!target || !target.trim()) return true;
-    const targetNorm = this.normalizeText(target.replace(/^@/, ''));
-
-    // Kiểm tra sender entity
-    const sender = msg.sender;
-    if (sender) {
-      const fullName = `${sender.firstName || ''} ${sender.lastName || ''}`.trim();
-      if (fullName && this.normalizeText(fullName).includes(targetNorm)) return true;
-      if (sender.username && this.normalizeText(sender.username).includes(targetNorm)) return true;
-      if (sender.id && sender.id.toString() === target.trim()) return true;
+  public static matchesTargetListing(
+    msgOrGroup: any | any[],
+    target: string,
+    rawTextOverride?: string
+  ): boolean {
+    if (!target || !target.trim() || target.trim() === '*' || target.trim().toLowerCase() === 'all') {
+      return true;
     }
 
-    // Kiểm tra senderId
-    if (msg.senderId && msg.senderId.toString() === target.trim()) return true;
+    const targetTrimmed = target.trim();
+    const isPhone = this.isPhoneNumber(targetTrimmed);
+    const messages = Array.isArray(msgOrGroup) ? msgOrGroup : [msgOrGroup];
 
-    // Kiểm tra tin chuyển tiếp
-    if (msg.fwdFrom) {
-      if (msg.fwdFrom.fromName && this.normalizeText(msg.fwdFrom.fromName).includes(targetNorm)) return true;
-      if (msg.fwdFrom.fromId && msg.fwdFrom.fromId.toString() === target.trim()) return true;
+    // Gom toàn bộ nội dung văn bản trong bài đăng / album
+    const combinedText = (
+      rawTextOverride ||
+      messages.map((m: any) => m.text || m.message || '').join('\n')
+    ).trim();
+
+    // 1. NẾU MỤC TIÊU LÀ SỐ ĐIỆN THOẠI
+    if (isPhone) {
+      const phoneRegex = this.buildPhoneRegex(targetTrimmed);
+      if (phoneRegex && combinedText && phoneRegex.test(combinedText)) {
+        return true;
+      }
+
+      // Kiểm tra thêm số điện thoại của người gửi nếu có trong danh bạ
+      for (const msg of messages) {
+        if (msg.sender?.phone) {
+          const senderPhoneNorm = this.normalizeDomesticPhone(msg.sender.phone);
+          const targetPhoneNorm = this.normalizeDomesticPhone(targetTrimmed);
+          if (senderPhoneNorm === targetPhoneNorm) return true;
+        }
+      }
+
+      // Nếu target là SĐT mà nội dung chưa khớp bằng Regex, thử so sánh chuỗi số thuần túy
+      const cleanDigits = this.normalizeDomesticPhone(targetTrimmed);
+      const textDigits = combinedText.replace(/\D/g, '');
+      if (cleanDigits && textDigits.includes(cleanDigits)) {
+        return true;
+      }
+
+      return false;
+    }
+
+    // 2. NẾU MỤC TIÊU LÀ TÊN / TỪ KHÓA / USERNAME
+    const targetNorm = this.normalizeText(targetTrimmed.replace(/^@/, ''));
+
+    // 2.1. So khớp trong nội dung bài viết (người đăng thường ghi "LH: [Tên]" trong bài)
+    if (combinedText && this.normalizeText(combinedText).includes(targetNorm)) {
+      return true;
+    }
+
+    // 2.2. So khớp với tài khoản người gửi Telegram (Sender Entity)
+    for (const msg of messages) {
+      const sender = msg.sender;
+      if (sender) {
+        const fullName = `${sender.firstName || ''} ${sender.lastName || ''}`.trim();
+        if (fullName && this.normalizeText(fullName).includes(targetNorm)) return true;
+        if (sender.username && this.normalizeText(sender.username).includes(targetNorm)) return true;
+        if (sender.id && sender.id.toString() === targetTrimmed) return true;
+      }
+
+      if (msg.senderId && msg.senderId.toString() === targetTrimmed) return true;
+
+      // 2.3. So khớp tác giả bài viết của kênh (Channel post author)
+      if (msg.postAuthor && this.normalizeText(msg.postAuthor).includes(targetNorm)) {
+        return true;
+      }
+
+      // 2.4. So khớp tin chuyển tiếp (Forwarded message)
+      if (msg.fwdFrom) {
+        if (msg.fwdFrom.fromName && this.normalizeText(msg.fwdFrom.fromName).includes(targetNorm)) return true;
+        if (msg.fwdFrom.fromId && msg.fwdFrom.fromId.toString() === targetTrimmed) return true;
+      }
     }
 
     return false;
+  }
+
+  /**
+   * Giữ hàm matchesSender để tương thích ngược
+   */
+  public static matchesSender(msg: any, target: string): boolean {
+    return this.matchesTargetListing(msg, target);
   }
 
   /**
@@ -503,35 +612,83 @@ export class TelegramUserbotService {
     const chatTitle = (entity as any).title || (entity as any).username || 'Nhóm BĐS';
     const chatId = (entity as any).id?.toString() || options.chatInput;
 
+    const isPhone = this.isPhoneNumber(options.targetSender);
+    const filterDescription = isPhone
+      ? `Số điện thoại "${options.targetSender}"`
+      : `Người đăng / Từ khóa "${options.targetSender}"`;
+
     options.onProgress?.({
-      log: `🔍 Đang quét tin trong "${chatTitle}" để tìm bài của "${options.targetSender}"...`,
+      log: `🔍 Đang quét tin trong "${chatTitle}" theo ${filterDescription}...`,
       percent: 15,
     });
 
-    // Lấy tin nhắn (lấy dôi ra để gom đủ các bài theo tiêu chí lọc)
-    const messages = await client.getMessages(entity, { limit: Math.max(limit * 4, 60) });
+    const messageMap = new Map<number, any>();
 
-    // Lọc các tin nhắn của người đăng mục tiêu
-    const targetMessages = messages.filter((m: any) => this.matchesSender(m, options.targetSender));
-    if (targetMessages.length === 0) {
-      options.onProgress?.({
-        log: `⚠️ Không tìm thấy bài đăng nào của "${options.targetSender}" trong lịch sử gần đây của nhóm.`,
-        percent: 100,
-      });
-      return { total: 0, apartments: [] };
+    // 1. Truy vấn trực tiếp từ máy chủ Telegram bằng search nếu có từ khóa / SĐT
+    if (options.targetSender && options.targetSender.trim()) {
+      const cleanTarget = options.targetSender.trim();
+      const queries = [cleanTarget];
+      if (isPhone) {
+        const norm = this.normalizeDomesticPhone(cleanTarget);
+        if (norm && norm !== cleanTarget) queries.push(norm);
+      }
+
+      for (const q of queries) {
+        try {
+          const searchMessages = await client.getMessages(entity, {
+            search: q,
+            limit: Math.max(limit * 3, 50),
+          });
+          for (const m of searchMessages) {
+            messageMap.set(m.id, m);
+          }
+        } catch {
+          // Nhóm không hỗ trợ server-side search hoặc lỗi query, tiếp tục quét lịch sử
+        }
+      }
     }
 
-    // Gom nhóm các message thuộc cùng Album (groupedId)
+    // 2. Quét thêm tin nhắn mới nhất trong nhóm để đảm bảo không sót bài gần đây và lấy đủ Album ảnh
+    try {
+      const recentMessages = await client.getMessages(entity, {
+        limit: Math.max(limit * 5, 80),
+      });
+      for (const m of recentMessages) {
+        messageMap.set(m.id, m);
+      }
+    } catch (err: any) {
+      console.warn('Lỗi lấy lịch sử tin nhắn gần đây:', err?.message);
+    }
+
+    const allMessages = Array.from(messageMap.values());
+
+    // 3. Gom nhóm theo Album (groupedId) hoặc bài đơn lẻ trước khi lọc
     const postGroups = new Map<string, any[]>();
-    for (const msg of targetMessages) {
+    for (const msg of allMessages) {
       const key = msg.groupedId ? msg.groupedId.toString() : `single_${msg.id}`;
       if (!postGroups.has(key)) postGroups.set(key, []);
       postGroups.get(key)!.push(msg);
     }
 
-    const postsToProcess = Array.from(postGroups.values()).slice(0, limit);
+    // 4. Lọc các nhóm bài viết khớp với tiêu chí người dùng (SĐT trong bài hoặc Tên người đăng)
+    const matchedGroups: any[][] = [];
+    for (const groupMessages of postGroups.values()) {
+      if (this.matchesTargetListing(groupMessages, options.targetSender)) {
+        matchedGroups.push(groupMessages);
+      }
+    }
+
+    if (matchedGroups.length === 0) {
+      options.onProgress?.({
+        log: `⚠️ Không tìm thấy bài đăng nào khớp với ${filterDescription} trong nhóm.`,
+        percent: 100,
+      });
+      return { total: 0, apartments: [] };
+    }
+
+    const postsToProcess = matchedGroups.slice(0, limit);
     options.onProgress?.({
-      log: `📋 Tìm thấy ${postsToProcess.length} bài đăng của "${options.targetSender}". Bắt đầu tải album ảnh & nạp kho...`,
+      log: `📋 Tìm thấy ${matchedGroups.length} bài đăng phù hợp (${postsToProcess.length} bài được chọn). Bắt đầu tải album ảnh & nạp kho...`,
       percent: 25,
     });
 
@@ -544,7 +701,8 @@ export class TelegramUserbotService {
 
       // Sắp xếp theo ID tin nhắn
       postMessages.sort((a, b) => a.id - b.id);
-      const rawText = postMessages.map((m: any) => m.text || m.message || '').find((t: string) => t.trim().length > 10) || '';
+      const textParts = postMessages.map((m: any) => (m.text || m.message || '').trim()).filter(Boolean);
+      const rawText = textParts.join('\n\n');
 
       if (rawText.trim().length < 10) {
         options.onProgress?.({

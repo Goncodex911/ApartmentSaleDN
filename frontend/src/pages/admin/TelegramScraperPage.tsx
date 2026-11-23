@@ -247,13 +247,13 @@ export const TelegramScraperPage: React.FC = () => {
       return;
     }
     if (!targetSender.trim()) {
-      alert('Vui lòng nhập Tên hoặc Username của người đăng mục tiêu (Ví dụ: Trần Minh Hiếu)');
+      alert('Vui lòng nhập Số điện thoại hoặc Tên của người đăng mục tiêu (Ví dụ: 0905123456 hoặc Trần Minh Hiếu)');
       return;
     }
 
     setIsScraping(true);
     setProgressPercent(10);
-    setLogs([`🚀 Bắt đầu quét tin từ người đăng "${targetSender}" trong nhóm...`]);
+    setLogs([`🚀 Bắt đầu quét tin theo "${targetSender}" trong nhóm...`]);
     setScrapedApartments([]);
     setScrapeError(null);
 
@@ -294,7 +294,7 @@ export const TelegramScraperPage: React.FC = () => {
           return;
         }
         if (!targetSender.trim()) {
-          alert('Vui lòng nhập Tên hoặc Username người đăng mục tiêu cần lắng nghe');
+          alert('Vui lòng nhập Số điện thoại hoặc Tên người đăng mục tiêu cần lắng nghe');
           return;
         }
 
@@ -330,7 +330,7 @@ export const TelegramScraperPage: React.FC = () => {
             Cào Tin Telegram Tự Động
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Quét toàn bộ bài đăng cũ và đón tin mới của tài khoản mục tiêu (ví dụ: Trần Minh Hiếu) trong các nhóm BĐS Đà Nẵng (0 VND).
+            Quét toàn bộ bài đăng cũ và đón tin mới theo Số điện thoại hoặc Tên người đăng trong các nhóm BĐS (0 VND).
           </p>
         </div>
         <button
@@ -603,7 +603,7 @@ export const TelegramScraperPage: React.FC = () => {
         <div className="flex items-center gap-2 mb-4">
           <History className="w-5 h-5 text-sky-500" />
           <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-            2. Cấu Hình Quét Lịch Sử & Lọc Người Đăng Mục Tiêu
+            2. Cấu Hình Quét Lịch Sử & Lọc Người Đăng / Số Điện Thoại
           </h2>
         </div>
 
@@ -661,19 +661,50 @@ export const TelegramScraperPage: React.FC = () => {
           {/* Người đăng mục tiêu & Giới hạn */}
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                Tài khoản người đăng mục tiêu <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  Số điện thoại người đăng (Khuyên dùng) <span className="text-rose-500">*</span>
+                </label>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
+                  ✨ Quét chuẩn 100%
+                </span>
+              </div>
               <input
                 type="text"
                 value={targetSender}
                 onChange={(e) => setTargetSender(e.target.value)}
-                placeholder="Ví dụ: Trần Minh Hiếu hoặc @minhhieu_bds"
+                placeholder="Nhập số điện thoại (ví dụ: 0905123456 hoặc 0854346968)"
                 className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium text-slate-900 dark:text-white"
               />
-              <span className="text-[11px] text-slate-400 mt-1 block">
-                Hệ thống chỉ lấy bài của người này và tự động bỏ qua mọi thành viên khác trong nhóm (0đ quota).
-              </span>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="text-[11px] text-slate-400">Gợi ý nhanh:</span>
+                <button
+                  type="button"
+                  onClick={() => setTargetSender('0854346968')}
+                  className="text-[11px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-sky-950/50 transition font-mono"
+                >
+                  0854346968
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTargetSender('0905123456')}
+                  className="text-[11px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-sky-950/50 transition font-mono"
+                >
+                  0905123456
+                </button>
+              </div>
+              <div className="mt-2 p-2.5 rounded-lg bg-sky-50 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 text-[11px] text-sky-900 dark:text-sky-200 space-y-1">
+                <div className="font-semibold flex items-center gap-1 text-sky-800 dark:text-sky-300">
+                  <span>💡</span>
+                  <span>Mẹo cào chuẩn xác 100% không bị 0 căn trong nhóm cộng đồng:</span>
+                </div>
+                <p className="leading-relaxed">
+                  Trong các nhóm cộng đồng lớn, Telegram thường <strong>ẩn danh tính</strong> hoặc người đăng dùng nick phụ / nick clone, dẫn đến việc nhập tên Telegram quét ra 0 căn.
+                </p>
+                <p className="leading-relaxed">
+                  👉 <strong>Giải pháp chắc chắn 100%:</strong> Mọi bài đăng BĐS đều bắt buộc có <strong>Số điện thoại (hoặc Zalo)</strong> liên hệ. Bạn chỉ cần nhập <strong>Số điện thoại</strong> của người đó (ví dụ: <code className="bg-sky-100 dark:bg-sky-900/70 px-1 py-0.5 rounded font-mono font-semibold text-sky-950 dark:text-sky-100">0905123456</code>). Hệ thống sẽ tìm trong toàn bộ nội dung bài viết và cào trọn vẹn album ảnh mà không bao giờ bị sót!
+                </p>
+              </div>
             </div>
 
             <div>
@@ -824,6 +855,12 @@ export const TelegramScraperPage: React.FC = () => {
                   <div className="text-[11px] text-slate-400 line-clamp-1">
                     {apt.location?.address}
                   </div>
+                  {apt.ownerContact?.phone && (
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-1 font-mono">
+                      <span>SĐT:</span>
+                      <strong className="text-emerald-600 dark:text-emerald-400">{apt.ownerContact.phone}</strong>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
