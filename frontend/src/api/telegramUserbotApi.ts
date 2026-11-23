@@ -20,6 +20,16 @@ export interface TelegramSessionStatus {
   };
 }
 
+export interface ScrapeTask {
+  id: string;
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+  percent: number;
+  logs: string[];
+  apartments: any[];
+  total: number;
+  error?: string;
+}
+
 export const telegramUserbotApi = {
   getStatus: async (): Promise<TelegramSessionStatus> => {
     const res = await apiClient.get('/ingestion/telegram-userbot/status');
@@ -56,9 +66,15 @@ export const telegramUserbotApi = {
     return res.data.dialogs || [];
   },
 
-  scrape: async (payload: { chat: string; targetSender: string; limit: number }) => {
+  /** Khởi chạy cào tin dưới nền, trả về taskId để hỏi tiến trình */
+  startScrape: async (payload: { chat: string; targetSender: string; limit: number }): Promise<string> => {
     const res = await apiClient.post('/ingestion/telegram-userbot/scrape', payload);
-    return res.data;
+    return res.data.taskId;
+  },
+
+  getScrapeTask: async (taskId: string): Promise<ScrapeTask> => {
+    const res = await apiClient.get(`/ingestion/telegram-userbot/scrape/${encodeURIComponent(taskId)}`);
+    return res.data.task;
   },
 
   startListener: async (payload: { chat: string; targetSender: string }) => {

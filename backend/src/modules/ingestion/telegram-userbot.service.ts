@@ -412,6 +412,25 @@ export class TelegramUserbotService {
   public static async resolveAndJoinChat(client: TelegramClient, input: string): Promise<any> {
     const clean = input.trim();
 
+    // 0. Nếu input là ID (số hoặc bắt đầu bằng -100), kiểm tra trong dialogs cache trước để phản hồi tức thì 0ms
+    if (!isNaN(Number(clean)) || clean.startsWith('-100')) {
+      try {
+        const dialogs = await client.getDialogs({ limit: 100 });
+        const cleanNoPrefix = clean.replace(/^-100/, '');
+        const found = dialogs.find((d) => {
+          const idStr = d.id?.toString();
+          const entityIdStr = (d.entity as any)?.id?.toString();
+          return (
+            idStr === clean ||
+            idStr === cleanNoPrefix ||
+            entityIdStr === clean ||
+            entityIdStr === cleanNoPrefix
+          );
+        });
+        if (found && found.entity) return found.entity;
+      } catch { /* ignore */ }
+    }
+
     // 1. Kiểm tra link mời nhóm kín dạng t.me/+... hoặc t.me/joinchat/...
     const inviteMatch = clean.match(/(?:t\.me\/|telegram\.me\/)(?:\+|joinchat\/)([a-zA-Z0-9_-]+)/);
     if (inviteMatch) {
@@ -438,8 +457,16 @@ export class TelegramUserbotService {
       return await client.getEntity(username);
     }
 
-    // 3. Entity ID số nguyên
-    return await client.getEntity(clean);
+    // 3. Entity ID số nguyên (hỗ trợ cả string và BigInt)
+    try {
+      return await client.getEntity(clean);
+    } catch {
+      try {
+        return await client.getEntity(BigInt(clean) as any);
+      } catch (err: any) {
+        throw new Error(`Không thể tìm thấy nhóm Telegram (ID: ${clean}): ${err.message}`);
+      }
+    }
   }
 
   /**

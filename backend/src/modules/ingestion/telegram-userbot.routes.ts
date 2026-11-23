@@ -18,6 +18,7 @@ telegramUserbotRoutes.post('/auth/disconnect', ...managerOnly, TelegramUserbotCo
 telegramUserbotRoutes.get('/status', ...managerOnly, TelegramUserbotController.getStatus);
 telegramUserbotRoutes.get('/dialogs', ...managerOnly, TelegramUserbotController.getDialogs);
 telegramUserbotRoutes.post('/scrape', ...managerOnly, TelegramUserbotController.scrape);
+telegramUserbotRoutes.get('/scrape/:taskId', ...managerOnly, TelegramUserbotController.getScrapeTask);
 telegramUserbotRoutes.post('/listener/start', ...managerOnly, TelegramUserbotController.startListener);
 telegramUserbotRoutes.post('/listener/stop', ...managerOnly, TelegramUserbotController.stopListener);
 telegramUserbotRoutes.get('/listener/status', ...managerOnly, TelegramUserbotController.getListenerStatus);
