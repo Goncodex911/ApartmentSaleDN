@@ -108,7 +108,7 @@ async function ingestPost(ctx: ChatContext, messages: any[]) {
 async function openChat(userId: string, chatInput: string, targetSender: string): Promise<ChatContext> {
   const client = await TelegramUserbotService.getClient(userId);
   if (!client) throw new Error('Chưa kết nối tài khoản Telegram cá nhân');
-  const entity = await TelegramUserbotService.resolveAndJoinChat(client, chatInput);
+  const entity = await TelegramUserbotService.withSession(userId, () => TelegramUserbotService.resolveAndJoinChat(client, chatInput));
   return {
     client,
     entity,

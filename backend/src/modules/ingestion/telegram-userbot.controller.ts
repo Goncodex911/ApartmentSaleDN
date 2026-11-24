@@ -19,7 +19,8 @@ const handle = (fallbackMessage: string, fn: Handler) => async (req: AuthRequest
     const result = await fn(userId, req, res);
     if (!res.headersSent) res.status(200).json({ success: true, ...(result as object) });
   } catch (err: any) {
-    if (!res.headersSent) res.status(400).json({ success: false, message: err?.message || fallbackMessage });
+    // code (VD TELEGRAM_SESSION_DEAD) giúp frontend biết cần đưa người dùng về màn hình kết nối lại
+    if (!res.headersSent) res.status(400).json({ success: false, message: err?.message || fallbackMessage, code: err?.code });
   }
 };
 

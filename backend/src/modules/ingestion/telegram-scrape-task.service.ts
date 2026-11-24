@@ -15,6 +15,7 @@ export interface ScrapeTaskState {
   logs: ScrapeLog[];
   apartments: any[];
   error?: string;
+  errorCode?: string; // TELEGRAM_SESSION_DEAD → trang tải lại trạng thái kết nối
   startedAt: Date;
   stopRequested: boolean;
 }
@@ -65,6 +66,7 @@ export class TelegramScrapeTaskService {
       })
       .catch((err: any) => {
         task.error = err?.message || 'Lỗi trong quá trình cào tin';
+        task.errorCode = err?.code;
         task.logs.push({ at: Date.now(), level: 'error', text: task.error! });
         task.status = 'FAILED';
       });

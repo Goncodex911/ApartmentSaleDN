@@ -19,18 +19,26 @@ export const TelegramScraperPage: React.FC = () => {
   const [listener, setListener] = useState<ListenerState>({ isListening: false });
   const [listenerBusy, setListenerBusy] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
-  const scrape = useScrapeTask();
+
+  // Telegram đã hủy phiên (máy chủ đã tự xóa phiên hỏng) → hiện lại màn hình kết nối thay vì "Đã kết nối" sai
+  const markDisconnected = useCallback(() => {
+    setSession({ success: true, isConnected: false });
+    setDialogs([]);
+    setListener({ isListening: false });
+  }, []);
+  const scrape = useScrapeTask(markDisconnected);
 
   const loadDialogs = useCallback(async () => {
     setLoadingDialogs(true);
     try {
       setDialogs(await telegramUserbotApi.getDialogs());
-    } catch (err) {
+    } catch (err: any) {
       setPageError(errorMessage(err, 'Không tải được danh sách nhóm Telegram'));
+      if (err?.response?.data?.code === 'TELEGRAM_SESSION_DEAD') markDisconnected();
     } finally {
       setLoadingDialogs(false);
     }
-  }, []);
+  }, [markDisconnected]);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -60,8 +68,9 @@ export const TelegramScraperPage: React.FC = () => {
         const res = await telegramUserbotApi.startListener({ chat: target.chat, targetSender: target.targetSender });
         setListener({ isListening: true, chatTitle: res.chatTitle, targetSender: res.targetSender });
       }
-    } catch (err) {
+    } catch (err: any) {
       setPageError(errorMessage(err, 'Không điều khiển được bộ đón tin'));
+      if (err?.response?.data?.code === 'TELEGRAM_SESSION_DEAD') markDisconnected();
     } finally {
       setListenerBusy(false);
     }
@@ -80,7 +89,10 @@ export const TelegramScraperPage: React.FC = () => {
 
       <TelegramConnectCard
         session={session}
-        onConnected={() => void loadStatus()}
+        onConnected={() => {
+          setPageError(null);
+          void loadStatus();
+        }}
         onDisconnected={() => {
           setSession({ success: true, isConnected: false });
           setDialogs([]);
