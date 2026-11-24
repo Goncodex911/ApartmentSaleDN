@@ -17,7 +17,7 @@ export const isConfigured = (service: ServiceName) =>
     cloudinary: Boolean(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET),
     telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN),
     nominatim: true, // Không cần key (NOMINATIM_USER_AGENT có mặc định)
-    carto: true, // Cấu hình ở Netlify — trình duyệt tự kiểm tra
+    carto: true, // Cấu hình ở trang deploy frontend — trình duyệt tự kiểm tra
   })[service];
 
 const withTimeout = <T>(task: Promise<T>) =>

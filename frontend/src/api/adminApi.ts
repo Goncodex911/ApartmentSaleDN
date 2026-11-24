@@ -96,7 +96,7 @@ export type ServiceState = 'NOT_CONFIGURED' | 'UNKNOWN' | 'OK' | 'DEGRADED' | 'D
 export interface ServiceStatus {
   service: 'mongo' | 'gemini' | 'cloudinary' | 'telegram' | 'nominatim' | 'carto';
   state: ServiceState;
-  env: { vars: string[]; where: 'Render' | 'Netlify' };
+  env: { vars: string[]; where: 'Render' | 'Frontend' };
   lastCheckedAt: string | null;
   latencyMs: number | null;
   message: string | null;

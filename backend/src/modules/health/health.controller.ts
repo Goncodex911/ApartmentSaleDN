@@ -8,13 +8,13 @@ import { quotaMeters } from './quota-meters.js';
 export type ServiceState = 'NOT_CONFIGURED' | 'UNKNOWN' | 'OK' | 'DEGRADED' | 'DOWN' | 'KEY_INVALID';
 
 // Biến môi trường + nơi sửa của từng dịch vụ (hiện trong hướng dẫn thay key — không bao giờ trả giá trị)
-const ENV: Record<ServiceName, { vars: string[]; where: 'Render' | 'Netlify' }> = {
+const ENV: Record<ServiceName, { vars: string[]; where: 'Render' | 'Frontend' }> = {
   mongo: { vars: ['MONGODB_URI'], where: 'Render' },
   gemini: { vars: ['GEMINI_API_KEY', 'GEMINI_MODEL'], where: 'Render' },
   cloudinary: { vars: ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'], where: 'Render' },
   telegram: { vars: ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_SOURCE_CHAT_IDS'], where: 'Render' },
   nominatim: { vars: ['NOMINATIM_USER_AGENT'], where: 'Render' },
-  carto: { vars: ['VITE_MAP_TILE_URL'], where: 'Netlify' },
+  carto: { vars: ['VITE_MAP_TILE_URL'], where: 'Frontend' },
 };
 
 /** Trạng thái = kết quả gần nhất (thật hoặc kiểm tra tay) + lỗi trong 24 giờ: lần cuối OK nhưng có lỗi xen kẽ → Chập chờn. */

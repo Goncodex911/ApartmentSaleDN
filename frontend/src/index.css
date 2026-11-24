@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Chiều cao huy hiệu "Powered by Netlify" (gói Free không ẩn được, khung cao 64px).
+   Chỉ chừa chỗ khi trang chạy trên *.netlify.app (index.html gắn class on-netlify); host khác (Cloudflare Pages) không có huy hiệu → 0 */
+:root {
+  --host-badge: 0px;
+}
+:root.on-netlify {
+  --host-badge: 64px;
+}
+
 @layer utilities {
   /* Ẩn thanh cuộn nhưng vẫn vuốt được (thanh lọc nhanh, slide ảnh) */
   .scrollbar-none {
@@ -10,21 +19,21 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
-  /* Chừa chỗ cho huy hiệu "Powered by Netlify" ở góc dưới (gói miễn phí không ẩn được, khung cao 64px) — chỉ sửa 1 chỗ này nếu đổi host */
+  /* Chừa chỗ cho huy hiệu host (nếu có) + thanh Home của iPhone */
   .pb-badge-safe {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--host-badge) + env(safe-area-inset-bottom));
   }
-  /* Story 9.3: menu đáy (điện thoại) nằm ngay trên huy hiệu Netlify và thanh Home của iPhone */
+  /* Story 9.3: menu đáy (điện thoại) nằm ngay trên huy hiệu Netlify (nếu có) và thanh Home của iPhone */
   .pb-bottom-nav {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--host-badge) + env(safe-area-inset-bottom));
   }
   /* Đệm đáy nội dung trang: huy hiệu (+ menu đáy 56px trên điện thoại) + 16px khoảng thở */
   .pb-app {
-    padding-bottom: calc(64px + 56px + 16px + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--host-badge) + 56px + 16px + env(safe-area-inset-bottom));
   }
   @media (min-width: 768px) {
     .pb-app {
-      padding-bottom: calc(64px + 16px + env(safe-area-inset-bottom));
+      padding-bottom: calc(var(--host-badge) + 16px + env(safe-area-inset-bottom));
     }
   }
   /* Story 12.5: khung chờ có vệt sáng lướt qua (shimmer); "giảm chuyển động" → khối xám đứng yên */
@@ -47,15 +56,15 @@
       display: none;
     }
   }
-  /* Story 11.2: bản đồ vừa khít phần còn lại của màn hình — trừ đầu trang + ô tìm (~190px), huy hiệu + menu đáy (120px),
+  /* Story 11.2: bản đồ vừa khít phần còn lại của màn hình — trừ đầu trang + ô tìm (~190px), menu đáy (56px), huy hiệu host,
      hàng chip lọc nếu có (--map-extra) → dòng ghi nguồn OSM ở góc dưới luôn nhìn thấy */
   .h-map {
-    height: calc(100dvh - 318px - var(--map-extra, 0px) - env(safe-area-inset-bottom));
+    height: calc(100dvh - 254px - var(--host-badge) - var(--map-extra, 0px) - env(safe-area-inset-bottom));
     min-height: 320px;
   }
   @media (min-width: 768px) {
     .h-map {
-      height: calc(100dvh - 270px - var(--map-extra, 0px) - env(safe-area-inset-bottom));
+      height: calc(100dvh - 206px - var(--host-badge) - var(--map-extra, 0px) - env(safe-area-inset-bottom));
     }
   }
 }
