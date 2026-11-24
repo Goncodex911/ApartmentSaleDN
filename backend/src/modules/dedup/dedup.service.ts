@@ -112,6 +112,9 @@ export class DedupService {
 
     const ext = parseResult.extracted;
 
+    // Ảnh tải muộn (Telegram): chỉ đẩy lên Cloudinary khi tin đã qua bộ lọc rác
+    if (!input.mediaUrls && input.loadMediaUrls) input = { ...input, mediaUrls: await input.loadMediaUrls() };
+
     // Bước 2: Tải ảnh 1 lần và tính mã pHash (ảnh đã tải được dùng lại cho Gemini Vision ở Bước 5)
     const mediaUrls = input.mediaUrls || [];
     const newImageHashes: string[] = [];

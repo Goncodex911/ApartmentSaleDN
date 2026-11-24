@@ -1,25 +1,31 @@
 import { randomUUID } from 'node:crypto';
-import { TelegramUserbotService } from './telegram-userbot.service.js';
+import { TelegramHarvestService, LogLevel } from './telegram-harvest.service.js';
+
+export interface ScrapeLog {
+  at: number;
+  level: LogLevel;
+  text: string;
+}
 
 export interface ScrapeTaskState {
   id: string;
   userId: string;
-  status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
   percent: number;
-  logs: string[];
+  logs: ScrapeLog[];
   apartments: any[];
-  total: number;
   error?: string;
   startedAt: Date;
+  stopRequested: boolean;
 }
 
-// Giữ kết quả tác vụ 1 giờ để trình duyệt kịp đọc, sau đó dọn khỏi bộ nhớ
-const TASK_TTL_MS = 60 * 60 * 1000;
+const TASK_TTL_MS = 60 * 60 * 1000; // Giữ kết quả 1 giờ để trình duyệt kịp đọc
+const MAX_LOGS = 300;
 
 /**
  * Chạy cào tin Telegram dưới nền.
  * Lý do: proxy Netlify cắt request sau ~26 giây (504), trong khi cào + AI bóc tách nhiều bài mất vài phút.
- * API chỉ trả về taskId ngay lập tức, frontend hỏi tiến trình định kỳ qua getTask.
+ * API chỉ trả taskId, frontend hỏi tiến trình định kỳ; tắt màn hình điện thoại / tải lại trang vẫn theo dõi tiếp được.
  */
 export class TelegramScrapeTaskService {
   private static tasks = new Map<string, ScrapeTaskState>();
@@ -28,7 +34,7 @@ export class TelegramScrapeTaskService {
     this.cleanupExpired();
 
     // Mỗi người chỉ chạy 1 tác vụ cùng lúc để tránh bị Telegram chặn vì flood
-    const running = [...this.tasks.values()].find((t) => t.userId === userId && t.status === 'RUNNING');
+    const running = this.getActive(userId);
     if (running) return running;
 
     const task: ScrapeTaskState = {
@@ -38,26 +44,28 @@ export class TelegramScrapeTaskService {
       percent: 0,
       logs: [],
       apartments: [],
-      total: 0,
       startedAt: new Date(),
+      stopRequested: false,
     };
     this.tasks.set(task.id, task);
 
-    TelegramUserbotService.scrapeTargetSender(userId, {
+    TelegramHarvestService.scrapeTargetSender(userId, {
       ...options,
-      onProgress: ({ log, percent }) => {
-        task.logs.push(log);
-        task.percent = percent;
+      shouldStop: () => task.stopRequested,
+      onProgress: ({ level, text, percent, item }) => {
+        task.logs.push({ at: Date.now(), level, text });
+        if (task.logs.length > MAX_LOGS) task.logs.splice(0, task.logs.length - MAX_LOGS);
+        if (percent !== undefined) task.percent = percent;
+        if (item) task.apartments.push(item); // Căn hộ hiện dần trên trang khi đang quét
       },
     })
-      .then((result) => {
-        task.apartments = result.apartments;
-        task.total = result.total;
+      .then(() => {
         task.percent = 100;
-        task.status = 'COMPLETED';
+        task.status = task.stopRequested ? 'CANCELLED' : 'COMPLETED';
       })
       .catch((err: any) => {
         task.error = err?.message || 'Lỗi trong quá trình cào tin';
+        task.logs.push({ at: Date.now(), level: 'error', text: task.error! });
         task.status = 'FAILED';
       });
 
@@ -67,6 +75,23 @@ export class TelegramScrapeTaskService {
   public static getTask(userId: string, taskId: string): ScrapeTaskState | null {
     const task = this.tasks.get(taskId);
     return task && task.userId === userId ? task : null;
+  }
+
+  public static getActive(userId: string): ScrapeTaskState | null {
+    return [...this.tasks.values()].find((t) => t.userId === userId && t.status === 'RUNNING') ?? null;
+  }
+
+  /** Dừng sau bài đang xử lý (không cắt ngang giữa chừng để không mất ảnh đã tải) */
+  public static cancel(userId: string, taskId: string): ScrapeTaskState | null {
+    const task = this.getTask(userId, taskId);
+    if (task?.status === 'RUNNING') task.stopRequested = true;
+    return task;
+  }
+
+  /** Bản gửi cho trình duyệt (bỏ userId) */
+  public static toPublic(task: ScrapeTaskState) {
+    const { userId: _userId, ...rest } = task;
+    return rest;
   }
 
   private static cleanupExpired() {

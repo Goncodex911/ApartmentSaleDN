@@ -20,14 +20,20 @@ export interface TelegramSessionStatus {
   };
 }
 
+export interface ScrapeLog {
+  at: number;
+  level: 'info' | 'success' | 'warn' | 'error';
+  text: string;
+}
+
 export interface ScrapeTask {
   id: string;
-  status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
   percent: number;
-  logs: string[];
+  logs: ScrapeLog[];
   apartments: any[];
-  total: number;
   error?: string;
+  stopRequested: boolean;
 }
 
 export const telegramUserbotApi = {
@@ -74,6 +80,17 @@ export const telegramUserbotApi = {
 
   getScrapeTask: async (taskId: string): Promise<ScrapeTask> => {
     const res = await apiClient.get(`/ingestion/telegram-userbot/scrape/${encodeURIComponent(taskId)}`);
+    return res.data.task;
+  },
+
+  /** Tác vụ đang chạy của tôi (mở lại trang vẫn theo dõi tiếp) */
+  getActiveScrape: async (): Promise<ScrapeTask | null> => {
+    const res = await apiClient.get('/ingestion/telegram-userbot/scrape/active');
+    return res.data.task;
+  },
+
+  cancelScrape: async (taskId: string): Promise<ScrapeTask> => {
+    const res = await apiClient.post(`/ingestion/telegram-userbot/scrape/${encodeURIComponent(taskId)}/cancel`);
     return res.data.task;
   },
 
