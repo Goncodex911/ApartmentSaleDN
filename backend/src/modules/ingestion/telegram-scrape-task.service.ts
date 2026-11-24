@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { TelegramHarvestService, LogLevel } from './telegram-harvest.service.js';
+import { isPhoneNumber, normalizeDomesticPhone } from './telegram-match.util.js';
+import { AuditActor, AuditService } from '../audit/audit.service.js';
+import { maskPhone } from '../audit/audit-actions.js';
 
 export interface ScrapeLog {
   at: number;
@@ -22,6 +25,7 @@ export interface ScrapeTaskState {
 
 const TASK_TTL_MS = 60 * 60 * 1000; // Giữ kết quả 1 giờ để trình duyệt kịp đọc
 const MAX_LOGS = 300;
+const MAX_CONCURRENT_TASKS = 2;
 
 /**
  * Chạy cào tin Telegram dưới nền.
@@ -31,12 +35,19 @@ const MAX_LOGS = 300;
 export class TelegramScrapeTaskService {
   private static tasks = new Map<string, ScrapeTaskState>();
 
-  public static start(userId: string, options: { chatInput: string; targetSender: string; limit: number }) {
+  public static start(actor: AuditActor, options: { chatInput: string; targetSender: string; limit: number }) {
+    const userId = actor.id;
     this.cleanupExpired();
 
     // Mỗi người chỉ chạy 1 tác vụ cùng lúc để tránh bị Telegram chặn vì flood
     const running = this.getActive(userId);
     if (running) return running;
+
+    // Cả hệ thống tối đa 2 tác vụ cùng lúc: Render gói miễn phí 512MB RAM + mọi người dùng chung 1 key Gemini
+    const runningTotal = [...this.tasks.values()].filter((t) => t.status === 'RUNNING').length;
+    if (runningTotal >= MAX_CONCURRENT_TASKS) {
+      throw new Error(`Đang có ${runningTotal} người quét tin cùng lúc (tối đa ${MAX_CONCURRENT_TASKS}). Vui lòng thử lại sau ít phút.`);
+    }
 
     const task: ScrapeTaskState = {
       id: randomUUID(),
@@ -69,6 +80,17 @@ export class TelegramScrapeTaskService {
         task.errorCode = err?.code;
         task.logs.push({ at: Date.now(), level: 'error', text: task.error! });
         task.status = 'FAILED';
+      })
+      .finally(() => {
+        // Admin theo dõi trong Nhật ký hoạt động: ai quét nhóm nào, theo người đăng nào, nạp được bao nhiêu căn
+        const target = options.targetSender.trim();
+        AuditService.log(actor, 'TELEGRAM_SCRAPE', { type: 'SETTINGS', title: `Telegram: ${options.chatInput.trim()}` }, {
+          targetSender: isPhoneNumber(target) ? maskPhone(normalizeDomesticPhone(target)) : target,
+          limit: options.limit,
+          imported: task.apartments.length,
+          status: task.status,
+          error: task.error,
+        });
       });
 
     return task;

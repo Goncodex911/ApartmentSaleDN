@@ -52,6 +52,10 @@ export const ACTION_META: Record<AuditAction, { label: string; icon: React.Eleme
   EXPORT_AUDIT_CSV: { label: 'Xuất nhật ký CSV', icon: Download, tone: 'navy' },
   SEND_ANNOUNCEMENT: { label: 'Gửi thông báo chung', icon: Megaphone, tone: 'navy' },
   REVOKE_ANNOUNCEMENT: { label: 'Thu hồi thông báo chung', icon: Megaphone, tone: 'neutral' },
+  CONNECT_TELEGRAM_ACCOUNT: { label: 'Kết nối Telegram cá nhân', icon: Send, tone: 'accent' },
+  DISCONNECT_TELEGRAM_ACCOUNT: { label: 'Hủy kết nối Telegram cá nhân', icon: Send, tone: 'neutral' },
+  TELEGRAM_SCRAPE: { label: 'Cào tin Telegram', icon: Send, tone: 'AVAILABLE' },
+  TOGGLE_TELEGRAM_LISTENER: { label: 'Bật / tắt đón tin Telegram', icon: Send, tone: 'accent' },
 };
 
 export const CATEGORY_TABS: { id: '' | AuditCategory; label: string }[] = [

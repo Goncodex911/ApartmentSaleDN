@@ -54,6 +54,10 @@ export const ACTION_META: Record<AuditAction, Meta> = {
   EXPORT_AUDIT_CSV: { category: 'ADMIN', severity: 'IMPORTANT', label: 'Xuất nhật ký CSV' },
   SEND_ANNOUNCEMENT: { category: 'ADMIN', severity: 'IMPORTANT', label: 'Gửi thông báo chung' },
   REVOKE_ANNOUNCEMENT: { category: 'ADMIN', severity: 'IMPORTANT', label: 'Thu hồi thông báo chung' },
+  CONNECT_TELEGRAM_ACCOUNT: { category: 'ACCOUNT', severity: 'IMPORTANT', label: 'Kết nối Telegram cá nhân' },
+  DISCONNECT_TELEGRAM_ACCOUNT: { category: 'ACCOUNT', severity: 'IMPORTANT', label: 'Hủy kết nối Telegram cá nhân' },
+  TELEGRAM_SCRAPE: { category: 'INVENTORY', severity: 'NORMAL', label: 'Cào tin Telegram' },
+  TOGGLE_TELEGRAM_LISTENER: { category: 'INVENTORY', severity: 'NORMAL', label: 'Bật / tắt đón tin Telegram' },
 };
 
 export const NORMAL_RETENTION_MS = 60 * 24 * 60 * 60 * 1000;
