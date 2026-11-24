@@ -30,7 +30,7 @@ export interface ScrapeTask {
   id: string;
   status: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
   percent: number;
-  logs: ScrapeLog[];
+  entries: ScrapeLog[];
   apartments: any[];
   error?: string;
   stopRequested: boolean;

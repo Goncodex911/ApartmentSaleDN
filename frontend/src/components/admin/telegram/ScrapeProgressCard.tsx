@@ -37,7 +37,7 @@ export const ScrapeProgressCard: React.FC<Props> = ({ task, error, onCancel }) =
   useEffect(() => {
     const box = logBoxRef.current;
     if (box && box.scrollHeight - box.scrollTop - box.clientHeight < 80) box.scrollTop = box.scrollHeight;
-  }, [task.logs.length]);
+  }, [task.entries.length]);
 
   return (
     <section className={ui.card} aria-labelledby="tg-progress-title">
@@ -59,8 +59,8 @@ export const ScrapeProgressCard: React.FC<Props> = ({ task, error, onCancel }) =
       </div>
 
       <ol ref={logBoxRef} aria-live="polite" className="max-h-56 overflow-y-auto overscroll-contain rounded-xl bg-slate-900 p-3 space-y-1.5 font-mono text-xs leading-relaxed text-slate-200">
-        {task.logs.length === 0 && <li className="text-slate-400">Đang chuẩn bị...</li>}
-        {task.logs.map((log, i) => {
+        {task.entries.length === 0 && <li className="text-slate-400">Đang chuẩn bị...</li>}
+        {task.entries.map((log, i) => {
           const level = LEVEL[log.level] ?? LEVEL.info;
           return (
             <li key={i} className="flex gap-2">

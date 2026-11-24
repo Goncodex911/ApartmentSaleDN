@@ -68,9 +68,12 @@ export class TelegramService {
       try {
         const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${this.lastUpdateId}&timeout=20`;
         const res = await fetch(url, { signal: this.abortController?.signal });
-        record('telegram', outcomeOf(res.status === 404 ? 401 : res.status), res.ok ? undefined : `getUpdates HTTP ${res.status}`); // Story 16.8a: token sai → 401/404
+        // 409 Conflict = máy chủ khác cũng đang nhận tin của bot (Render deploy: bản cũ và bản mới chạy chồng vài giây)
+        // → không phải sự cố, chờ bản cũ tắt rồi nhận tiếp
+        const conflict = res.status === 409;
+        record('telegram', conflict ? 'rate_limited' : outcomeOf(res.status === 404 ? 401 : res.status), res.ok ? undefined : `getUpdates HTTP ${res.status}`); // Story 16.8a: token sai → 401/404
         if (!res.ok) {
-          await new Promise((r) => setTimeout(r, 3000));
+          await new Promise((r) => setTimeout(r, conflict ? 15000 : 3000));
           continue;
         }
 

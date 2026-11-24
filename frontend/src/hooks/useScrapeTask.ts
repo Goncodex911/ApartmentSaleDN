@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { telegramUserbotApi, ScrapeTask } from '../api/telegramUserbotApi.js';
 
-const POLL_MS = 2000;
+const POLL_MS = 3000; // Mỗi lượt hỏi đi qua proxy Netlify (tính credit) → 3 giây là đủ mượt
 const MAX_NETWORK_RETRIES = 5;
 
 const errorMessage = (err: any, fallback: string) => err?.response?.data?.message || err?.message || fallback;
 
 /**
- * Theo dõi tác vụ cào tin chạy nền trên máy chủ: hỏi tiến trình mỗi 2 giây (thay vì giữ 1 request dài bị Netlify cắt 504).
+ * Theo dõi tác vụ cào tin chạy nền trên máy chủ: hỏi tiến trình mỗi 3 giây (thay vì giữ 1 request dài bị Netlify cắt 504).
  * Mở lại trang / điện thoại khóa màn hình rồi mở lại → tự nhận lại tác vụ đang chạy.
  */
 export function useScrapeTask() {
@@ -58,7 +58,7 @@ export function useScrapeTask() {
     setError(null);
     try {
       const taskId = await telegramUserbotApi.startScrape(payload);
-      setTask({ id: taskId, status: 'RUNNING', percent: 0, logs: [], apartments: [], stopRequested: false });
+      setTask({ id: taskId, status: 'RUNNING', percent: 0, entries: [], apartments: [], stopRequested: false });
       poll(taskId, 800);
     } catch (err) {
       setError(errorMessage(err, 'Không khởi chạy được tác vụ cào tin'));

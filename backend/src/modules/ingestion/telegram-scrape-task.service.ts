@@ -88,10 +88,14 @@ export class TelegramScrapeTaskService {
     return task;
   }
 
-  /** Bản gửi cho trình duyệt (bỏ userId) */
+  /**
+   * Bản gửi cho trình duyệt (bỏ userId). `entries` = log có giờ + mức độ (frontend mới);
+   * `logs` = chuỗi thuần cho frontend cũ trên Netlify (đang khóa deploy) không bị crash khi backend lên trước.
+   * Xóa `logs` sau khi Netlify deploy bản frontend mới.
+   */
   public static toPublic(task: ScrapeTaskState) {
-    const { userId: _userId, ...rest } = task;
-    return rest;
+    const { userId: _userId, logs, ...rest } = task;
+    return { ...rest, entries: logs, logs: logs.map((log) => log.text), total: task.apartments.length };
   }
 
   private static cleanupExpired() {
