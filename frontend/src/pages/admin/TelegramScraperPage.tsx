@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
+import { AlertCircle, Info } from 'lucide-react';
+import { useApp } from '../../components/layout/AppShell.js';
 import { telegramUserbotApi, TelegramDialog, TelegramSessionStatus } from '../../api/telegramUserbotApi.js';
 import { useScrapeTask } from '../../hooks/useScrapeTask.js';
 import { TelegramConnectCard } from '../../components/admin/telegram/TelegramConnectCard.js';
@@ -11,8 +13,17 @@ type ListenerState = { isListening: boolean; chatTitle?: string; targetSender?: 
 
 const errorMessage = (err: any, fallback: string) => err?.response?.data?.message || err?.message || fallback;
 
-/** Cào tin Telegram (Story CE-01): kết nối tài khoản → chọn nhóm + người đăng → quét lịch sử / đón tin mới */
+/**
+ * Cào tin Telegram (Story CE-01, CE-02): kết nối tài khoản → chọn nhóm + người đăng → quét lịch sử / đón tin mới.
+ * Admin mở trong khu Quản trị (/admin/telegram-scraper), Quản lý mở ở /telegram-scraper; CTV không được vào.
+ */
 export const TelegramScraperPage: React.FC = () => {
+  const { user } = useApp();
+  if (user && user.role === 'COLLABORATOR') return <Navigate to="/apartments" replace />;
+  return <TelegramScraperContent isManager={user?.role === 'MANAGER'} />;
+};
+
+const TelegramScraperContent: React.FC<{ isManager: boolean }> = ({ isManager }) => {
   const [session, setSession] = useState<TelegramSessionStatus | null>(null);
   const [dialogs, setDialogs] = useState<TelegramDialog[]>([]);
   const [loadingDialogs, setLoadingDialogs] = useState(false);
@@ -83,6 +94,15 @@ export const TelegramScraperPage: React.FC = () => {
       <header className="space-y-1">
         <h1 className="text-xl font-bold tracking-tight text-slate-900">Cào tin Telegram</h1>
         <p className="text-sm text-slate-600">Quét bài cũ và tự đón bài mới của một người đăng (theo SĐT hoặc tên) trong nhóm BĐS, AI bóc tách rồi nạp vào Bảng hàng.</p>
+        {isManager && (
+          <p className="flex items-start gap-2 p-3 rounded-xl bg-indigo-50 border border-indigo-100 text-sm text-indigo-900">
+            <Info className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
+            <span>
+              Kết nối bằng <strong>tài khoản Telegram cá nhân của bạn</strong>, hệ thống chỉ đọc các nhóm bạn đang tham gia. Căn quét được sẽ vào <strong>Bảng hàng chung</strong>, và
+              thao tác quét được ghi vào nhật ký để Admin theo dõi.
+            </span>
+          </p>
+        )}
       </header>
 
       {pageError && <p role="alert" className={ui.alert}><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />{pageError}</p>}

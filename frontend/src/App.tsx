@@ -62,6 +62,7 @@ export const App: React.FC = () => {
             <Route path="moderation" element={<ModerationPage />} /> {/* Kiểm duyệt báo lỗi trong khung Quản trị */}
           </Route>
           <Route path="/moderation" element={<ModerationPage />} /> {/* Admin + Quản lý: kiểm duyệt báo lỗi (Story 13.6) */}
+          <Route path="/telegram-scraper" element={<TelegramScraperPage />} /> {/* Quản lý: cào tin Telegram (CE-02) */}
         </Route>
         {/* Story 16.1: Admin vào lại chế độ dùng gần nhất (khu /admin tự kiểm tra quyền) */}
         <Route path="/" element={<Navigate to={lastAdminMode() === 'admin' ? '/admin' : '/apartments'} replace />} />

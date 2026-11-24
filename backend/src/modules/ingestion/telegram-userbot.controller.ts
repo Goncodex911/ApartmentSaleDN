@@ -3,6 +3,9 @@ import { AuthRequest } from '../../middlewares/auth.js';
 import { TelegramUserbotService } from './telegram-userbot.service.js';
 import { TelegramHarvestService } from './telegram-harvest.service.js';
 import { TelegramScrapeTaskService } from './telegram-scrape-task.service.js';
+import { isPhoneNumber, normalizeDomesticPhone } from './telegram-match.util.js';
+import { AuditService, auditActor } from '../audit/audit.service.js';
+import { maskPhone } from '../audit/audit-actions.js';
 
 type Handler = (userId: string, req: AuthRequest, res: Response) => Promise<unknown>;
 
@@ -26,13 +29,22 @@ const handle = (fallbackMessage: string, fn: Handler) => async (req: AuthRequest
 
 const badRequest = (res: Response, message: string) => res.status(400).json({ success: false, message });
 
+// Nhật ký hoạt động (Admin theo dõi Quản lý dùng Telegram): ghi nền, lỗi ghi không ảnh hưởng thao tác
+const logConnected = (req: AuthRequest, method: 'QR' | 'OTP', phone?: string) =>
+  AuditService.log(auditActor(req), 'CONNECT_TELEGRAM_ACCOUNT', { type: 'USER', id: req.user!.id }, {
+    method,
+    telegramPhone: phone ? maskPhone(phone.replace(/^\+84/, '0')) : undefined,
+  });
+
 /** API Userbot Telegram: /api/v1/ingestion/telegram-userbot/* */
 export const TelegramUserbotController = {
   startQrAuth: handle('Lỗi khởi tạo xác thực 1-chạm', (userId) => TelegramUserbotService.startQrAuth(userId)),
 
-  checkQrAuth: handle('Lỗi kiểm tra xác thực', (userId, req) =>
-    TelegramUserbotService.checkQrAuth(userId, isText(req.body?.password) ? req.body.password : undefined)
-  ),
+  checkQrAuth: handle('Lỗi kiểm tra xác thực', async (userId, req) => {
+    const result: any = await TelegramUserbotService.checkQrAuth(userId, isText(req.body?.password) ? req.body.password : undefined);
+    if (result.status === 'SUCCESS') logConnected(req, 'QR', result.user?.phone);
+    return result;
+  }),
 
   sendAuthCode: handle('Lỗi gửi mã xác nhận Telegram', async (userId, req, res) => {
     if (!isText(req.body?.phone)) return badRequest(res, 'Số điện thoại không hợp lệ');
@@ -42,10 +54,16 @@ export const TelegramUserbotController = {
   verifyAuthCode: handle('Lỗi xác nhận mã OTP Telegram', async (userId, req, res) => {
     const { phone, phoneCodeHash, code, password } = req.body ?? {};
     if (!isText(phone) || !isText(phoneCodeHash) || !isText(code)) return badRequest(res, 'Thiếu thông tin xác thực mã OTP');
-    return TelegramUserbotService.verifyAuthCode(userId, phone, phoneCodeHash, code, isText(password) ? password : undefined);
+    const result: any = await TelegramUserbotService.verifyAuthCode(userId, phone, phoneCodeHash, code, isText(password) ? password : undefined);
+    if (result.success) logConnected(req, 'OTP', result.user?.phone);
+    return result;
   }),
 
-  disconnect: handle('Lỗi hủy kết nối Telegram', (userId) => TelegramUserbotService.disconnect(userId)),
+  disconnect: handle('Lỗi hủy kết nối Telegram', async (userId, req) => {
+    const result = await TelegramUserbotService.disconnect(userId);
+    AuditService.log(auditActor(req), 'DISCONNECT_TELEGRAM_ACCOUNT', { type: 'USER', id: userId });
+    return result;
+  }),
 
   getStatus: handle('Lỗi lấy trạng thái Telegram', (userId) => TelegramUserbotService.getStatus(userId)),
 
@@ -55,7 +73,7 @@ export const TelegramUserbotController = {
   scrape: handle('Lỗi khởi chạy cào tin', async (userId, req, res) => {
     const { chat, targetSender, limit } = req.body ?? {};
     if (!isText(chat) || !isText(targetSender)) return badRequest(res, 'Vui lòng chọn nhóm và nhập SĐT / tên người đăng');
-    const task = TelegramScrapeTaskService.start(userId, { chatInput: chat, targetSender, limit: Number(limit) || 20 });
+    const task = TelegramScrapeTaskService.start(auditActor(req), { chatInput: chat, targetSender, limit: Number(limit) || 20 });
     res.status(202).json({ success: true, taskId: task.id });
   }),
 
@@ -80,10 +98,22 @@ export const TelegramUserbotController = {
   startListener: handle('Lỗi khởi chạy bộ đón tin', async (userId, req, res) => {
     const { chat, targetSender } = req.body ?? {};
     if (!isText(chat) || !isText(targetSender)) return badRequest(res, 'Vui lòng chọn nhóm và nhập SĐT / tên người đăng');
-    return TelegramHarvestService.startRealtimeListener(userId, chat, targetSender);
+    const result = await TelegramHarvestService.startRealtimeListener(userId, chat, targetSender);
+    AuditService.log(auditActor(req), 'TOGGLE_TELEGRAM_LISTENER', { type: 'SETTINGS', title: `Telegram: ${result.chatTitle}` }, {
+      listening: true,
+      targetSender: isPhoneNumber(targetSender) ? maskPhone(normalizeDomesticPhone(targetSender)) : targetSender.trim(),
+    });
+    return result;
   }),
 
-  stopListener: handle('Lỗi dừng bộ đón tin', (userId) => TelegramHarvestService.stopRealtimeListener(userId)),
+  stopListener: handle('Lỗi dừng bộ đón tin', async (userId, req) => {
+    const before = TelegramHarvestService.getRealtimeListenerStatus(userId);
+    const result = await TelegramHarvestService.stopRealtimeListener(userId);
+    if (before.isListening) {
+      AuditService.log(auditActor(req), 'TOGGLE_TELEGRAM_LISTENER', { type: 'SETTINGS', title: `Telegram: ${before.chatTitle}` }, { listening: false });
+    }
+    return result;
+  }),
 
   getListenerStatus: handle('Lỗi lấy trạng thái bộ đón tin', async (userId) => TelegramHarvestService.getRealtimeListenerStatus(userId)),
 };

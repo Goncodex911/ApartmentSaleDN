@@ -49,6 +49,11 @@ export const AUDIT_ACTIONS = [
   // Story 16.9
   'SEND_ANNOUNCEMENT',
   'REVOKE_ANNOUNCEMENT',
+  // Cào tin Telegram cho Quản lý (CE-02): Admin theo dõi ai kết nối / quét / đón tin
+  'CONNECT_TELEGRAM_ACCOUNT',
+  'DISCONNECT_TELEGRAM_ACCOUNT',
+  'TELEGRAM_SCRAPE',
+  'TOGGLE_TELEGRAM_LISTENER',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
