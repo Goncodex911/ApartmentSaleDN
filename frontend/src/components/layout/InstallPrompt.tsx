@@ -17,7 +17,7 @@ export const InstallPrompt: React.FC = () => {
   return (
     <aside
       aria-label="Cài ứng dụng"
-      className="fixed inset-x-3 z-20 bottom-[calc(64px+56px+8px+env(safe-area-inset-bottom))] md:bottom-[calc(64px+8px+env(safe-area-inset-bottom))] md:left-auto md:w-96 p-3 pr-12 bg-white rounded-2xl border border-slate-200 shadow-lg"
+      className="fixed inset-x-3 z-20 bottom-[calc(var(--host-badge)+56px+8px+env(safe-area-inset-bottom))] md:bottom-[calc(var(--host-badge)+8px+env(safe-area-inset-bottom))] md:left-auto md:w-96 p-3 pr-12 bg-white rounded-2xl border border-slate-200 shadow-lg"
     >
       <button type="button" onClick={dismiss} aria-label="Đóng" className="absolute top-1 right-1 w-11 h-11 flex items-center justify-center text-slate-600 hover:text-slate-700">
         <X className="w-4 h-4" />

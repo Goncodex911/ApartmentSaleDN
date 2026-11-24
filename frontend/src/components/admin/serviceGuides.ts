@@ -1,6 +1,9 @@
 // Story 16.8a: hướng dẫn thay key từng dịch vụ (rút gọn từ EXTERNAL_CONFIG.md) — viết sẵn, không đọc file .md lúc chạy
 export type ServiceName = 'mongo' | 'gemini' | 'cloudinary' | 'telegram' | 'nominatim' | 'carto';
 
+// Tên miền đang chạy (Netlify hay Cloudflare Pages) → hướng dẫn luôn đúng với nơi Admin đang mở
+const SITE_HOST = typeof window !== 'undefined' ? window.location.host : 'apartmentsaledn.netlify.app';
+
 export const SERVICE_INFO: Record<ServiceName, { label: string; purpose: string; steps: string[]; dashboard?: string }> = {
   mongo: {
     label: 'MongoDB Atlas',
@@ -29,12 +32,16 @@ export const SERVICE_INFO: Record<ServiceName, { label: string; purpose: string;
   nominatim: {
     label: 'OSM Nominatim',
     purpose: 'Tìm tọa độ theo tên đường (không cần key)',
-    steps: ['Lỗi 403: OSM chặn vì thiếu định danh — Render → Environment → đặt NOMINATIM_USER_AGENT = "RoomMaster-Danang/1.0 (+https://apartmentsaledn.netlify.app)".', 'Lỗi 429: gọi quá 1 lần/giây — hệ thống tự xếp hàng và lưu kết quả, thường tự hết sau vài phút.'],
+    steps: [`Lỗi 403: OSM chặn vì thiếu định danh — Render → Environment → đặt NOMINATIM_USER_AGENT = "RoomMaster-Danang/1.0 (+https://${SITE_HOST})".`, 'Lỗi 429: gọi quá 1 lần/giây — hệ thống tự xếp hàng và lưu kết quả, thường tự hết sau vài phút.'],
   },
   carto: {
     label: 'Bản đồ CARTO',
     purpose: 'Ảnh nền bản đồ trong app và trang gửi khách',
     dashboard: 'https://dashboard.basemaps.carto.com',
-    steps: ['Vào dashboard.basemaps.carto.com → Your keys → tạo key mới, bật giới hạn website (apartmentsaledn.netlify.app).', 'Netlify → Environment variables → sửa VITE_MAP_TILE_URL (chỉ thay phần sau ?key=).', 'Netlify → Deploys → Trigger deploy (biến VITE_ chỉ có hiệu lực sau khi build lại).'],
+    steps: [
+      `Vào dashboard.basemaps.carto.com → Your keys → tạo key mới, bật giới hạn website (${SITE_HOST}).`,
+      'Trang deploy frontend (Cloudflare Pages: Settings → Variables / Netlify: Environment variables) → sửa VITE_MAP_TILE_URL (chỉ thay phần sau ?key=).',
+      'Deploy lại frontend (biến VITE_ chỉ có hiệu lực sau khi build lại).',
+    ],
   },
 };

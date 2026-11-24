@@ -109,6 +109,29 @@ Epic này **không cần API key hay biến môi trường mới**, không đổ
   * (a) Giữ huy hiệu: thanh menu đặt **phía trên** huy hiệu (mất thêm ~56px màn hình).
   * (b) Tắt huy hiệu trong Netlify Dashboard nếu gói của bạn cho phép, rồi báo tôi.
 
+#### 6.2b. Cloudflare Pages (nơi deploy frontend thay Netlify — miễn phí, không giới hạn băng thông)
+Netlify gói Free tính theo credit, hết credit thì dừng deploy production. Cloudflare Pages miễn phí: không giới hạn băng thông, 500 lần build/tháng, cho phép dùng thương mại. Hai nơi chạy song song được (cùng 1 repo, cùng backend Render).
+
+1. **Tạo project:** dash.cloudflare.com → **Workers & Pages → Create → Pages → Connect to Git** → chọn repo `ApartmentSaleDN`.
+2. **Cấu hình build:**
+   * Production branch: `main`
+   * Framework preset: `None` (hoặc `Vite`)
+   * Root directory: `frontend`
+   * Build command: `npm run build`
+   * Build output directory: `dist`
+3. **Biến môi trường** (Settings → Variables and Secrets → Production và Preview):
+   * `NODE_VERSION` = `22`
+   * Chép **tất cả biến `VITE_...`** từ Netlify (Site configuration → Environment variables), ví dụ `VITE_MAP_TILE_URL`.
+   * `API_ORIGIN` *(tùy chọn)*: địa chỉ backend Render. Bỏ trống = `https://roommaster-api-0keh.onrender.com`.
+4. **Proxy `/api`:** file `frontend/functions/api/[[path]].js` (Pages Function) chuyển tiếp `/api/*` sang Render. Cloudflare tự nhận khi deploy, không cần cấu hình. Dòng `/api/*` trong `_redirects` chỉ Netlify dùng.
+5. **Sau khi deploy được** (địa chỉ dạng `https://<ten-du-an>.pages.dev`):
+   * **CARTO:** thêm tên miền mới vào giới hạn website của key (dashboard.basemaps.carto.com → Your keys), nếu không bản đồ trắng.
+   * **Render → Environment:** `CLIENT_URL` = địa chỉ mới (link chia sẻ căn `/p/...` sẽ dùng tên miền này). Làm bước này **sau khi** đã thử xong trên địa chỉ mới.
+   * **Render → Environment:** kiểm tra `TRUST_PROXY` (đang để cho Netlify, thường là `2`). Đường đi Cloudflare → Render cũng 2 tầng nên giữ nguyên; nếu Nhật ký hoạt động ghi IP lạ (IP Cloudflare) thì báo để chỉnh.
+   * `NOMINATIM_USER_AGENT` (nếu có đặt) đổi phần tên miền sang địa chỉ mới.
+6. **Huy hiệu:** Cloudflare không chèn huy hiệu → giao diện tự bỏ khoảng 64px chừa cho huy hiệu Netlify (chỉ chừa khi chạy trên `*.netlify.app`).
+7. **Quay lại Netlify:** đổi `CLIENT_URL` trên Render về địa chỉ Netlify. Không cần sửa code.
+
 #### 6.3. Điện thoại thật để thử (sau khi deploy)
 * **iPhone:** iOS 16.4 trở lên, mở bằng **Safari** (iOS chỉ cài được app từ Safari, Chrome trên iPhone không cài được).
 * **Android:** Chrome (hoặc Cốc Cốc / Samsung Internet).

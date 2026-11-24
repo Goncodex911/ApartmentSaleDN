@@ -11,7 +11,7 @@ import { TILE_URL } from '../utils/mapTiles.js';
 
 /** CARTO chỉ kiểm tra được trên trình duyệt (key nằm ở frontend): tải 1 ô bản đồ Đà Nẵng. */
 async function checkCarto(): Promise<ServiceStatus> {
-  const base: ServiceStatus = { service: 'carto', state: 'UNKNOWN', env: { vars: ['VITE_MAP_TILE_URL'], where: 'Netlify' }, lastCheckedAt: null, latencyMs: null, message: null, calls24h: 0, rateLimited24h: 0, errors24h: 0, lastFailureAt: null };
+  const base: ServiceStatus = { service: 'carto', state: 'UNKNOWN', env: { vars: ['VITE_MAP_TILE_URL'], where: 'Frontend' }, lastCheckedAt: null, latencyMs: null, message: null, calls24h: 0, rateLimited24h: 0, errors24h: 0, lastFailureAt: null };
   if (!TILE_URL.includes('cartocdn.com')) return { ...base, state: 'NOT_CONFIGURED', message: 'Đang dùng bản đồ OpenStreetMap mặc định (chưa đặt VITE_MAP_TILE_URL).' };
   const url = TILE_URL.replace('{z}', '13').replace('{x}', '6527').replace('{y}', '3779').replace('{r}', '').replace('{s}', 'a');
   const started = performance.now();
