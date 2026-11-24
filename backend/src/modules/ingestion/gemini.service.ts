@@ -97,6 +97,12 @@ export class GeminiService {
     return process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
   }
 
+  /** Model dự phòng khi model chính quá tải (503 "high demand" / 429). Đặt GEMINI_FALLBACK_MODEL= (rỗng) để tắt. */
+  public static getFallbackModel(): string | null {
+    const fallback = process.env.GEMINI_FALLBACK_MODEL ?? 'gemini-3.5-flash';
+    return fallback && fallback !== this.getModel() ? fallback : null;
+  }
+
   /**
    * Bóc tách văn bản thô tiếng Việt thành JSON căn hộ chuẩn
    */
@@ -128,21 +134,35 @@ ${rawText.trim()}
       },
     };
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
-    try {
-      // Mỗi lần gọi chờ tối đa 8 giây; Gemini quá tải (429/503) hoặc timeout → tự thử lại 2 lần (sau 2s, 6s)
-      // để tin Telegram/Zalo không bị mất khi Google quá tải tạm thời
-      const response = await fetchWithRetry(
-        url,
+    // Mỗi lần gọi chờ tối đa 8 giây; Gemini quá tải (429/503) hoặc timeout → tự thử lại 2 lần (sau 2s, 6s)
+    const send = (modelName: string, retryDelaysMs?: number[]) =>
+      fetchWithRetry(
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
         {
           method: 'POST',
           // API key gửi qua header thay vì query string (?key=) để không bị ghi vào log proxy/server
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
           body: JSON.stringify(requestBody),
         },
-        8000
+        8000,
+        retryDelaysMs
       );
+    const fallback = this.getFallbackModel();
+
+    try {
+      // Model chính vẫn quá tải sau các lần thử lại → chuyển sang model dự phòng (2 model hiếm khi cùng quá tải)
+      // để tin Telegram/Zalo không bị mất khi Google quá tải tạm thời
+      let response: Response;
+      try {
+        response = await send(model);
+      } catch (err: any) {
+        if (err.name !== 'AbortError' || !fallback) throw err;
+        response = await send(fallback, [3000]);
+      }
+      if ((response.status === 503 || response.status === 429) && fallback) {
+        record('gemini', 'rate_limited', `${model} quá tải (HTTP ${response.status}) → dùng ${fallback}`);
+        response = await send(fallback, [3000]);
+      }
 
       if (!response.ok) {
         const errorText = await response.text();

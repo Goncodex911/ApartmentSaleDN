@@ -1,249 +1,88 @@
 import { Response } from 'express';
 import { AuthRequest } from '../../middlewares/auth.js';
 import { TelegramUserbotService } from './telegram-userbot.service.js';
+import { TelegramHarvestService } from './telegram-harvest.service.js';
 import { TelegramScrapeTaskService } from './telegram-scrape-task.service.js';
 
-export class TelegramUserbotController {
-  /**
-   * POST /api/v1/ingestion/telegram-userbot/auth/qr/start
-   */
-  public static async startQrAuth(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
-        return;
-      }
+type Handler = (userId: string, req: AuthRequest, res: Response) => Promise<unknown>;
 
-      const result = await TelegramUserbotService.startQrAuth(userId);
-      res.status(200).json(result);
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message || 'Lỗi khởi tạo xác thực QR' });
-    }
+const isText = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
+
+/** Kiểm tra đăng nhập + bắt lỗi chung: lỗi nghiệp vụ trả 400 kèm thông điệp tiếng Việt, không lộ stack trace */
+const handle = (fallbackMessage: string, fn: Handler) => async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
+    return;
   }
-
-  /**
-   * POST /api/v1/ingestion/telegram-userbot/auth/qr/check
-   */
-  public static async checkQrAuth(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
-        return;
-      }
-
-      const { password } = req.body;
-      const result = await TelegramUserbotService.checkQrAuth(userId, password);
-      res.status(200).json({ success: true, ...result });
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message || 'Lỗi kiểm tra xác thực QR' });
-    }
+  try {
+    const result = await fn(userId, req, res);
+    if (!res.headersSent) res.status(200).json({ success: true, ...(result as object) });
+  } catch (err: any) {
+    if (!res.headersSent) res.status(400).json({ success: false, message: err?.message || fallbackMessage });
   }
+};
 
-  /**
-   * POST /api/v1/ingestion/telegram-userbot/auth/send-code
-   */
-  public static async sendAuthCode(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
-        return;
-      }
+const badRequest = (res: Response, message: string) => res.status(400).json({ success: false, message });
 
-      const { phone } = req.body;
-      if (!phone || typeof phone !== 'string') {
-        res.status(400).json({ success: false, message: 'Số điện thoại không hợp lệ' });
-        return;
-      }
+/** API Userbot Telegram: /api/v1/ingestion/telegram-userbot/* */
+export const TelegramUserbotController = {
+  startQrAuth: handle('Lỗi khởi tạo xác thực 1-chạm', (userId) => TelegramUserbotService.startQrAuth(userId)),
 
-      const result = await TelegramUserbotService.sendAuthCode(userId, phone);
-      res.status(200).json(result);
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message || 'Lỗi gửi mã xác nhận Telegram' });
-    }
-  }
+  checkQrAuth: handle('Lỗi kiểm tra xác thực', (userId, req) =>
+    TelegramUserbotService.checkQrAuth(userId, isText(req.body?.password) ? req.body.password : undefined)
+  ),
 
-  /**
-   * POST /api/v1/ingestion/telegram-userbot/auth/verify
-   */
-  public static async verifyAuthCode(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
-        return;
-      }
+  sendAuthCode: handle('Lỗi gửi mã xác nhận Telegram', async (userId, req, res) => {
+    if (!isText(req.body?.phone)) return badRequest(res, 'Số điện thoại không hợp lệ');
+    return TelegramUserbotService.sendAuthCode(userId, req.body.phone);
+  }),
 
-      const { phone, phoneCodeHash, code, password } = req.body;
-      if (!phone || !phoneCodeHash || !code) {
-        res.status(400).json({ success: false, message: 'Thiếu thông tin xác thực mã OTP' });
-        return;
-      }
+  verifyAuthCode: handle('Lỗi xác nhận mã OTP Telegram', async (userId, req, res) => {
+    const { phone, phoneCodeHash, code, password } = req.body ?? {};
+    if (!isText(phone) || !isText(phoneCodeHash) || !isText(code)) return badRequest(res, 'Thiếu thông tin xác thực mã OTP');
+    return TelegramUserbotService.verifyAuthCode(userId, phone, phoneCodeHash, code, isText(password) ? password : undefined);
+  }),
 
-      const result = await TelegramUserbotService.verifyAuthCode(userId, phone, phoneCodeHash, code, password);
-      res.status(200).json(result);
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message || 'Lỗi xác nhận mã OTP Telegram' });
-    }
-  }
+  disconnect: handle('Lỗi hủy kết nối Telegram', (userId) => TelegramUserbotService.disconnect(userId)),
 
-  /**
-   * POST /api/v1/ingestion/telegram-userbot/auth/disconnect
-   */
-  public static async disconnect(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
-        return;
-      }
+  getStatus: handle('Lỗi lấy trạng thái Telegram', (userId) => TelegramUserbotService.getStatus(userId)),
 
-      const result = await TelegramUserbotService.disconnect(userId);
-      res.status(200).json(result);
-    } catch (err: any) {
-      res.status(500).json({ success: false, message: err.message || 'Lỗi hủy kết nối Telegram' });
-    }
-  }
+  getDialogs: handle('Lỗi lấy danh sách nhóm', async (userId) => ({ dialogs: await TelegramUserbotService.getDialogs(userId) })),
 
-  /**
-   * GET /api/v1/ingestion/telegram-userbot/status
-   */
-  public static async getStatus(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
-        return;
-      }
-
-      const result = await TelegramUserbotService.getStatus(userId);
-      res.status(200).json({ success: true, ...result });
-    } catch (err: any) {
-      res.status(500).json({ success: false, message: err.message });
-    }
-  }
-
-  /**
-   * GET /api/v1/ingestion/telegram-userbot/dialogs
-   */
-  public static async getDialogs(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
-        return;
-      }
-
-      const dialogs = await TelegramUserbotService.getDialogs(userId);
-      res.status(200).json({ success: true, dialogs });
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message || 'Lỗi lấy danh sách nhóm' });
-    }
-  }
-
-  /**
-   * POST /api/v1/ingestion/telegram-userbot/scrape
-   * Khởi chạy cào tin dưới nền, trả về taskId ngay (tránh 504 do proxy Netlify timeout ~26s)
-   */
-  public static async scrape(req: AuthRequest, res: Response): Promise<void> {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
-      return;
-    }
-
-    const { chat, targetSender, limit } = req.body;
-    if (typeof chat !== 'string' || typeof targetSender !== 'string' || !chat.trim() || !targetSender.trim()) {
-      res.status(400).json({ success: false, message: 'Vui lòng cung cấp nhóm và tên người đăng mục tiêu' });
-      return;
-    }
-
-    const task = TelegramScrapeTaskService.start(userId, {
-      chatInput: chat,
-      targetSender,
-      limit: Number(limit) || 20,
-    });
+  /** Khởi chạy cào tin dưới nền, trả taskId ngay (tránh 504 do proxy Netlify timeout ~26s) */
+  scrape: handle('Lỗi khởi chạy cào tin', async (userId, req, res) => {
+    const { chat, targetSender, limit } = req.body ?? {};
+    if (!isText(chat) || !isText(targetSender)) return badRequest(res, 'Vui lòng chọn nhóm và nhập SĐT / tên người đăng');
+    const task = TelegramScrapeTaskService.start(userId, { chatInput: chat, targetSender, limit: Number(limit) || 20 });
     res.status(202).json({ success: true, taskId: task.id });
-  }
+  }),
 
-  /**
-   * GET /api/v1/ingestion/telegram-userbot/scrape/:taskId
-   * Trả về tiến trình (log, %, kết quả) của tác vụ cào tin
-   */
-  public static async getScrapeTask(req: AuthRequest, res: Response): Promise<void> {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
-      return;
-    }
+  /** Tác vụ đang chạy (nếu có) — mở lại trang vẫn theo dõi tiếp */
+  getActiveScrape: handle('Lỗi lấy tác vụ cào tin', async (userId) => {
+    const task = TelegramScrapeTaskService.getActive(userId);
+    return { task: task ? TelegramScrapeTaskService.toPublic(task) : null };
+  }),
 
+  getScrapeTask: handle('Lỗi lấy tiến trình cào tin', async (userId, req, res) => {
     const task = TelegramScrapeTaskService.getTask(userId, String(req.params.taskId));
-    if (!task) {
-      res.status(404).json({ success: false, message: 'Không tìm thấy tác vụ cào tin (có thể máy chủ vừa khởi động lại)' });
-      return;
-    }
-    res.status(200).json({ success: true, task });
-  }
+    if (!task) return res.status(404).json({ success: false, message: 'Không tìm thấy tác vụ cào tin (máy chủ có thể vừa khởi động lại)' });
+    return { task: TelegramScrapeTaskService.toPublic(task) };
+  }),
 
-  /**
-   * POST /api/v1/ingestion/telegram-userbot/listener/start
-   */
-  public static async startListener(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
-        return;
-      }
+  cancelScrape: handle('Lỗi dừng cào tin', async (userId, req, res) => {
+    const task = TelegramScrapeTaskService.cancel(userId, String(req.params.taskId));
+    if (!task) return res.status(404).json({ success: false, message: 'Không tìm thấy tác vụ cào tin' });
+    return { task: TelegramScrapeTaskService.toPublic(task) };
+  }),
 
-      const { chat, targetSender } = req.body;
-      if (!chat || !targetSender) {
-        res.status(400).json({ success: false, message: 'Vui lòng cung cấp nhóm và tên người đăng mục tiêu' });
-        return;
-      }
+  startListener: handle('Lỗi khởi chạy bộ đón tin', async (userId, req, res) => {
+    const { chat, targetSender } = req.body ?? {};
+    if (!isText(chat) || !isText(targetSender)) return badRequest(res, 'Vui lòng chọn nhóm và nhập SĐT / tên người đăng');
+    return TelegramHarvestService.startRealtimeListener(userId, chat, targetSender);
+  }),
 
-      const result = await TelegramUserbotService.startRealtimeListener(userId, chat, targetSender);
-      res.status(200).json(result);
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message || 'Lỗi khởi chạy bộ lắng nghe' });
-    }
-  }
+  stopListener: handle('Lỗi dừng bộ đón tin', (userId) => TelegramHarvestService.stopRealtimeListener(userId)),
 
-  /**
-   * POST /api/v1/ingestion/telegram-userbot/listener/stop
-   */
-  public static async stopListener(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
-        return;
-      }
-
-      const result = await TelegramUserbotService.stopRealtimeListener(userId);
-      res.status(200).json(result);
-    } catch (err: any) {
-      res.status(500).json({ success: false, message: err.message });
-    }
-  }
-
-  /**
-   * GET /api/v1/ingestion/telegram-userbot/listener/status
-   */
-  public static async getListenerStatus(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
-        return;
-      }
-
-      const status = TelegramUserbotService.getRealtimeListenerStatus(userId);
-      res.status(200).json({ success: true, ...status });
-    } catch (err: any) {
-      res.status(500).json({ success: false, message: err.message });
-    }
-  }
-}
+  getListenerStatus: handle('Lỗi lấy trạng thái bộ đón tin', async (userId) => TelegramHarvestService.getRealtimeListenerStatus(userId)),
+};

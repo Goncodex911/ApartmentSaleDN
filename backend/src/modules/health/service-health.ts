@@ -29,6 +29,8 @@ const events = new Map<ServiceName, { at: number; outcome: Outcome }[]>();
 const lastOf = new Map<ServiceName, Last>();
 const persistedAt = new Map<string, number>();
 const notifiedAt = new Map<ServiceName, number>();
+const errorStreak = new Map<ServiceName, number>();
+const ERROR_STREAK_TO_NOTIFY = 3;
 
 /** Xóa mọi chuỗi giống key / token khỏi thông điệp lỗi trước khi lưu / trả về trình duyệt. */
 export const sanitize = (message = '') =>
@@ -44,8 +46,15 @@ export const sanitize = (message = '') =>
  * → đọc thêm nội dung lỗi (nếu có) để nhận đúng "Cần thay key".
  */
 const AUTH_HINT = /API_KEY_INVALID|API key not valid|UNAUTHENTICATED|PERMISSION_DENIED|invalid api_key|Unauthorized/i;
+// 503 = dịch vụ đang quá tải tạm thời (VD Gemini "high demand"), cùng nhóm với 429 — không phải sập / mất kết nối
 export const outcomeOf = (status: number, body = ''): Outcome =>
-  status === 401 || status === 403 || (status >= 400 && AUTH_HINT.test(body)) ? 'auth_error' : status === 429 ? 'rate_limited' : status >= 400 ? 'error' : 'ok';
+  status === 401 || status === 403 || (status >= 400 && AUTH_HINT.test(body))
+    ? 'auth_error'
+    : status === 429 || status === 503
+      ? 'rate_limited'
+      : status >= 400
+        ? 'error'
+        : 'ok';
 
 export function record(service: ServiceName, outcome: Outcome, message?: string, latencyMs?: number) {
   const now = Date.now();
@@ -59,7 +68,11 @@ export function record(service: ServiceName, outcome: Outcome, message?: string,
     persistedAt.set(persistKey, now);
     ServiceHealthLog.create({ service, outcome, message: message && sanitize(message) }).catch(() => undefined);
   }
-  if ((outcome === 'auth_error' || outcome === 'error') && (notifiedAt.get(service) ?? 0) < now - NOTIFY_GAP_MS) {
+  // Lỗi thường chỉ báo khi lặp lại liên tiếp (1 lần chập chờn mạng / deploy chồng nhau không đáng báo); key hỏng báo ngay
+  const streak = outcome === 'error' ? (errorStreak.get(service) ?? 0) + 1 : 0;
+  if (outcome !== 'rate_limited') errorStreak.set(service, streak);
+  const shouldNotify = outcome === 'auth_error' || streak >= ERROR_STREAK_TO_NOTIFY;
+  if (shouldNotify && (notifiedAt.get(service) ?? 0) < now - NOTIFY_GAP_MS) {
     notifiedAt.set(service, now);
     const reason = outcome === 'auth_error' ? 'API key không hợp lệ hoặc đã hết hạn' : 'không kết nối được';
     NotificationService.notifyRoles(['ADMIN'], { type: 'SERVICE_INCIDENT', title: `${SERVICE_LABEL[service]} gặp sự cố`, body: `${SERVICE_LABEL[service]}: ${reason}. Vào Quản trị → Sức khỏe hệ thống để kiểm tra.` }).catch(() => undefined);
