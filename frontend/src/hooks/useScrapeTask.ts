@@ -10,12 +10,14 @@ const errorMessage = (err: any, fallback: string) => err?.response?.data?.messag
  * Theo dõi tác vụ cào tin chạy nền trên máy chủ: hỏi tiến trình mỗi 3 giây (thay vì giữ 1 request dài bị Netlify cắt 504).
  * Mở lại trang / điện thoại khóa màn hình rồi mở lại → tự nhận lại tác vụ đang chạy.
  */
-export function useScrapeTask() {
+export function useScrapeTask(onSessionDead?: () => void) {
   const [task, setTask] = useState<ScrapeTask | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const failuresRef = useRef(0);
+  const sessionDeadRef = useRef(onSessionDead);
+  sessionDeadRef.current = onSessionDead;
 
   const stopPolling = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -30,7 +32,11 @@ export function useScrapeTask() {
         failuresRef.current = 0;
         setTask(next);
         if (next.status === 'RUNNING') poll(taskId);
-        else if (next.status === 'FAILED') setError(next.error || 'Lỗi trong quá trình cào tin');
+        else if (next.status === 'FAILED') {
+          setError(next.error || 'Lỗi trong quá trình cào tin');
+          // Telegram đã hủy phiên → máy chủ đã xóa phiên hỏng, trang hiện lại màn hình kết nối
+          if (next.errorCode === 'TELEGRAM_SESSION_DEAD') sessionDeadRef.current?.();
+        }
       } catch (err: any) {
         // Mạng điện thoại chập chờn → thử lại vài lần; 404 = máy chủ khởi động lại, tác vụ đã mất
         if (err?.response?.status !== 404 && ++failuresRef.current < MAX_NETWORK_RETRIES) return poll(taskId, POLL_MS * 1.5);

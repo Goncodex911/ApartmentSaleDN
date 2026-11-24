@@ -18,6 +18,24 @@ interface PendingQrAuth {
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 
+// Telegram đã hủy phiên: người dùng đăng xuất thiết bị, phiên bị dùng ở 2 nơi cùng lúc (deploy chồng), tài khoản bị khóa...
+const DEAD_SESSION_ERRORS = new Set([
+  'SESSION_REVOKED',
+  'SESSION_EXPIRED',
+  'AUTH_KEY_UNREGISTERED',
+  'AUTH_KEY_DUPLICATED',
+  'USER_DEACTIVATED',
+  'USER_DEACTIVATED_BAN',
+]);
+
+/** Phiên Telegram lưu trong DB không còn dùng được → frontend đưa người dùng về màn hình kết nối lại */
+export class TelegramSessionDeadError extends Error {
+  readonly code = 'TELEGRAM_SESSION_DEAD';
+  constructor() {
+    super('Telegram đã thu hồi phiên đăng nhập (thiết bị bị đăng xuất hoặc phiên bị dùng ở nơi khác). Vui lòng kết nối lại tài khoản.');
+  }
+}
+
 export class TelegramUserbotService {
   private static pendingAuths = new Map<string, PendingAuth>();
   private static pendingQrAuths = new Map<string, PendingQrAuth>();
@@ -181,6 +199,30 @@ export class TelegramUserbotService {
     return { success: true, user };
   }
 
+  /**
+   * Chạy thao tác cần phiên Telegram; nếu Telegram báo phiên đã bị hủy → xóa phiên hỏng (DB + bộ nhớ)
+   * để trang không còn hiện "Đã kết nối" sai, rồi báo lỗi TELEGRAM_SESSION_DEAD.
+   */
+  public static async withSession<T>(userId: string, task: () => Promise<T>): Promise<T> {
+    try {
+      return await task();
+    } catch (err: any) {
+      if (!DEAD_SESSION_ERRORS.has(err?.errorMessage)) throw err;
+      await this.disconnect(userId).catch(() => undefined);
+      throw new TelegramSessionDeadError();
+    }
+  }
+
+  /**
+   * Máy chủ sắp tắt (Render deploy bản mới): đóng mọi kết nối Telegram nhưng GIỮ phiên trong DB.
+   * Nếu bản cũ và bản mới cùng giữ kết nối bằng 1 phiên, Telegram có thể coi là bất thường và thu hồi phiên.
+   */
+  public static async disconnectAll() {
+    const clients = [...this.activeClients.values()];
+    this.activeClients.clear();
+    await Promise.all(clients.map((client) => client.disconnect().catch(() => undefined)));
+  }
+
   /** Ngắt kết nối phiên Telegram cá nhân */
   public static async disconnect(userId: string) {
     await TelegramHarvestService.stopRealtimeListener(userId);
@@ -230,7 +272,7 @@ export class TelegramUserbotService {
     const client = await this.getClient(userId);
     if (!client) throw new Error('Chưa kết nối tài khoản Telegram cá nhân');
 
-    const dialogs = await client.getDialogs({ limit: 200 });
+    const dialogs = await this.withSession(userId, () => client.getDialogs({ limit: 200 }));
     return dialogs
       .filter((d) => d.isChannel || d.isGroup)
       .map((d) => ({

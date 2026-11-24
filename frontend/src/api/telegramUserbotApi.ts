@@ -33,6 +33,7 @@ export interface ScrapeTask {
   entries: ScrapeLog[];
   apartments: any[];
   error?: string;
+  errorCode?: string;
   stopRequested: boolean;
 }
 
