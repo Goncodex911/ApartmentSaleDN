@@ -14,6 +14,8 @@ telegramUserbotRoutes.post('/auth/qr/check', ...managerOnly, TelegramUserbotCont
 
 telegramUserbotRoutes.post('/auth/send-code', ...managerOnly, TelegramUserbotController.sendAuthCode);
 telegramUserbotRoutes.post('/auth/verify', ...managerOnly, TelegramUserbotController.verifyAuthCode);
+telegramUserbotRoutes.post('/auth/resend-code', ...managerOnly, TelegramUserbotController.resendAuthCode);
+telegramUserbotRoutes.post('/auth/cancel-code', ...managerOnly, TelegramUserbotController.cancelAuthCode);
 telegramUserbotRoutes.post('/auth/disconnect', ...managerOnly, TelegramUserbotController.disconnect);
 telegramUserbotRoutes.get('/status', ...managerOnly, TelegramUserbotController.getStatus);
 telegramUserbotRoutes.get('/dialogs', ...managerOnly, TelegramUserbotController.getDialogs);

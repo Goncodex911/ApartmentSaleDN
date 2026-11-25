@@ -8,6 +8,7 @@ import { TelegramConnectCard } from '../../components/admin/telegram/TelegramCon
 import { ScrapeSetupCard, ScrapeTarget } from '../../components/admin/telegram/ScrapeSetupCard.js';
 import { ScrapeProgressCard } from '../../components/admin/telegram/ScrapeProgressCard.js';
 import { ui } from '../../components/admin/telegram/telegramUi.js';
+import { ForwardToBotHint } from '../../components/admin/telegram/ForwardToBotHint.js';
 
 type ListenerState = { isListening: boolean; chatTitle?: string; targetSender?: string };
 
@@ -20,10 +21,10 @@ const errorMessage = (err: any, fallback: string) => err?.response?.data?.messag
 export const TelegramScraperPage: React.FC = () => {
   const { user } = useApp();
   if (user && user.role === 'COLLABORATOR') return <Navigate to="/apartments" replace />;
-  return <TelegramScraperContent isManager={user?.role === 'MANAGER'} />;
+  return <TelegramScraperContent isManager={user?.role === 'MANAGER'} botLinked={Boolean(user?.telegramChatId)} />;
 };
 
-const TelegramScraperContent: React.FC<{ isManager: boolean }> = ({ isManager }) => {
+const TelegramScraperContent: React.FC<{ isManager: boolean; botLinked: boolean }> = ({ isManager, botLinked }) => {
   const [session, setSession] = useState<TelegramSessionStatus | null>(null);
   const [dialogs, setDialogs] = useState<TelegramDialog[]>([]);
   const [loadingDialogs, setLoadingDialogs] = useState(false);
@@ -119,6 +120,8 @@ const TelegramScraperContent: React.FC<{ isManager: boolean }> = ({ isManager })
           setListener({ isListening: false });
         }}
       />
+
+      {session && !connected && <ForwardToBotHint botLinked={botLinked} />}
 
       {connected && (
         <ScrapeSetupCard

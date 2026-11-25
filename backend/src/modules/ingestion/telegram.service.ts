@@ -4,6 +4,7 @@ import { User } from '../auth/user.model.js';
 import { UserService } from '../users/user.service.js';
 import { SystemConfigService } from '../admin/system-config.service.js';
 import { outcomeOf, record } from '../health/service-health.js';
+import { handleForwardedPost } from './telegram-forward.service.js';
 
 // Telegram gửi album thành NHIỀU message cùng media_group_id (mỗi message 1 ảnh, chỉ 1 message có caption).
 // Gom các message của album, chờ ALBUM_WAIT_MS kể từ ảnh cuối cùng rồi mới xử lý thành 1 bài đăng hoàn chỉnh.
@@ -132,6 +133,9 @@ export class TelegramService {
       return;
     }
 
+    // Story 18.6: chat riêng với Bot = Quản lý / Admin chuyển tiếp bài để nạp (không cần đăng nhập Telegram cá nhân)
+    if (first.chat.type === 'private') return handleForwardedPost(token, messages, rawText);
+
     if (rawText.trim().length < 10) return;
 
     // Chỉ nhận tin từ nhóm nguồn đang bật (Admin cấu hình trên web — Story 13.5; dự phòng TELEGRAM_SOURCE_CHAT_IDS)
@@ -233,7 +237,7 @@ export class TelegramService {
   /**
    * Helper gửi tin nhắn qua Telegram API
    */
-  private static async sendMessage(
+  public static async sendMessage(
     token: string,
     chatId: string | number,
     text: string,

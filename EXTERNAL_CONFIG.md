@@ -24,6 +24,7 @@ Tài liệu này tổng hợp toàn bộ các dịch vụ bên ngoài, API Key v
 | **[EPIC-16](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_16_ADMIN_CONSOLE_AND_ACTIVITY_MONITORING.md)** | Bảng Điều Khiển Quản Trị Riêng & Giám Sát Hoạt Động | Tái sử dụng MongoDB Atlas & JWT có sẵn (0 VND) | ✅ **Sẵn sàng (Thuần nội bộ)** |
 | **[EPIC-17](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_17_MULTI_CHANNEL_AUTO_POSTING_AND_PRECISION_MAPS.md)** | Đăng Tin Đa Kênh (Zalo, WhatsApp) & Chuẩn Hóa Google Maps | Web Share API, WhatsApp Deep-links, HTTP Resolver (0 VND) | ✅ **Sẵn sàng (0 VND)** |
 | **[COVER-EPIC](file:///d:/CODE/AppartmentSaleProject/docs/stories/coverEpic.md)** | Telegram MTProto Client (API ID & Hash) | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` | 📝 **Cần lấy API ID/Hash miễn phí từ Telegram (Xem mục 11)** |
+| **[EPIC-18](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_18_RELIABLE_TELEGRAM_ACCOUNT_LINKING.md)** | Liên Kết Tài Khoản Telegram Ổn Định (OTP đúng kênh, QR máy tính, chuyển tiếp cho Bot) | Tái sử dụng `TELEGRAM_API_ID/HASH`, `TELEGRAM_BOT_TOKEN`, `JWT_SECRET` — **không thêm biến mới**; gói frontend `qrcode` (miễn phí) | 📝 **Đang làm (Xem mục 11.7)** |
 
 ---
 
@@ -450,6 +451,36 @@ Khi tính năng hoàn tất, quy trình người dùng sử dụng cực kỳ đ
 | **`JWT_SECRET`** | Backend (Render / `.env`) | **Có** | Dùng làm khóa dẫn xuất mã hóa `sessionString` của người dùng | Đã có sẵn từ Epic 01 |
 | **Số điện thoại & OTP** | Giao diện Web (`/admin/telegram-scraper`) | Khi dùng | Người dùng tự nhập trên trình duyệt để kết nối | Ứng dụng Telegram cá nhân của người dùng |
 | **Chi phí hàng tháng** | — | — | Toàn bộ giao thức MTProto Client | **0 VND — Miễn phí 100% trọn đời** |
+
+---
+
+#### 11.7. EPIC-18: Xử lý sự cố khi kết nối Telegram cá nhân (cập nhật 26/11/2026)
+Trang kết nối: Quản lý `/telegram-scraper`, Admin `/admin/telegram-scraper`. Không cần biến môi trường mới.
+
+**1. Mã OTP được gửi ở đâu?** Telegram tự chọn kênh, không phải lúc nào cũng vào app:
+| Kênh Telegram chọn | Nơi tìm mã |
+|---|---|
+| Ứng dụng Telegram | Chat **Telegram** (dấu tích xanh) trên thiết bị đang đăng nhập |
+| Email đăng nhập (tài khoản đã bật *Login Email*) | Hộp thư email đã đăng ký — xem cả **Spam / Quảng cáo** |
+| SMS / cuộc gọi / Fragment | Tin nhắn điện thoại / cuộc gọi đọc mã / trang fragment.com |
+| Bắt buộc thiết lập email | Telegram → Cài đặt → Quyền riêng tư & Bảo mật → **Email đăng nhập**, thiết lập rồi gửi lại mã |
+
+Từ Story 18.1, trang ghi đúng kênh và có nút gửi lại qua SMS / cuộc gọi khi Telegram cho phép.
+
+**2. Không nhận được mã ở đâu cả:**
+* Xem **Render → roommaster-api → Logs**, tìm dòng `[Telegram login] sentCode type=...` (Story 18.0) để biết Telegram đã gửi qua kênh nào.
+* **Đừng bấm gửi mã liên tục** — quá vài lần Telegram khóa gửi mã (`FLOOD_WAIT`) từ vài phút đến vài giờ.
+* Đối chiếu `TELEGRAM_API_ID` trên Render với ứng dụng tại my.telegram.org (chỉ so vài số cuối, không chép hash ra ngoài). Render và `backend/.env` phải dùng cùng ứng dụng.
+* Dùng cách khác: **quét QR trên máy tính** (Story 18.4) hoặc **chuyển tiếp bài cho Bot** (Story 18.6).
+
+**3. Đã kết nối nhưng bị ngắt (`SESSION_REVOKED`):**
+* Không bấm "Chấm dứt các phiên khác" trong Telegram (sẽ đăng xuất thiết bị "ApartmentDN Web").
+* Phiên mới có thể bị Telegram giới hạn trong 24 giờ đầu — nếu bị ngắt, kết nối lại 1 lần rồi chờ.
+* Đổi `JWT_SECRET` trên Render cũng làm mọi phiên Telegram đã lưu mất hiệu lực (khóa mã hóa phiên dẫn xuất từ biến này).
+
+**4. Đường dự phòng không cần đăng nhập (Story 18.6):** Quản lý / Admin liên kết Bot trong app (`/start <mã>`), sau đó **chuyển tiếp bài hoặc album** từ nhóm BĐS vào chat riêng với Bot → bài được AI bóc tách và nạp vào Bảng hàng với người chuyển tiếp là người phụ trách. Cần `TELEGRAM_BOT_TOKEN` (đã có ở Epic 03) và chỉ 1 máy chủ nhận tin của bot.
+
+**5. Gói thư viện mới (Story 18.4, đã được duyệt):** `qrcode` (frontend, MIT, ~30KB) để vẽ QR đăng nhập ngay trên trình duyệt — **không gửi token đăng nhập ra dịch vụ ngoài**.
 
 
 

@@ -2,45 +2,20 @@ import { TelegramClient, Api } from 'telegram';
 import { StringSession } from 'telegram/sessions/index.js';
 import { User } from '../auth/user.model.js';
 import { encryptSession, decryptSession } from '../../utils/crypto.util.js';
+import { NotificationService } from '../notifications/notification.service.js';
 import { TelegramHarvestService } from './telegram-harvest.service.js';
+import { TelegramUserError, toTelegramError } from './telegram-errors.js';
 
-interface PendingAuth {
-  client: TelegramClient;
-  phone: string;
-  phoneCodeHash: string;
-  expiresAt: number;
-}
-
-interface PendingQrAuth {
-  client: TelegramClient;
-  expiresAt: number;
-}
-
-const OTP_TTL_MS = 10 * 60 * 1000;
-
-// Telegram đã hủy phiên: người dùng đăng xuất thiết bị, phiên bị dùng ở 2 nơi cùng lúc (deploy chồng), tài khoản bị khóa...
-const DEAD_SESSION_ERRORS = new Set([
-  'SESSION_REVOKED',
-  'SESSION_EXPIRED',
-  'AUTH_KEY_UNREGISTERED',
-  'AUTH_KEY_DUPLICATED',
-  'USER_DEACTIVATED',
-  'USER_DEACTIVATED_BAN',
-]);
-
-/** Phiên Telegram lưu trong DB không còn dùng được → frontend đưa người dùng về màn hình kết nối lại */
-export class TelegramSessionDeadError extends Error {
-  readonly code = 'TELEGRAM_SESSION_DEAD';
-  constructor() {
-    super('Telegram đã thu hồi phiên đăng nhập (thiết bị bị đăng xuất hoặc phiên bị dùng ở nơi khác). Vui lòng kết nối lại tài khoản.');
-  }
-}
+// Phiên chết / tài khoản bị hạn chế → xóa phiên đã lưu, đưa người dùng về màn hình kết nối lại
+const DROP_SESSION_CODES = new Set(['TELEGRAM_SESSION_DEAD', 'TELEGRAM_ACCOUNT_RESTRICTED']);
+const HEALTH_CHECK_MS = 5 * 60 * 1000;
+const DEAD_NOTIFY_GAP_MS = 6 * 60 * 60 * 1000;
 
 export class TelegramUserbotService {
-  private static pendingAuths = new Map<string, PendingAuth>();
-  private static pendingQrAuths = new Map<string, PendingQrAuth>();
   private static activeClients = new Map<string, TelegramClient>();
   private static connecting = new Map<string, Promise<TelegramClient | null>>();
+  private static lastChecked = new Map<string, number>();
+  private static deadNotifiedAt = new Map<string, number>();
 
   /** API ID / Hash của ứng dụng Telegram (lấy tại my.telegram.org → API development tools) */
   public static getApiCredentials() {
@@ -50,30 +25,21 @@ export class TelegramUserbotService {
     return { apiId, apiHash };
   }
 
-  private static newClient(session = '') {
+  /**
+   * Story 18.5: thông số thiết bị cố định cho mọi lần kết nối → Telegram coi là cùng 1 thiết bị "ApartmentSaleDN Web".
+   * forLogin: luồng đăng nhập không tự ngủ khi FLOOD_WAIT (báo ngay cho người dùng thời gian chờ thay vì treo request).
+   */
+  public static newClient(session = '', forLogin = false) {
     const { apiId, apiHash } = this.getApiCredentials();
     return new TelegramClient(new StringSession(session), apiId, apiHash, {
       connectionRetries: 5,
       deviceModel: 'ApartmentSaleDN Web',
       systemVersion: 'Web/Node',
       appVersion: '1.0.0',
+      langCode: 'vi',
+      systemLangCode: 'vi',
+      ...(forLogin && { floodSleepThreshold: 0 }),
     });
-  }
-
-  /** Phiên đăng nhập chờ quá hạn → tự ngắt kết nối để không giữ socket tới Telegram mãi */
-  private static expireLater<T extends { client: TelegramClient }>(store: Map<string, T>, userId: string, entry: T, ttlMs: number) {
-    setTimeout(() => {
-      if (store.get(userId) !== entry) return;
-      store.delete(userId);
-      entry.client.disconnect().catch(() => undefined);
-    }, ttlMs).unref();
-  }
-
-  private static async dropPending<T extends { client: TelegramClient }>(store: Map<string, T>, userId: string) {
-    const old = store.get(userId);
-    if (!old) return;
-    store.delete(userId);
-    await old.client.disconnect().catch(() => undefined);
   }
 
   /** Chuẩn hóa SĐT về định dạng quốc tế Telegram (+84...) */
@@ -83,7 +49,7 @@ export class TelegramUserbotService {
   }
 
   /** Mã hóa và lưu phiên vào DB sau khi đăng nhập thành công */
-  private static async saveSession(userId: string, client: TelegramClient, phoneOverride?: string) {
+  public static async saveSession(userId: string, client: TelegramClient, phoneOverride?: string) {
     const me: any = await client.getMe();
     const { encrypted, iv, tag } = encryptSession((client.session as StringSession).save());
     const phone = phoneOverride || (me?.phone ? `+${me.phone}` : '');
@@ -105,112 +71,34 @@ export class TelegramUserbotService {
     return { phone, firstName: me?.firstName || '', lastName: me?.lastName || '', username: me?.username || '' };
   }
 
-  /** Cách 1: đăng nhập 1-chạm qua deep-link tg://login (hoặc quét QR) */
-  public static async startQrAuth(userId: string) {
-    const { apiId, apiHash } = this.getApiCredentials();
-    await this.dropPending(this.pendingQrAuths, userId);
-
-    const client = this.newClient();
-    await client.connect();
-    const res: any = await client.invoke(new Api.auth.ExportLoginToken({ apiId, apiHash, exceptIds: [] }));
-    if (!(res instanceof Api.auth.LoginToken)) {
-      await client.disconnect().catch(() => undefined);
-      throw new Error('Không thể khởi tạo mã xác nhận Telegram');
-    }
-
-    const expiresAt = res.expires * 1000;
-    const entry = { client, expiresAt };
-    this.pendingQrAuths.set(userId, entry);
-    this.expireLater(this.pendingQrAuths, userId, entry, Math.max(expiresAt - Date.now(), 0) + 60_000);
-
-    return { success: true, tgUrl: `tg://login?token=${Buffer.from(res.token).toString('base64url')}`, expiresAt };
-  }
-
-  /** Kiểm tra người dùng đã bấm xác nhận trên app Telegram chưa */
-  public static async checkQrAuth(userId: string, password2FA?: string) {
-    const pending = this.pendingQrAuths.get(userId);
-    if (!pending) return { status: 'EXPIRED', message: 'Mã xác thực đã hết hạn, vui lòng tạo mã mới' };
-
-    const { client } = pending;
-    const { apiId, apiHash } = this.getApiCredentials();
-
-    try {
-      let res: any = await client.invoke(new Api.auth.ExportLoginToken({ apiId, apiHash, exceptIds: [] }));
-      if (res instanceof Api.auth.LoginTokenMigrateTo) {
-        await (client as any)._switchDC(res.dcId);
-        res = await client.invoke(new Api.auth.ImportLoginToken({ token: res.token }));
-      }
-      if (!(res instanceof Api.auth.LoginTokenSuccess)) return { status: 'WAITING' };
-    } catch (err: any) {
-      if (err.errorMessage !== 'SESSION_PASSWORD_NEEDED') return { status: 'WAITING' };
-      if (!password2FA) return { status: 'REQUIRES_2FA', message: 'Tài khoản yêu cầu mật khẩu xác thực 2 bước (2FA)' };
-      try {
-        await client.signInWithPassword({ apiId, apiHash }, { password: async () => password2FA, onError: (e) => { throw e; } });
-      } catch {
-        return { status: 'REQUIRES_2FA', message: 'Mật khẩu 2FA không đúng, vui lòng thử lại' };
-      }
-    }
-
-    this.pendingQrAuths.delete(userId);
-    const user = await this.saveSession(userId, client);
-    return { status: 'SUCCESS', user };
-  }
-
-  /** Cách 2: gửi mã OTP vào app Telegram */
-  public static async sendAuthCode(userId: string, rawPhone: string) {
-    const { apiId, apiHash } = this.getApiCredentials();
-    const phone = this.normalizePhone(rawPhone);
-    await this.dropPending(this.pendingAuths, userId);
-
-    const client = this.newClient();
-    await client.connect();
-    const res = await client.sendCode({ apiId, apiHash }, phone);
-    const entry = { client, phone, phoneCodeHash: res.phoneCodeHash, expiresAt: Date.now() + OTP_TTL_MS };
-    this.pendingAuths.set(userId, entry);
-    this.expireLater(this.pendingAuths, userId, entry, OTP_TTL_MS);
-
-    return { success: true, phone, phoneCodeHash: res.phoneCodeHash, isCodeViaApp: res.isCodeViaApp };
-  }
-
-  /** Xác thực OTP (+ mật khẩu 2FA nếu có) và lưu phiên mã hóa */
-  public static async verifyAuthCode(userId: string, phone: string, phoneCodeHash: string, code: string, password?: string) {
-    const { apiId, apiHash } = this.getApiCredentials();
-    const normPhone = this.normalizePhone(phone);
-    const pending = this.pendingAuths.get(userId);
-    if (!pending || pending.phone !== normPhone || pending.expiresAt < Date.now()) {
-      throw new Error('Mã OTP đã hết hạn, vui lòng gửi lại mã mới');
-    }
-    const { client } = pending;
-
-    try {
-      await client.invoke(new Api.auth.SignIn({ phoneNumber: normPhone, phoneCodeHash, phoneCode: code.trim() }));
-    } catch (err: any) {
-      if (err.errorMessage !== 'SESSION_PASSWORD_NEEDED') throw new Error('Mã xác thực Telegram không đúng hoặc đã hết hạn');
-      if (!password) return { requires2FA: true, message: 'Tài khoản yêu cầu mật khẩu xác thực 2 lớp (2FA).' };
-      try {
-        await client.signInWithPassword({ apiId, apiHash }, { password: async () => password, onError: (e) => { throw e; } });
-      } catch {
-        throw new Error('Mật khẩu 2FA không đúng');
-      }
-    }
-
-    this.pendingAuths.delete(userId);
-    const user = await this.saveSession(userId, client, normPhone);
-    return { success: true, user };
-  }
-
   /**
-   * Chạy thao tác cần phiên Telegram; nếu Telegram báo phiên đã bị hủy → xóa phiên hỏng (DB + bộ nhớ)
-   * để trang không còn hiện "Đã kết nối" sai, rồi báo lỗi TELEGRAM_SESSION_DEAD.
+   * Chạy thao tác cần phiên Telegram; lỗi Telegram → thông điệp tiếng Việt (Story 18.3).
+   * Phiên bị hủy / tài khoản bị hạn chế → xóa phiên hỏng (DB + bộ nhớ) để trang không hiện "Đã kết nối" sai
+   * và báo chuông cho người dùng (Story 18.5: bộ đón tin cũng đã dừng).
    */
   public static async withSession<T>(userId: string, task: () => Promise<T>): Promise<T> {
     try {
       return await task();
-    } catch (err: any) {
-      if (!DEAD_SESSION_ERRORS.has(err?.errorMessage)) throw err;
-      await this.disconnect(userId).catch(() => undefined);
-      throw new TelegramSessionDeadError();
+    } catch (err) {
+      const mapped = toTelegramError(err);
+      if (mapped instanceof TelegramUserError && DROP_SESSION_CODES.has(mapped.code)) {
+        await this.disconnect(userId).catch(() => undefined);
+        this.notifyDisconnected(userId);
+      }
+      throw mapped;
     }
+  }
+
+  private static notifyDisconnected(userId: string) {
+    const now = Date.now();
+    if ((this.deadNotifiedAt.get(userId) ?? 0) > now - DEAD_NOTIFY_GAP_MS) return;
+    this.deadNotifiedAt.set(userId, now);
+    NotificationService.notify({
+      userId,
+      type: 'SERVICE_INCIDENT',
+      title: 'Kết nối Telegram đã bị ngắt',
+      body: 'Telegram đã thu hồi phiên đăng nhập, bộ đón tin mới đã dừng. Vào Cào tin Telegram để kết nối lại.',
+    }).catch(() => undefined);
   }
 
   /**
@@ -257,12 +145,29 @@ export class TelegramUserbotService {
     return task;
   }
 
+  /**
+   * Trạng thái kết nối. Story 18.5: kiểm tra nhẹ bằng getMe (tối đa 1 lần / 5 phút / người) → phiên đã chết thì
+   * withSession tự xóa và trả "chưa kết nối" ngay khi mở trang, không đợi người dùng thao tác mới gặp lỗi.
+   */
   public static async getStatus(userId: string) {
     const user = await User.findById(userId);
     const saved = user?.telegramSession;
     if (!saved?.isActive) return { isConnected: false };
+
+    const now = Date.now();
+    if ((this.lastChecked.get(userId) ?? 0) < now - HEALTH_CHECK_MS) {
+      try {
+        const client = await this.getClient(userId);
+        if (client) await this.withSession(userId, () => client.getMe());
+        this.lastChecked.set(userId, now);
+      } catch (err) {
+        if (err instanceof TelegramUserError && DROP_SESSION_CODES.has(err.code)) return { isConnected: false, message: err.message };
+        // Lỗi mạng tạm thời → vẫn coi là đã kết nối, lần sau kiểm tra lại
+      }
+    }
     return {
       isConnected: true,
+      lastCheckedAt: this.lastChecked.has(userId) ? new Date(this.lastChecked.get(userId)!) : null,
       user: { phone: saved.phone, firstName: saved.firstName, lastName: saved.lastName, username: saved.username, connectedAt: saved.connectedAt },
     };
   }
