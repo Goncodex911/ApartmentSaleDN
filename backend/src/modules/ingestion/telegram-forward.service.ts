@@ -58,7 +58,8 @@ export async function handleForwardedPost(token: string, messages: any[], rawTex
     });
 
     if (!result.isRentalListing) return reply(`Không phải tin cho thuê: ${result.rejectReason || 'bị bộ lọc loại'}.`);
-    return reply(`Đã nạp vào Bảng hàng (${result.isDuplicate ? 'gộp trùng' : 'căn mới'}): ${result.apartment?.title ?? ''}`);
+    if (result.isDuplicate) return reply('Căn này đã có trong Bảng hàng → đã gộp bài làm nguồn phụ (cập nhật giá / ảnh so sánh).');
+    return reply(`Đã nạp căn mới vào Bảng hàng: ${result.apartment?.title ?? ''}`);
   } catch (err: any) {
     console.error('[Telegram Bot] Lỗi nạp bài chuyển tiếp:', err?.message);
     return reply('Hệ thống đang bận (AI quá tải), vui lòng chuyển tiếp lại bài sau ít phút.');

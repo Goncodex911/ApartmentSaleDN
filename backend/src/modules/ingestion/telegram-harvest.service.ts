@@ -178,6 +178,7 @@ export class TelegramHarvestService {
     });
 
     const apartments: any[] = [];
+    let merged = 0;
     for (const [index, post] of posts.entries()) {
       if (options.shouldStop?.()) {
         report({ level: 'warn', text: 'Đã dừng theo yêu cầu.' });
@@ -192,19 +193,24 @@ export class TelegramHarvestService {
           continue;
         }
         const { result } = outcome;
-        if (result.apartment) {
-          apartments.push(result.apartment);
-          report({ level: 'success', text: `${step} ${result.isDuplicate ? 'Gộp trùng' : 'Căn mới'}: ${result.apartment.title}`, percent, item: result.apartment });
+        if (!result.isRentalListing) {
+          report({ level: 'info', text: `${step} Bỏ qua, không phải tin cho thuê: ${result.rejectReason || 'AI không nhận ra thông tin căn hộ'}`, percent });
+        } else if (result.isDuplicate) {
+          // Bài đăng lại căn đã có → gộp làm nguồn phụ của căn đó (cập nhật giá / ảnh so sánh), không tạo căn mới
+          merged++;
+          report({ level: 'success', text: `${step} Trùng căn đã có trong Bảng hàng → đã gộp làm nguồn phụ`, percent });
         } else {
-          report({ level: 'info', text: `${step} Không phải tin cho thuê: ${result.rejectReason || 'bị bộ lọc loại'}`, percent });
+          apartments.push(result.apartment);
+          report({ level: 'success', text: `${step} Căn mới: ${result.apartment.title}`, percent, item: result.apartment });
         }
         await sleep(POST_GAP_MS);
       } catch (err: any) {
-        report({ level: 'error', text: `${step} Lỗi bóc tách AI: ${err?.message || 'lỗi không rõ'}`, percent });
+        // Bài lỗi KHÔNG được đánh dấu đã nạp → lần quét sau tự xử lý lại
+        report({ level: 'error', text: `${step} Lỗi bóc tách AI: ${err?.message || 'lỗi không rõ'} (sẽ tự thử lại ở lần quét sau)`, percent });
       }
     }
 
-    report({ level: 'success', text: `Hoàn tất! Đã nạp ${apartments.length} căn hộ vào Bảng hàng.`, percent: 100 });
+    report({ level: 'success', text: `Hoàn tất! ${apartments.length} căn mới${merged ? `, ${merged} bài trùng đã gộp vào căn có sẵn` : ''}.`, percent: 100 });
     return { total: apartments.length, apartments };
   }
 
