@@ -134,7 +134,8 @@ ${rawText.trim()}
       },
     };
 
-    // Mỗi lần gọi chờ tối đa 8 giây; Gemini quá tải (429/503) hoặc timeout → tự thử lại 2 lần (sau 2s, 6s)
+    // Mỗi lần gọi chờ tối đa 15 giây (8 giây hay bị vượt với bài dài lúc Google bận — log cào tin 26/11);
+    // Gemini quá tải (429/503) hoặc timeout → tự thử lại 2 lần (sau 2s, 6s)
     const send = (modelName: string, retryDelaysMs?: number[]) =>
       fetchWithRetry(
         `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
@@ -144,7 +145,7 @@ ${rawText.trim()}
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
           body: JSON.stringify(requestBody),
         },
-        8000,
+        15000,
         retryDelaysMs
       );
     const fallback = this.getFallbackModel();
