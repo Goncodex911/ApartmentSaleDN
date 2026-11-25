@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../../middlewares/auth.js';
 import { TelegramUserbotService } from './telegram-userbot.service.js';
+import { TelegramLoginService } from './telegram-login.service.js';
 import { TelegramHarvestService } from './telegram-harvest.service.js';
 import { TelegramScrapeTaskService } from './telegram-scrape-task.service.js';
 import { isPhoneNumber, normalizeDomesticPhone } from './telegram-match.util.js';
@@ -23,7 +24,8 @@ const handle = (fallbackMessage: string, fn: Handler) => async (req: AuthRequest
     if (!res.headersSent) res.status(200).json({ success: true, ...(result as object) });
   } catch (err: any) {
     // code (VD TELEGRAM_SESSION_DEAD) giúp frontend biết cần đưa người dùng về màn hình kết nối lại
-    if (!res.headersSent) res.status(400).json({ success: false, message: err?.message || fallbackMessage, code: err?.code });
+    // retryAfterSec: Telegram tạm khóa (FLOOD_WAIT) → giao diện khóa nút + đếm ngược (Story 18.3)
+    if (!res.headersSent) res.status(400).json({ success: false, message: err?.message || fallbackMessage, code: err?.code, retryAfterSec: err?.retryAfterSec });
   }
 };
 
@@ -38,23 +40,34 @@ const logConnected = (req: AuthRequest, method: 'QR' | 'OTP', phone?: string) =>
 
 /** API Userbot Telegram: /api/v1/ingestion/telegram-userbot/* */
 export const TelegramUserbotController = {
-  startQrAuth: handle('Lỗi khởi tạo xác thực 1-chạm', (userId) => TelegramUserbotService.startQrAuth(userId)),
+  startQrAuth: handle('Lỗi tạo mã QR', async (userId, req) => {
+    const result: any = await TelegramLoginService.startQr(userId);
+    if (result.status === 'SUCCESS') logConnected(req, 'QR', result.user?.phone);
+    return result;
+  }),
 
   checkQrAuth: handle('Lỗi kiểm tra xác thực', async (userId, req) => {
-    const result: any = await TelegramUserbotService.checkQrAuth(userId, isText(req.body?.password) ? req.body.password : undefined);
+    const result: any = await TelegramLoginService.checkQr(userId, isText(req.body?.password) ? req.body.password : undefined);
     if (result.status === 'SUCCESS') logConnected(req, 'QR', result.user?.phone);
     return result;
   }),
 
   sendAuthCode: handle('Lỗi gửi mã xác nhận Telegram', async (userId, req, res) => {
     if (!isText(req.body?.phone)) return badRequest(res, 'Số điện thoại không hợp lệ');
-    return TelegramUserbotService.sendAuthCode(userId, req.body.phone);
+    const result: any = await TelegramLoginService.sendCode(userId, req.body.phone);
+    if (result.status === 'SUCCESS') logConnected(req, 'OTP', result.user?.phone);
+    return result;
   }),
 
+  resendAuthCode: handle('Lỗi gửi lại mã', (userId) => TelegramLoginService.resendCode(userId)),
+
+  cancelAuthCode: handle('Lỗi hủy mã', (userId) => TelegramLoginService.cancelCode(userId)),
+
+  // Số điện thoại + phoneCodeHash nằm ở máy chủ (Story 18.2) → trình duyệt chỉ gửi mã (+ mật khẩu 2FA)
   verifyAuthCode: handle('Lỗi xác nhận mã OTP Telegram', async (userId, req, res) => {
-    const { phone, phoneCodeHash, code, password } = req.body ?? {};
-    if (!isText(phone) || !isText(phoneCodeHash) || !isText(code)) return badRequest(res, 'Thiếu thông tin xác thực mã OTP');
-    const result: any = await TelegramUserbotService.verifyAuthCode(userId, phone, phoneCodeHash, code, isText(password) ? password : undefined);
+    const { code, password } = req.body ?? {};
+    if (!isText(code)) return badRequest(res, 'Vui lòng nhập mã xác thực');
+    const result: any = await TelegramLoginService.verifyCode(userId, code, isText(password) ? password : undefined);
     if (result.success) logConnected(req, 'OTP', result.user?.phone);
     return result;
   }),
@@ -65,7 +78,11 @@ export const TelegramUserbotController = {
     return result;
   }),
 
-  getStatus: handle('Lỗi lấy trạng thái Telegram', (userId) => TelegramUserbotService.getStatus(userId)),
+  getStatus: handle('Lỗi lấy trạng thái Telegram', async (userId) => {
+    const status = await TelegramUserbotService.getStatus(userId);
+    // Đang dở bước nhập mã (kể cả sau khi tải lại trang / máy chủ khởi động lại) → giao diện mở thẳng bước nhập mã
+    return status.isConnected ? status : { ...status, pendingLogin: await TelegramLoginService.pendingStatus(userId) };
+  }),
 
   getDialogs: handle('Lỗi lấy danh sách nhóm', async (userId) => ({ dialogs: await TelegramUserbotService.getDialogs(userId) })),
 

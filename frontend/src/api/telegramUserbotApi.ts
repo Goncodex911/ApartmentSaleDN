@@ -8,9 +8,29 @@ export interface TelegramDialog {
   username: string | null;
 }
 
+/** Kênh Telegram đã gửi mã đăng nhập (Story 18.1) */
+export type CodeChannel = 'APP' | 'SMS' | 'EMAIL' | 'CALL' | 'MISSED_CALL' | 'FRAGMENT' | 'SETUP_EMAIL' | 'FIREBASE' | 'OTHER';
+export interface CodeDelivery {
+  channel: CodeChannel;
+  length?: number;
+  emailPattern?: string;
+  fragmentUrl?: string;
+  missedCallPrefix?: string;
+  nextChannel?: CodeChannel;
+  timeoutSec?: number;
+}
+export interface PendingCode {
+  phoneMasked: string;
+  delivery: CodeDelivery;
+  expiresAt: string;
+}
+
 export interface TelegramSessionStatus {
   success: boolean;
   isConnected: boolean;
+  message?: string; // Phiên vừa bị Telegram thu hồi (Story 18.5)
+  lastCheckedAt?: string | null;
+  pendingLogin?: PendingCode | null; // Đang dở bước nhập mã (Story 18.2)
   user?: {
     phone: string;
     firstName?: string;
@@ -19,6 +39,8 @@ export interface TelegramSessionStatus {
     connectedAt?: string;
   };
 }
+
+export type QrCheck = { status: 'WAITING' | 'SUCCESS' | 'REQUIRES_2FA' | 'EXPIRED'; tgUrl?: string; expiresAt?: number; message?: string };
 
 export interface ScrapeLog {
   at: number;
@@ -43,22 +65,32 @@ export const telegramUserbotApi = {
     return res.data;
   },
 
-  startQrAuth: async (): Promise<{ success: boolean; tgUrl: string; expiresAt: number }> => {
+  startQrAuth: async (): Promise<QrCheck> => {
     const res = await apiClient.post('/ingestion/telegram-userbot/auth/qr/start');
     return res.data;
   },
 
-  checkQrAuth: async (password?: string): Promise<{ status: 'WAITING' | 'SUCCESS' | 'REQUIRES_2FA' | 'EXPIRED'; user?: any; message?: string }> => {
+  checkQrAuth: async (password?: string): Promise<QrCheck> => {
     const res = await apiClient.post('/ingestion/telegram-userbot/auth/qr/check', { password });
     return res.data;
   },
 
-  sendCode: async (phone: string) => {
+  sendCode: async (phone: string): Promise<{ status: 'CODE_SENT' | 'SUCCESS' } & Partial<PendingCode>> => {
     const res = await apiClient.post('/ingestion/telegram-userbot/auth/send-code', { phone });
     return res.data;
   },
 
-  verifyCode: async (payload: { phone: string; phoneCodeHash: string; code: string; password?: string }) => {
+  resendCode: async (): Promise<PendingCode> => {
+    const res = await apiClient.post('/ingestion/telegram-userbot/auth/resend-code');
+    return res.data;
+  },
+
+  cancelCode: async () => {
+    await apiClient.post('/ingestion/telegram-userbot/auth/cancel-code');
+  },
+
+  // Số điện thoại và mã băm nằm ở máy chủ → chỉ gửi mã (+ mật khẩu 2FA)
+  verifyCode: async (payload: { code: string; password?: string }): Promise<{ success?: boolean; requires2FA?: boolean; message?: string }> => {
     const res = await apiClient.post('/ingestion/telegram-userbot/auth/verify', payload);
     return res.data;
   },
