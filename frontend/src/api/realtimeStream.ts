@@ -1,4 +1,4 @@
-import { apiClient } from './client.js';
+import { API_BASE, apiClient } from './client.js';
 
 export type RealtimeType = 'apartment.created' | 'apartment.status' | 'apartment.price' | 'apartment.flagged' | 'announcement.changed' | 'reset';
 // Story 16.9: thông báo chung vừa gửi / thu hồi → dải ghim tải lại
@@ -20,7 +20,7 @@ export interface RealtimeMessage {
 // Sự kiện trình duyệt: các trang (Bảng hàng, Bản đồ, chi tiết căn) nghe để cập nhật 1 căn tại chỗ
 export const APARTMENT_REALTIME = 'apartment:realtime';
 
-const STREAM_URL = '/api/v1/realtime/stream';
+const STREAM_URL = `${API_BASE}/realtime/stream`; // Cùng địa chỉ với các API khác (proxy hoặc gọi thẳng backend)
 const MAX_BACKOFF_MS = 30_000;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

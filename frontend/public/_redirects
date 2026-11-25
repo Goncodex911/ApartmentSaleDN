@@ -2,7 +2,7 @@
 
 # 1) Chuyển tiếp API sang Backend trên Render → trình duyệt chỉ thấy 1 tên miền (cookie refresh token hoạt động)
 #    CHỈ Netlify dùng dòng này. Cloudflare Pages không chuyển tiếp sang tên miền khác (bỏ qua dòng này)
-#    → dùng Pages Function ở frontend/functions/api/[[path]].js. Đổi URL Render thì sửa CẢ 2 chỗ.
+#    → bản Cloudflare gọi THẲNG backend qua biến VITE_API_URL. Đổi URL Render thì sửa CẢ 2 chỗ.
 #    "200!" = luôn chuyển tiếp (force)
 /api/*  https://roommaster-api-0keh.onrender.com/api/:splat  200!
 

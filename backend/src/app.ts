@@ -24,8 +24,13 @@ export const app = express();
 if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY));
 
 // Middlewares cơ bản
+// Tên miền giao diện được gọi API: CLIENT_URL (tên miền chính, dùng cho link chia sẻ) + CORS_ORIGINS (thêm, cách nhau dấu phẩy).
+// Cần khi giao diện gọi THẲNG backend từ tên miền khác (Cloudflare Pages); Netlify đi qua proxy cùng tên miền nên không cần.
+const allowedOrigins = [process.env.CLIENT_URL || 'http://localhost:5173', ...(process.env.CORS_ORIGINS || '').split(',')]
+  .map((origin) => origin.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: allowedOrigins,
   credentials: true,
 }));
 app.use(express.json());

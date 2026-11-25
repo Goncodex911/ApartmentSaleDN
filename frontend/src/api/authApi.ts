@@ -50,6 +50,7 @@ export const authApi = {
     const res = await apiClient.post('/auth/logout');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('refreshToken'); // Chỉ có khi gọi thẳng backend (VITE_API_URL)
     return res.data;
   },
 };

@@ -1,8 +1,23 @@
 import axios from 'axios';
 import { clearOfflineData } from '../utils/offlineCache.js';
 
+/**
+ * Địa chỉ API. Mặc định '/api/v1' = cùng tên miền, đi qua proxy (Netlify _redirects, Vite dev server).
+ * VITE_API_URL = địa chỉ đầy đủ của backend (VD https://xxx.onrender.com/api/v1) khi giao diện gọi THẲNG backend
+ * (Cloudflare Pages: Cloudflare của Render chặn proxy từ Cloudflare Workers).
+ */
+export const API_BASE = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/+$/, '');
+const DIRECT_API = /^https?:\/\//.test(API_BASE);
+
+/**
+ * Gọi thẳng backend khác tên miền thì cookie Refresh Token không dùng được (Safari chặn cookie bên thứ ba)
+ * → backend trả Refresh Token trong JSON khi có header X-Token-Transport: body, giao diện lưu ở máy và gửi lại khi gia hạn.
+ */
+const REFRESH_KEY = 'refreshToken';
+const BODY_TOKEN_URLS = ['/auth/refresh', '/auth/logout'];
+
 export const apiClient = axios.create({
-  baseURL: '/api/v1',
+  baseURL: API_BASE,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -16,15 +31,31 @@ apiClient.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    if (DIRECT_API && config.headers) {
+      config.headers['X-Token-Transport'] = 'body';
+      const refreshToken = localStorage.getItem(REFRESH_KEY);
+      if (refreshToken && BODY_TOKEN_URLS.includes(config.url ?? '')) config.data = { ...(config.data ?? {}), refreshToken };
+    }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
+// Lưu Refresh Token mới (đăng nhập, đăng ký, gia hạn, đổi mật khẩu đều xoay vòng token)
+apiClient.interceptors.response.use((response) => {
+  if (DIRECT_API) {
+    const refreshToken = response.data?.data?.refreshToken;
+    if (typeof refreshToken === 'string') localStorage.setItem(REFRESH_KEY, refreshToken);
+    if (response.config.url === '/auth/logout') localStorage.removeItem(REFRESH_KEY);
+  }
+  return response;
+});
+
 const redirectToLogin = () => {
   void clearOfflineData(); // Hết phiên → không để dữ liệu Bảng hàng (có SĐT chủ nhà) lại trên máy (Story 9.1)
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+  localStorage.removeItem(REFRESH_KEY);
   if (window.location.pathname !== '/login') window.location.href = '/login';
 };
 
