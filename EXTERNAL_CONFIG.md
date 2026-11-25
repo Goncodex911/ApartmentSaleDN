@@ -122,15 +122,18 @@ Netlify gói Free tính theo credit, hết credit thì dừng deploy production.
 3. **Biến môi trường** (Settings → Variables and Secrets → Production và Preview):
    * `NODE_VERSION` = `22`
    * Chép **tất cả biến `VITE_...`** từ Netlify (Site configuration → Environment variables), ví dụ `VITE_MAP_TILE_URL`.
-   * `API_ORIGIN` *(tùy chọn)*: địa chỉ backend Render. Bỏ trống = `https://roommaster-api-0keh.onrender.com`.
-4. **Proxy `/api`:** file `frontend/functions/api/[[path]].js` (Pages Function) chuyển tiếp `/api/*` sang Render. Cloudflare tự nhận khi deploy, không cần cấu hình. Dòng `/api/*` trong `_redirects` chỉ Netlify dùng.
-5. **Sau khi deploy được** (địa chỉ dạng `https://<ten-du-an>.pages.dev`):
+   * **`VITE_API_URL` = `https://roommaster-api-0keh.onrender.com/api/v1`** (bắt buộc — giao diện gọi THẲNG backend Render).
+4. **Vì sao gọi thẳng, không proxy:** Render cũng đứng sau Cloudflare và **chặn request từ proxy Cloudflare Workers/Pages Function** (trả 429 + trang "Just a moment…"). Trình duyệt thật gọi thẳng thì không bị chặn.
+   * Khác tên miền → cookie Refresh Token không dùng được (Safari chặn cookie bên thứ ba) → giao diện gửi header `X-Token-Transport: body`, backend trả Refresh Token trong JSON, giao diện lưu ở máy (localStorage) và gửi lại khi gia hạn phiên.
+   * Netlify / chạy local **không** đặt `VITE_API_URL` → vẫn đi qua proxy cùng tên miền, Refresh Token vẫn trong cookie HttpOnly như cũ.
+5. **Render → Environment:**
+   * `CORS_ORIGINS` = `https://apartmentsaledn.pages.dev,https://apartmentsaledn.netlify.app` (các tên miền giao diện được gọi thẳng API, cách nhau dấu phẩy).
+   * `CLIENT_URL` = tên miền chính đang dùng (link chia sẻ căn `/p/...` dùng tên miền này).
+   * `NOMINATIM_USER_AGENT` (nếu có đặt) đổi phần tên miền cho khớp.
    * **CARTO:** thêm tên miền mới vào giới hạn website của key (dashboard.basemaps.carto.com → Your keys), nếu không bản đồ trắng.
-   * **Render → Environment:** `CLIENT_URL` = địa chỉ mới (link chia sẻ căn `/p/...` sẽ dùng tên miền này). Làm bước này **sau khi** đã thử xong trên địa chỉ mới.
-   * **Render → Environment:** kiểm tra `TRUST_PROXY` (đang để cho Netlify, thường là `2`). Đường đi Cloudflare → Render cũng 2 tầng nên giữ nguyên; nếu Nhật ký hoạt động ghi IP lạ (IP Cloudflare) thì báo để chỉnh.
-   * `NOMINATIM_USER_AGENT` (nếu có đặt) đổi phần tên miền sang địa chỉ mới.
 6. **Huy hiệu:** Cloudflare không chèn huy hiệu → giao diện tự bỏ khoảng 64px chừa cho huy hiệu Netlify (chỉ chừa khi chạy trên `*.netlify.app`).
 7. **Quay lại Netlify:** đổi `CLIENT_URL` trên Render về địa chỉ Netlify. Không cần sửa code.
+8. **Giới hạn đã biết:** request gọi thẳng đi tới Render qua 1 tầng proxy (Netlify là 2 tầng) nên với `TRUST_PROXY=2`, IP ghi trong Nhật ký / bộ giới hạn đăng nhập có thể bị khách tự khai qua header. Giới hạn đăng nhập theo SĐT (10 lần / 15 phút) vẫn chặn đoán mật khẩu.
 
 #### 6.3. Điện thoại thật để thử (sau khi deploy)
 * **iPhone:** iOS 16.4 trở lên, mở bằng **Safari** (iOS chỉ cài được app từ Safari, Chrome trên iPhone không cài được).
