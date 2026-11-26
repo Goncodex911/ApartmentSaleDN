@@ -1,9 +1,13 @@
+import { dateStreetKey, normalizeText, stripAreaSuffix } from './address-text.js';
+
 // Địa chỉ AI gán khi tin không ghi địa chỉ — không phải tên đường
 export const ADDRESS_PLACEHOLDER = 'Đang cập nhật địa chỉ';
 
 // Một cụm số nhà: tiền tố tùy chọn (Số, Kiệt/K, Hẻm/H, Ngõ, Ngách, Lô) + mã bắt đầu bằng chữ số ("12/3", "25A", "B2.05")
 const HOUSE_PART = /^(?:(?:số|so|nhà|nha|kiệt|kiet|hẻm|hem|ngõ|ngo|ngách|ngach|lô|lo|k|h)\.?\s*)?\d[\w/.-]*(?:\s*,\s*|\s+)/iu;
 const STREET_WORD = /^(?:đường|duong|phố|pho)\s+(?=\D)/iu; // "Đường 2/9" giữ nguyên
+// Đường ngày lễ ở đầu địa chỉ: "30/4", "30-4", "Đường 2 tháng 9"
+const DATE_STREET = /^(?:(?:đường|duong|phố|pho)\s+)?(\d{1,2}\s*(?:\/|-|tháng|thang)\s*\d{1,2})/iu;
 
 /**
  * Tách địa chỉ thành số nhà (nội bộ) và tên đường (gửi khách) — Story 8.3.
@@ -14,6 +18,10 @@ const STREET_WORD = /^(?:đường|duong|phố|pho)\s+(?=\D)/iu; // "Đường 2
 export function splitAddress(address?: string | null): { houseNumber?: string; street?: string } {
   if (!address || address.trim() === ADDRESS_PLACEHOLDER) return {};
   let rest = address.trim();
+  // CE-03.1: "30/4 Hải Châu", "2 tháng 9" là TÊN đường (phía sau chỉ còn phường / quận), không phải số kiệt 30/4
+  const head = rest.split(',')[0];
+  const date = head.match(DATE_STREET);
+  if (date && dateStreetKey(stripAreaSuffix(normalizeText(head)))) return { street: date[1] };
   const houseParts: string[] = [];
   for (let match = rest.match(HOUSE_PART); match; match = rest.match(HOUSE_PART)) {
     houseParts.push(match[0].replace(/[\s,]+$/, ''));

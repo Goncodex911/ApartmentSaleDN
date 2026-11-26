@@ -17,7 +17,7 @@ Tài liệu này là không gian tập trung để ghi nhận, phân rã và the
 | Mã Story | Tên Story & Tính Năng | Phạm Vi Ảnh Hưởng | Độ Ưu Tiên | Trạng Thái | Link Task Chi Tiết |
 | :---: | :--- | :--- | :---: | :---: | :--- |
 | **CE-01** | Hệ Thống Cào & Đồng Bộ Căn Hộ Theo Tài Khoản Mục Tiêu Trong Nhóm Telegram (Self-Service Userbot Scraper & Real-Time Listener) | Backend (`telegram-userbot`, `crypto`, `dedup`, `gemini`), Frontend (`TelegramScraperPage`, `adminNav`) | P0 (Ưu tiên cao) | 📝 Chuẩn bị lập trình | [STORY-CE-01-TELEGRAM-TARGET-SENDER-FILTER.md](file:///d:/CODE/AppartmentSaleProject/tasks/STORY-CE-01-TELEGRAM-TARGET-SENDER-FILTER.md) |
-| **CE-03** | Rà Soát & Khắc Phục Lỗi Trùng Nhầm Căn Hộ Đường Đánh Số (Mỹ An 22 ↔ Mỹ An 2) & Tối Ưu Luồng Dedup | Backend (`street-key`, `similar-apartment`, `dedup.service`, `street.ts`), Frontend (`ApartmentModal`, `DuplicateConfirmDialog`, `apartmentApi`) | P1 (Ưu tiên cao) | 📝 Đã rà soát — sẵn sàng triển khai | Trình bày chi tiết bên dưới |
+| **CE-03** | Rà Soát & Khắc Phục Lỗi Trùng Nhầm Căn Hộ Đường Đánh Số (Mỹ An 22 ↔ Mỹ An 2) & Tối Ưu Luồng Dedup | Backend (`street-key`, `similar-apartment`, `dedup.service`, `street.ts`), Frontend (`ApartmentModal`, `DuplicateConfirmDialog`, `apartmentApi`) | P1 (Ưu tiên cao) | 📝 Đã tách 4 story — chờ duyệt | [CE-03.1](../../tasks/STORY-CE-03.1-STREET-KEY-STRICT-MATCH.md) · [CE-03.2](../../tasks/STORY-CE-03.2-TRIPLET-MATCH-TIGHTENING.md) · [CE-03.3](../../tasks/STORY-CE-03.3-DUPLICATE-WARNING-UI.md) · [CE-03.4](../../tasks/STORY-CE-03.4-NUMBERED-STREET-AUDIT-SCRIPT.md) |
 
 ---
 

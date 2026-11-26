@@ -8,6 +8,7 @@ export interface MatchedApartment {
   title: string;
   price: number;
   area?: string;
+  street?: string; // CE-03.3: tên đường (không số nhà) — CTV cũng thấy
   address?: string;
   image?: string;
   createdAt?: string;
@@ -276,8 +277,8 @@ export const apartmentApi = {
     attributes?: { propertyType?: string; bedrooms?: number };
     ownerContact?: { phone?: string };
     excludeId?: string;
-  }): Promise<CheckDuplicateResponse> => {
-    const res = await apiClient.post<CheckDuplicateResponse>('/apartments/check-duplicate', payload);
+  }, signal?: AbortSignal): Promise<CheckDuplicateResponse> => {
+    const res = await apiClient.post<CheckDuplicateResponse>('/apartments/check-duplicate', payload, { signal });
     return res.data;
   },
 

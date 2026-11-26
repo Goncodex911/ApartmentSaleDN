@@ -32,3 +32,6 @@ Thumbs.db
 *.ntvs*
 *.njsproj
 
+
+# CE-03.4: báo cáo rà soát gộp nhầm đường số (chạy trên DB thật, không đưa lên git)
+audit-street-dedup-*.csv
