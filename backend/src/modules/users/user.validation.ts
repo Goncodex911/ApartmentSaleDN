@@ -7,7 +7,8 @@ const groupLink = (prefix: string, message: string) =>
 
 export const updateProfileSchema = z.object({
   name: z.string().trim().min(2, 'Tên phải có ít nhất 2 ký tự').optional(),
-  zaloPhone: vnPhone('Số điện thoại Zalo không hợp lệ (10 số)').optional(),
+  // Story 19.10: chuỗi rỗng = xóa SĐT Zalo đã lưu
+  zaloPhone: vnPhone('Số điện thoại Zalo không hợp lệ (10 số)').optional().or(z.literal('')),
   avatarUrl: z.url('Link ảnh đại diện không hợp lệ').optional().or(z.literal('')),
   greetingMessage: z.string().max(300, 'Lời chào không được quá 300 ký tự').optional(),
   // Story 10.4: để trống = không in dòng đó trong bài gửi khách

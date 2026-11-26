@@ -5,6 +5,7 @@ import { slugify, toPublicListing } from './public-listing.util.js';
 import { randomCode } from '../../utils/random-code.js';
 import { AuditActor, AuditService } from '../audit/audit.service.js';
 import { SystemConfigService } from '../admin/system-config.service.js';
+import { usdToVndRate } from '../../config/currency.js';
 
 export const SHARE_CODE_PATTERN = /^[a-z0-9]{8}$/;
 
@@ -33,6 +34,7 @@ export class ShareLinkService {
       code: link.code,
       views: link.views,
       lastViewedAt: link.lastViewedAt,
+      usdRate: usdToVndRate(), // Story 19.1: bài WhatsApp quy đổi USD theo tỷ giá cấu hình, không ghi cứng
     };
   }
 

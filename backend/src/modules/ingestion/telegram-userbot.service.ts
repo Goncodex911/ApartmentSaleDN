@@ -21,7 +21,9 @@ export class TelegramUserbotService {
   public static getApiCredentials() {
     const apiId = Number(process.env.TELEGRAM_API_ID);
     const apiHash = process.env.TELEGRAM_API_HASH;
-    if (!apiId || !apiHash) throw new Error('Chưa cấu hình TELEGRAM_API_ID / TELEGRAM_API_HASH trong biến môi trường');
+    if (!apiId || !apiHash) {
+      throw new TelegramUserError('Máy chủ chưa cấu hình TELEGRAM_API_ID / TELEGRAM_API_HASH — báo Admin kiểm tra.', 'TELEGRAM_APP_CONFIG');
+    }
     return { apiId, apiHash };
   }
 
@@ -95,7 +97,7 @@ export class TelegramUserbotService {
     this.deadNotifiedAt.set(userId, now);
     NotificationService.notify({
       userId,
-      type: 'SERVICE_INCIDENT',
+      type: 'TELEGRAM_DISCONNECTED', // Bấm vào mở /telegram-scraper (Quản lý không vào được /admin/health)
       title: 'Kết nối Telegram đã bị ngắt',
       body: 'Telegram đã thu hồi phiên đăng nhập, bộ đón tin mới đã dừng. Vào Cào tin Telegram để kết nối lại.',
     }).catch(() => undefined);
@@ -135,7 +137,14 @@ export class TelegramUserbotService {
       const user = await User.findById(userId).select('+telegramSession');
       const saved = user?.telegramSession;
       if (!saved?.isActive) return null;
-      const client = existing ?? this.newClient(decryptSession(saved.encryptedString, saved.iv, saved.tag));
+      let session: string;
+      try {
+        session = decryptSession(saved.encryptedString, saved.iv, saved.tag);
+      } catch {
+        // Khóa mã hóa đã đổi (đổi JWT_SECRET) hoặc dữ liệu hỏng → phiên không dùng lại được nữa
+        throw new TelegramUserError('Phiên Telegram đã lưu không đọc được (khóa mã hóa trên máy chủ đã đổi). Vui lòng kết nối lại.', 'TELEGRAM_SESSION_DEAD');
+      }
+      const client = existing ?? this.newClient(session);
       await client.connect();
       this.activeClients.set(userId, client);
       return client;
@@ -157,12 +166,15 @@ export class TelegramUserbotService {
     const now = Date.now();
     if ((this.lastChecked.get(userId) ?? 0) < now - HEALTH_CHECK_MS) {
       try {
-        const client = await this.getClient(userId);
-        if (client) await this.withSession(userId, () => client.getMe());
+        await this.withSession(userId, async () => {
+          const client = await this.getClient(userId);
+          if (client) await client.getMe();
+        });
         this.lastChecked.set(userId, now);
       } catch (err) {
-        if (err instanceof TelegramUserError && DROP_SESSION_CODES.has(err.code)) return { isConnected: false, message: err.message };
-        // Lỗi mạng tạm thời → vẫn coi là đã kết nối, lần sau kiểm tra lại
+        // Story 19.2 (HIGH-06): chỉ lỗi mạng tạm thời mới được coi là "vẫn kết nối".
+        // Phiên chết đã bị withSession xóa; thiếu cấu hình máy chủ → báo rõ nhưng GIỮ phiên (sửa biến môi trường là dùng lại được)
+        if (err instanceof TelegramUserError) return { isConnected: false, message: err.message };
       }
     }
     return {

@@ -17,8 +17,11 @@ import { applyReviewPolicy } from './review-policy.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const VISUAL_MATCH_DAYS = 180; // So ảnh chỉ với căn còn "sống" gần đây — không quét cả kho
+const VISUAL_MATCH_LIMIT = 500;
 const POSSIBLE_DUPLICATE_REASON = 'Có thể trùng căn của cùng SĐT — tin chưa có tên đường';
 const SOURCE_AVAILABLE_REASON = 'Nguồn mới báo còn trống — kiểm tra trạng thái';
+// Căn master đã gộp: chỉ trả mã + tên (không kèm SĐT chủ nhà — kết quả có thể trả ra webhook bên ngoài)
+const masterSummary = (master: IApartment) => ({ _id: master._id, title: master.title });
 
 export class DedupService {
   /** Điều kiện tìm căn có SĐT chủ (căn Master hoặc nguồn phụ). */
@@ -68,14 +71,22 @@ export class DedupService {
     // district do AI bóc tách từ tin public → phải escape regex; neo ^$ để không khớp chuỗi con
     if (district) query['location.district'] = new RegExp(`^${escapeRegex(district.trim())}$`, 'i');
 
-    // Chỉ lấy imageHashes để so sánh; tải đầy đủ document cho căn khớp duy nhất ở cuối
-    const candidates = await Apartment.find(query).select('imageHashes').lean();
+    // Chỉ lấy imageHashes để so sánh; tải đầy đủ document cho căn khớp duy nhất ở cuối.
+    // Story 19.11: giới hạn 500 căn mới cập nhật gần nhất cùng quận (không tải cả kho vào bộ nhớ)
+    const candidates = await Apartment.find(query).sort({ updatedAt: -1 }).limit(VISUAL_MATCH_LIMIT).select('imageHashes').lean();
 
     // Khớp khi có >= 2 ảnh trùng (hoặc 1 ảnh nếu bài chỉ có 1 ảnh duy nhất)
     const threshold = hashes.length === 1 ? 1 : 2;
     for (const apt of candidates) {
       const existingHashes = (apt.imageHashes || []).filter(PHashUtil.isInformative);
-      const matchCount = hashes.filter((newHash) => existingHashes.some((oldHash) => PHashUtil.isMatch(newHash, oldHash, 8))).length;
+      // Ghép 1-1: mỗi ảnh cũ chỉ khớp 1 ảnh mới — 3 góc chụp giống nhau của tin mới không được tính là 3 ảnh trùng với CÙNG 1 ảnh cũ
+      const used = new Set<number>();
+      const matchCount = hashes.filter((newHash) => {
+        const index = existingHashes.findIndex((oldHash, i) => !used.has(i) && PHashUtil.isMatch(newHash, oldHash, 8));
+        if (index === -1) return false;
+        used.add(index);
+        return true;
+      }).length;
       if (matchCount >= threshold) {
         const matchedApartment = await Apartment.findById(apt._id);
         if (matchedApartment) return { matchedApartment, matchedCount: matchCount };
@@ -139,6 +150,8 @@ export class DedupService {
         isRentalListing: true,
         isDuplicate: true,
         masterApartmentId: detMatch._id,
+        apartment: masterSummary(detMatch), // Story 19.2: Nhật ký / phản hồi có tên căn đã gộp
+
         matchType: 'DETERMINISTIC',
         confidence: 100,
         message: 'Đã phát hiện trùng lặp theo SĐT & Địa chỉ. Tự động gộp vào căn Master.',
@@ -154,6 +167,7 @@ export class DedupService {
           isRentalListing: true,
           isDuplicate: true,
           masterApartmentId: visMatch.matchedApartment._id,
+          apartment: masterSummary(visMatch.matchedApartment),
           matchType: 'IMAGE_PHASH',
           confidence: 90,
           matchedImagesCount: visMatch.matchedCount,

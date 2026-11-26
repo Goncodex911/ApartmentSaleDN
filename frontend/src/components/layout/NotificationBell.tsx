@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AppNotification, notificationApi } from '../../api/notificationApi.js';
 import { User } from '../../api/authApi.js';
 import { MatchShareModal } from '../leads/MatchShareModal.js';
-import { Bell, Target, MessageSquare, ClipboardCheck, CalendarClock, X, AlertTriangle, RefreshCcw, HandCoins, LogOut, ShieldAlert, Activity, Megaphone, LucideIcon } from 'lucide-react';
+import { Bell, Target, MessageSquare, ClipboardCheck, CalendarClock, X, AlertTriangle, RefreshCcw, HandCoins, LogOut, ShieldAlert, Activity, Megaphone, Send, LucideIcon } from 'lucide-react';
 import { timeAgo } from '../../utils/format.js';
 
 const POLL_INTERVAL_MS = 30_000;
@@ -20,6 +20,7 @@ const ICONS: Partial<Record<AppNotification['type'], [LucideIcon, string]>> = {
   SECURITY_ALERT: [ShieldAlert, 'text-rose-600'], // Story 16.5
   SERVICE_INCIDENT: [Activity, 'text-rose-600'], // Story 16.8a
   ANNOUNCEMENT: [Megaphone, 'text-indigo-600'], // Story 16.9
+  TELEGRAM_DISCONNECTED: [Send, 'text-rose-600'], // Story 19.2
 };
 
 const NotificationIcon: React.FC<{ type: AppNotification['type'] }> = ({ type }) => {
@@ -84,6 +85,8 @@ export const NotificationBell: React.FC<{ user: User }> = ({ user }) => {
       navigate('/admin/alerts'); // Story 16.5
     } else if (item.type === 'SERVICE_INCIDENT') {
       navigate('/admin/health'); // Story 16.8a
+    } else if (item.type === 'TELEGRAM_DISCONNECTED') {
+      navigate('/telegram-scraper'); // Story 19.2: trang mở được cho cả Quản lý lẫn Admin (không vào /admin/health)
     } else if (item.type === 'ANNOUNCEMENT') {
       navigate('/apartments'); // Story 16.9: nội dung đầy đủ ở dải ghim đầu Bảng hàng
     } else if (item.type === 'SESSION_REVOKED') {

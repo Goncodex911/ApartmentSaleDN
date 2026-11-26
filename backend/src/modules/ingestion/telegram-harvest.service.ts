@@ -5,6 +5,8 @@ import { DedupService } from '../dedup/dedup.service.js';
 import { TelegramUserbotService } from './telegram-userbot.service.js';
 import { isPhoneNumber, matchesTargetListing, normalizeDomesticPhone, postText } from './telegram-match.util.js';
 import { findScrapedMessageIds, markMessageScraped } from './telegram-scraped-message.model.js';
+import { User } from '../auth/user.model.js';
+import { NotificationService } from '../notifications/notification.service.js';
 
 export type LogLevel = 'info' | 'success' | 'warn' | 'error';
 export interface ScrapeProgress {
@@ -216,7 +218,7 @@ export class TelegramHarvestService {
 
   /** Đón bài mới của người đăng mục tiêu theo thời gian thực (đến khi máy chủ khởi động lại hoặc bấm dừng) */
   public static async startRealtimeListener(userId: string, chatInput: string, targetSender: string) {
-    await this.stopRealtimeListener(userId);
+    await this.stopRealtimeListener(userId, false);
     const ctx = await openChat(userId, chatInput, targetSender);
     const pending = new Map<string, any[]>();
     const albumTimers = new Map<string, NodeJS.Timeout>();
@@ -228,7 +230,7 @@ export class TelegramHarvestService {
         if (needsSender) await Promise.all(messages.map((m) => m.getSender?.().catch(() => null)));
         if (!matchesTargetListing(messages, ctx.targetSender)) return;
         const outcome = await ingestPost(ctx, messages);
-        if (!outcome.skipped && outcome.result.apartment) {
+        if (!outcome.skipped && outcome.result.apartment && !outcome.result.isDuplicate) {
           console.log(`[Telegram Real-time] Nạp bài mới của ${ctx.targetSender} trong ${ctx.chatTitle}`);
         }
       } catch (err: any) {
@@ -257,10 +259,39 @@ export class TelegramHarvestService {
 
     ctx.client.addEventHandler(handler, new NewMessage({ chats: [ctx.entity] }));
     this.listeners.set(userId, { client: ctx.client, handler, chatTitle: ctx.chatTitle, targetSender: ctx.targetSender, startedAt: new Date(), albumTimers });
+    // Story 19.2 (GAP-02): nhớ cấu hình đón tin → máy chủ khởi động lại (Render ngủ / deploy) tự bật lại
+    await User.updateOne({ _id: userId, 'telegramSession.isActive': true }, { $set: { 'telegramSession.listener': { chat: chatInput, targetSender: ctx.targetSender } } });
     return { success: true, chatTitle: ctx.chatTitle, targetSender: ctx.targetSender };
   }
 
-  public static async stopRealtimeListener(userId: string) {
+  /**
+   * Gọi khi máy chủ khởi động: bật lại bộ đón tin của những người đang bật trước khi máy chủ tắt.
+   * Không bật lại được (phiên chết, mất quyền vào nhóm...) → báo chuông để người dùng biết bộ đón tin đã dừng.
+   */
+  public static async resumeListeners() {
+    const users = await User.find({ 'telegramSession.isActive': true, 'telegramSession.listener.chat': { $exists: true } })
+      .select('_id telegramSession.listener')
+      .lean();
+    for (const user of users) {
+      const saved = user.telegramSession?.listener;
+      if (!saved) continue;
+      try {
+        await this.startRealtimeListener(String(user._id), saved.chat, saved.targetSender);
+      } catch (err: any) {
+        await User.updateOne({ _id: user._id }, { $unset: { 'telegramSession.listener': 1 } });
+        NotificationService.notify({
+          userId: String(user._id),
+          type: 'TELEGRAM_DISCONNECTED',
+          title: 'Bộ đón tin Telegram đã dừng',
+          body: `Máy chủ vừa khởi động lại nhưng không bật lại được bộ đón tin (${err?.message || 'lỗi không rõ'}). Vào Cào tin Telegram để bật lại.`,
+        }).catch(() => undefined);
+      }
+    }
+  }
+
+  /** forget = true: người dùng chủ động dừng → xóa cấu hình đã lưu (máy chủ tắt thì KHÔNG xóa để tự bật lại) */
+  public static async stopRealtimeListener(userId: string, forget = true) {
+    if (forget) await User.updateOne({ _id: userId }, { $unset: { 'telegramSession.listener': 1 } }).catch(() => undefined);
     const active = this.listeners.get(userId);
     if (active) {
       try {

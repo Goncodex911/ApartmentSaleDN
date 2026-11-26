@@ -39,17 +39,26 @@ export function usePagedList<T extends { _id: string }>(filterKey: string, searc
       .catch(() => currentKey.current === key && setState('error'));
   }, [filterKey, query, reloadKey]);
 
+  const loadingMoreRef = useRef(false);
   const loadMore = async () => {
+    // Story 19.10: bấm "Tải thêm" 2 lần liên tiếp không gửi 2 request cùng trang
+    if (loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
     const key = currentKey.current;
     setLoadingMore(true);
     try {
       const result = await fetchRef.current(page + 1, query);
       if (currentKey.current !== key) return;
-      setItems((list) => [...list, ...result.items]);
+      // Khử trùng theo _id: dữ liệu mới chen vào giữa 2 trang không tạo dòng (key) trùng
+      setItems((list) => {
+        const seen = new Set(list.map((item) => item._id));
+        return [...list, ...result.items.filter((item) => !seen.has(item._id))];
+      });
       setPage(page + 1);
     } catch {
       // Lỗi tải thêm: giữ danh sách đang có, bấm lại được
     } finally {
+      loadingMoreRef.current = false;
       setLoadingMore(false);
     }
   };

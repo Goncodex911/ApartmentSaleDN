@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MapLandmark, MapPin, apartmentApi } from '../api/apartmentApi.js';
 import { APARTMENT_REALTIME, RealtimeMessage } from '../api/realtimeStream.js';
-import { ApartmentFilterValues, toParams } from './useApartmentSearch.js';
+import { ApartmentFilterValues, countActiveFilters, toParams } from './useApartmentSearch.js';
 
 /**
  * Ghim bản đồ theo bộ lọc + từ khóa đang chọn ở Bảng hàng (Story 11.2); tự cập nhật trạng thái / giá theo thời gian thực (11.4).
@@ -23,8 +23,10 @@ export function useMapPins(filters: ApartmentFilterValues, query: string, bbox?:
       delete params.radiusKm;
     }
     setStatus('loading');
-    apartmentApi
-      .getMapPins({ ...params, ...(query && { q: query }), ...(bbox && { bbox }) })
+    const request = { ...params, ...(query && { q: query }), ...(bbox && { bbox }) };
+    // Story 19.7: chỉ có câu tìm → hiểu câu tự nhiên (giá, phòng ngủ, khu vực) giống danh sách; lỗi (quá giới hạn) → tìm theo từ khóa
+    const natural = Boolean(query) && countActiveFilters(filters) === 0;
+    (natural ? apartmentApi.getMapPins(request, true).catch(() => apartmentApi.getMapPins(request)) : apartmentApi.getMapPins(request))
       .then((data) => {
         if (cancelled) return;
         setPins(data.pins);

@@ -98,6 +98,17 @@ export class SearchController {
     res.status(200).json({ success: true, data: await findMapPins(parseSearchOptions(req)) });
   });
 
+  /**
+   * GET /api/v1/apartments/search/pins/natural?q= — ghim bản đồ theo câu tự nhiên ("studio Hải Châu dưới 6tr"),
+   * cùng cách hiểu với danh sách (Story 19.7). Gọi Gemini → đi qua giới hạn tần suất như /natural.
+   */
+  static naturalPins = asyncHandler(async (req: AuthRequest, res) => {
+    const options = parseSearchOptions(req);
+    const queryText = String(options.q || '').slice(0, 300);
+    const { searchOptions } = await SearchService.naturalOptions(queryText, { ...options, q: undefined });
+    res.status(200).json({ success: true, data: await findMapPins({ ...searchOptions, bbox: options.bbox }) });
+  });
+
   static searchNatural = asyncHandler(runNaturalSearch);
 
   /** GET /api/v1/apartments/search/pois — tiện ích Đà Nẵng cho lớp phủ bản đồ (Story 15.4); "phố Tây" chỉ dùng cho trang khách */

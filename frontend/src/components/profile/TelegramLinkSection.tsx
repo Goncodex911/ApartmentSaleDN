@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { userApi } from '../../api/userApi.js';
+import { authApi } from '../../api/authApi.js';
 import { Send, Loader2, CheckCircle2 } from 'lucide-react';
 
 // Liên kết Telegram nhận thông báo khách mới / căn phù hợp (Story 6.2 - AC5)
@@ -8,6 +9,20 @@ export const TelegramLinkSection: React.FC<{ linked: boolean }> = ({ linked }) =
   const [deepLink, setDeepLink] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Story 19.10: bấm Start trong Telegram rồi quay lại tab → tự kiểm tra đã liên kết chưa (không cần F5)
+  useEffect(() => {
+    if (isLinked || !deepLink) return;
+    const recheck = () => {
+      if (document.visibilityState !== 'visible') return;
+      authApi
+        .getMe()
+        .then((res) => res.data.telegramChatId && setIsLinked(true))
+        .catch(() => undefined);
+    };
+    document.addEventListener('visibilitychange', recheck);
+    return () => document.removeEventListener('visibilitychange', recheck);
+  }, [isLinked, deepLink]);
 
   const handleCreateLink = async () => {
     setLoading(true);

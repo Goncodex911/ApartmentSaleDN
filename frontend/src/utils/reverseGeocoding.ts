@@ -7,44 +7,32 @@ interface ReverseGeoResult {
   district?: string;
 }
 
+// [vĩ độ min, vĩ độ max, kinh độ min, kinh độ max] — ô gần đúng, thứ tự kiểm tra = ưu tiên (phường nhỏ trước, phần còn lại của quận sau)
+type Box = [number, number, number, number];
+const HAN_RIVER_EAST = 108.226; // Bờ Đông sông Hàn (Sơn Trà / An Hải) — bờ Tây (Thuận Phước, Hải Châu) không thuộc Sơn Trà
+const ZONE_BOXES: [Zone, Box][] = [
+  ['Mỹ An', [16.038, 16.058, 108.236, 108.255]], // gồm khu phố Tây An Thượng
+  ['Khuê Mỹ', [16.012, 16.038, 108.236, 108.26]],
+  ['Ngũ Hành Sơn', [15.96, 16.04, 108.23, 108.29]], // phần còn lại: Hòa Hải, Non Nước
+  ['An Hải', [16.058, 16.078, HAN_RIVER_EAST, 108.252]],
+  ['Sơn Trà', [16.058, 16.15, HAN_RIVER_EAST, 108.33]], // phần còn lại: Phước Mỹ, Mân Thái, bán đảo
+  ['Hòa Xuân', [15.99, 16.025, 108.205, 108.235]],
+  ['Hải Châu', [16.025, 16.09, 108.195, HAN_RIVER_EAST]],
+  ['Khác', [15.95, 16.15, 108.1, 108.33]], // Thanh Khê, Cẩm Lệ, Liên Chiểu... trong vùng Đà Nẵng
+];
+
 /**
- * Phân tích nhanh Khu vực (Zone) tại Đà Nẵng theo tọa độ GPS (Offline 0ms, không tốn API).
+ * Khu vực (Zone) Đà Nẵng theo tọa độ GPS — offline, không tốn API. Ranh giới GẦN ĐÚNG để gợi ý,
+ * người dùng vẫn sửa được trên form. Story 19.10: đủ 8 khu vực chuẩn (danang.ts), Sơn Trà không lấn bờ Tây sông Hàn.
  */
 export function inferDanangZone(lng: number, lat: number): Zone | '' {
-  // An Thượng (khu phố Tây - thuộc phường Mỹ An)
-  if (lat >= 16.048 && lat <= 16.058 && lng >= 108.239 && lng <= 108.248) {
-    return 'Mỹ An';
-  }
-  // Mỹ An (phía Nam Cầu Rồng đến Bắc Ngũ Hành Sơn, giáp biển)
-  if (lat >= 16.038 && lat <= 16.065 && lng >= 108.230 && lng <= 108.255) {
-    return 'Mỹ An';
-  }
-  // Sơn Trà (Bắc sông Hàn, Bán đảo Sơn Trà, Mân Thái, Phước Mỹ)
-  if (lat >= 16.065 && lat <= 16.130 && lng >= 108.215 && lng <= 108.280) {
-    return 'Sơn Trà';
-  }
-  // Hải Châu (Trung tâm thành phố, Tây sông Hàn)
-  if (lat >= 16.020 && lat <= 16.085 && lng >= 108.190 && lng <= 108.230) {
-    return 'Hải Châu';
-  }
-  // Ngũ Hành Sơn (Khu vực Nam bãi biển, Hòa Hải, Non Nước)
-  if (lat >= 15.960 && lat < 16.038 && lng >= 108.230 && lng <= 108.280) {
-    return 'Ngũ Hành Sơn';
-  }
-  // Thanh Khê
-  if (lat >= 16.050 && lat <= 16.080 && lng >= 108.165 && lng < 108.200) {
-    return 'Khác';
-  }
-  // Cẩm Lệ
-  if (lat >= 16.000 && lat < 16.050 && lng >= 108.170 && lng < 108.220) {
-    return 'Khác';
-  }
-  return '';
+  const hit = ZONE_BOXES.find(([, [latMin, latMax, lngMin, lngMax]]) => lat >= latMin && lat < latMax && lng >= lngMin && lng < lngMax);
+  return hit ? hit[0] : '';
 }
 
 /**
- * Gọi phân giải địa chỉ ngược (Reverse Geocoding) từ tọa độ GPS.
- * Sử dụng Nominatim OpenStreetMap kèm User-Agent định danh, có fallback an toàn.
+ * Gọi phân giải địa chỉ ngược (Reverse Geocoding) từ tọa độ GPS qua Nominatim OpenStreetMap, có fallback an toàn.
+ * (Trình duyệt không cho đặt header User-Agent — Nominatim nhận diện qua Referer của trang.)
  */
 export async function reverseGeocodeDanang(lng: number, lat: number): Promise<ReverseGeoResult> {
   const result: ReverseGeoResult = {

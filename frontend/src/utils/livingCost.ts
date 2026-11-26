@@ -33,7 +33,9 @@ const roundThousand = (value: number) => Math.round(value / 1000) * 1000;
  * (lúc theo người, lúc theo m³) → đoán theo ngưỡng 50.000đ. Dịch vụ đã bao (ELECTRICITY / WATER) → 0đ.
  * USD: tiền thuê dùng đúng giá USD của tin nếu có, các khoản khác quy theo tỷ giá; làm tròn tới $5.
  */
-export function estimateMonthlyCost(listing: CostListing, options: CostOptions, usdRate: number): CostEstimate {
+export function estimateMonthlyCost(listing: CostListing, options: CostOptions, rawUsdRate: number): CostEstimate {
+  // Story 19.10: tỷ giá ≤ 0 / không phải số (cấu hình sai) → 25.000, tránh chia 0 ra NaN / Infinity
+  const usdRate = Number.isFinite(rawUsdRate) && rawUsdRate > 0 ? rawUsdRate : 25000;
   const included = listing.includedServices || [];
   const fees = listing.fees || {};
   const people = Math.min(4, Math.max(1, options.people));
@@ -48,7 +50,8 @@ export function estimateMonthlyCost(listing: CostListing, options: CostOptions, 
 
   let water = 0;
   if (!included.includes('WATER')) {
-    if (!fees.water) {
+    // Story 19.10: 0đ = chủ nhà ghi miễn phí nước (khác với chưa nhập → dùng giá tham khảo)
+    if (fees.water === undefined || fees.water === null) {
       referenceItems.push('water');
       water = REFERENCE_WATER_PER_PERSON * people;
     } else {

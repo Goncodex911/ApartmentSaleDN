@@ -137,3 +137,8 @@ export type AddSubListingInput = z.infer<typeof addSubListingSchema>;
 
 // Story 14.5: số chữ ký tải lên cần xin (1 chữ ký = 1 file), tối đa 10 / lần — khớp giới hạn 10 file của /upload-media
 export const uploadSignatureSchema = z.object({ count: z.number().int().min(1).max(10).default(1) });
+
+// Story 19.3: hiệu chỉnh vị trí — đúng 2 SỐ hữu hạn [kinh độ, vĩ độ] (chuỗi "108.2" trước đây lọt qua rồi lỗi 500)
+export const calibrateLocationSchema = z.object({
+  coordinates: z.tuple([z.number().finite(), z.number().finite()], { error: 'Tọa độ không hợp lệ' }),
+});

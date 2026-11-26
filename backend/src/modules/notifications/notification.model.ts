@@ -5,7 +5,7 @@ import { Schema, model, Document, Types } from 'mongoose';
 // LISTING_FLAGGED: căn bị ≥ 2 người báo lỗi (Story 13.6)
 // SOURCE_AVAILABLE_AGAIN: căn Đã cọc / Đã thuê được nguồn mới đăng lại (Story 14.2)
 // LEAD_DEPOSITED: CTV báo khách đã cọc căn (Story 14.8)
-export const NOTIFICATION_TYPES = ['NEW_CHAT_LEAD', 'APARTMENT_MATCH', 'LISTING_SUBMITTED', 'LISTING_APPROVED', 'LISTING_REJECTED', 'LEASE_EXPIRING', 'LISTING_FLAGGED', 'SOURCE_AVAILABLE_AGAIN', 'LEAD_DEPOSITED', 'SESSION_REVOKED', 'SECURITY_ALERT', 'SERVICE_INCIDENT', 'ANNOUNCEMENT'] as const; // ANNOUNCEMENT: thông báo chung (Story 16.9) // SESSION_REVOKED: Admin đăng xuất từ xa (Story 16.4)
+export const NOTIFICATION_TYPES = ['NEW_CHAT_LEAD', 'APARTMENT_MATCH', 'LISTING_SUBMITTED', 'LISTING_APPROVED', 'LISTING_REJECTED', 'LEASE_EXPIRING', 'LISTING_FLAGGED', 'SOURCE_AVAILABLE_AGAIN', 'LEAD_DEPOSITED', 'SESSION_REVOKED', 'SECURITY_ALERT', 'SERVICE_INCIDENT', 'ANNOUNCEMENT', 'TELEGRAM_DISCONNECTED'] as const; // TELEGRAM_DISCONNECTED: phiên Telegram cá nhân bị thu hồi (Story 19.2) // ANNOUNCEMENT: thông báo chung (Story 16.9) // SESSION_REVOKED: Admin đăng xuất từ xa (Story 16.4)
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 // Thông báo trong app (Story 6.2, 6.3) — tự xóa sau 30 ngày

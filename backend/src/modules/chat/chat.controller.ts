@@ -3,6 +3,7 @@ import { AuthRequest } from '../../middlewares/auth.js';
 import { asyncHandler } from '../../utils/async-handler.js';
 import { SHARE_CODE_PATTERN } from '../share/share-link.service.js';
 import { ChatService } from './chat.service.js';
+import { clientIp } from '../../utils/request-context.js';
 
 const SESSION_ID = /^[a-z0-9]{24}$/;
 const sendMessageSchema = z.object({
@@ -19,7 +20,7 @@ const shareCode = (req: AuthRequest) => {
 export class ChatController {
   // POST /api/v1/chat/:code/messages — khách gửi tin cho trợ lý AI (Story 6.2)
   static sendMessage = asyncHandler(async (req, res) => {
-    const data = await ChatService.sendMessage(shareCode(req), sendMessageSchema.parse(req.body), { id: req.user?.id, ip: req.ip || 'unknown' });
+    const data = await ChatService.sendMessage(shareCode(req), sendMessageSchema.parse(req.body), { id: req.user?.id, ip: clientIp(req) || 'unknown' });
     res.status(200).json({ success: true, data });
   });
 

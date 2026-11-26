@@ -37,8 +37,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onPro
       setLoading(true);
       const res = await userApi.updateProfile({
         name,
-        zaloPhone: zaloPhone || undefined,
-        greetingMessage: greetingMessage || undefined,
+        // Story 19.10: gửi cả chuỗi rỗng (undefined bị bỏ khỏi JSON → không xóa được giá trị cũ)
+        zaloPhone: zaloPhone.trim(),
+        greetingMessage,
         paymentTerms, // Chuỗi rỗng = không in dòng điều kiện thanh toán
         zaloGroupLink,
         whatsappGroupLink,

@@ -11,7 +11,8 @@
     "promote-admin": "tsx src/scripts/promote-admin.ts",
     "backfill-zone-type": "tsx src/scripts/backfill-zone-type.ts",
     "normalize-owner-phones": "tsx src/scripts/normalize-owner-phones.ts",
-    "geocode-streets": "tsx src/scripts/geocode-streets.ts"
+    "geocode-streets": "tsx src/scripts/geocode-streets.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
@@ -35,7 +36,8 @@
     "@types/multer": "^2.3.0",
     "@types/node": "^22.10.7",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.7"
   },
   "engines": {
     "node": ">=22.2"

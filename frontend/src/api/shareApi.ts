@@ -6,7 +6,18 @@ export interface ShareLinkInfo {
   code: string;
   views: number;
   lastViewedAt?: string;
+  usdRate?: number; // Story 19.1: tỷ giá cấu hình để quy đổi USD trong bài WhatsApp
 }
+
+// Mỗi căn chỉ có 1 link / CTV (backend upsert) → nhớ trong phiên để bài Zalo / WhatsApp không gọi lại nhiều lần
+const linkCache = new Map<string, Promise<ShareLinkInfo>>();
+const currentUserId = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || 'null')?._id ?? '';
+  } catch {
+    return '';
+  }
+};
 
 // Dữ liệu công khai của trang xem phòng (Story 5.3) — không có thông tin chủ nhà
 export interface PublicListing {
@@ -42,6 +53,19 @@ export const shareApi = {
   createLink: async (apartmentId: string): Promise<ShareLinkInfo> => {
     const res = await apiClient.post('/share/links', { apartmentId });
     return res.data.data;
+  },
+
+  /** Link chia sẻ đã lưu trong phiên (lỗi → bỏ khỏi bộ nhớ để lần sau thử lại) */
+  getLink: (apartmentId: string): Promise<ShareLinkInfo> => {
+    // Khóa theo cả người dùng: đăng xuất không tải lại trang → CTV khác đăng nhập trên cùng máy không dùng nhầm link của người trước
+    const key = `${currentUserId()}:${apartmentId}`;
+    let pending = linkCache.get(key);
+    if (!pending) {
+      pending = shareApi.createLink(apartmentId);
+      pending.catch(() => linkCache.delete(key));
+      linkCache.set(key, pending);
+    }
+    return pending;
   },
 
   getPublicListing: async (code: string): Promise<PublicListing> => {

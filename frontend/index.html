@@ -15,10 +15,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="ApartmentDN" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <!-- Chỉ Netlify (gói Free) chèn huy hiệu ở đáy màn hình → gắn class sớm để CSS chừa chỗ, không bị nhảy bố cục -->
-    <script>
-      if (location.hostname.endsWith('netlify.app')) document.documentElement.classList.add('on-netlify');
-    </script>
+    <!-- Chỉ Netlify chèn huy hiệu ở đáy → gắn class sớm (file riêng vì CSP chặn script nội tuyến — Story 19.9) -->
+    <script src="/host-badge.js"></script>
   </head>
   <body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
     <div id="root"></div>

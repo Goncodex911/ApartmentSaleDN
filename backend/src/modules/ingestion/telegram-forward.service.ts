@@ -53,7 +53,8 @@ export async function handleForwardedPost(token: string, messages: any[], rawTex
 
     AuditService.log({ id: String(user._id), role: user.role }, 'TELEGRAM_SCRAPE', { type: 'SETTINGS', title: `Telegram: ${sourceName}` }, {
       source: 'FORWARD',
-      imported: result.apartment ? 1 : 0,
+      imported: result.apartment && !result.isDuplicate ? 1 : 0,
+      merged: Boolean(result.isDuplicate),
       status: result.isRentalListing ? 'COMPLETED' : 'NOT_RENTAL',
     });
 

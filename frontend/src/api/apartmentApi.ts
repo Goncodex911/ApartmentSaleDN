@@ -195,8 +195,9 @@ export const apartmentApi = {
   },
 
   // Story 11.2: ghim bản đồ theo cùng bộ lọc (tối đa 500 căn, dữ liệu nhẹ)
-  getMapPins: async (params: Record<string, any> = {}): Promise<MapPinsResult> => {
-    const res = await apiClient.get('/apartments/search/pins', { params });
+  // natural: hiểu câu tự nhiên như danh sách (Story 19.7) — route riêng có giới hạn tần suất vì gọi Gemini
+  getMapPins: async (params: Record<string, any> = {}, natural = false): Promise<MapPinsResult> => {
+    const res = await apiClient.get(natural ? '/apartments/search/pins/natural' : '/apartments/search/pins', { params });
     return res.data.data;
   },
 

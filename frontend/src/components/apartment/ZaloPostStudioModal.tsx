@@ -4,17 +4,19 @@ import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
 import { generateZaloPost, ZaloPostTone } from '../../utils/zaloPostGenerator.js';
 import { copyText } from '../../utils/clipboard.js';
-import { isTouchDevice } from '../../utils/device.js';
+import { zaloOpenUrl } from '../../utils/shareChannel.js';
 
 interface ZaloPostStudioModalProps {
   apartment: Apartment;
   ctv: User | null;
+  link: string; // Link chia sẻ thật của CTV (Story 19.1)
   onClose: () => void;
 }
 
 export const ZaloPostStudioModal: React.FC<ZaloPostStudioModalProps> = ({
   apartment,
   ctv,
+  link,
   onClose,
 }) => {
   const [tone, setTone] = useState<ZaloPostTone>('deal');
@@ -23,8 +25,7 @@ export const ZaloPostStudioModal: React.FC<ZaloPostStudioModalProps> = ({
 
   // Sinh nội dung theo tone
   const refreshContent = (nextTone = tone) => {
-    const post = generateZaloPost(apartment, ctv, { tone: nextTone });
-    setContent(post);
+    setContent(generateZaloPost(apartment, ctv, link, nextTone));
   };
 
   useEffect(() => {
@@ -37,15 +38,8 @@ export const ZaloPostStudioModal: React.FC<ZaloPostStudioModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleOpenZalo = () => {
-    const isMobile = isTouchDevice();
-    if (isMobile) {
-      window.location.href = 'zalo://';
-      setTimeout(() => window.open('https://zalo.me/share', '_blank'), 600);
-    } else {
-      window.open('https://chat.zalo.me/', '_blank');
-    }
-  };
+  // Mở ngay trong cú bấm (không setTimeout) → trình duyệt điện thoại không chặn popup
+  const handleOpenZalo = () => window.open(zaloOpenUrl(), '_blank', 'noopener');
 
   return (
     <div

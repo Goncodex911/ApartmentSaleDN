@@ -12,6 +12,8 @@ import { fieldClass } from '../ui/Input.js';
  * 1 căn trong hàng đợi kiểm duyệt (Story 13.6): ảnh nhỏ, giá, số người báo theo lý do, chi tiết từng người báo,
  * xử lý 1 chạm: Đã thuê · Cập nhật giá · Tin vẫn đúng (tùy chọn đánh dấu báo sai → trừ điểm người báo).
  */
+const MIN_REASONABLE_PRICE = 500_000; // Giá thuê / tháng thấp hơn mức này gần như chắc là gõ thiếu số 0
+
 export const ModerationCard: React.FC<{ item: ModerationItem; onResolve: (action: ResolveAction) => Promise<void> }> = ({ item, onResolve }) => {
   const suggestedPrice = Math.max(0, ...item.reports.map((report) => report.newPrice ?? 0));
   const [mode, setMode] = useState<'idle' | 'price' | 'dismiss'>('idle');
@@ -73,12 +75,19 @@ export const ModerationCard: React.FC<{ item: ModerationItem; onResolve: (action
           className="flex gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (Number(price) > 0) run({ action: 'UPDATE_PRICE', price: Number(price) });
+            const value = Number(price);
+            if (!(value > 0)) return;
+            // Story 19.10: gõ "6" thay vì "6000000" → hỏi lại trước khi lưu giá 6 đồng
+            if (value < MIN_REASONABLE_PRICE && !window.confirm(`Bạn nhập ${value.toLocaleString('vi-VN')}đ/tháng — có phải ${value.toLocaleString('vi-VN')} triệu? Bấm OK để vẫn lưu giá này.`)) return;
+            run({ action: 'UPDATE_PRICE', price: value });
           }}
         >
           <label className="flex-1">
             <span className="sr-only">Giá mới</span>
             <input type="number" inputMode="numeric" min={0} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Giá mới (đ/tháng)" autoFocus className={fieldClass} />
+            {Number(price) > 0 && Number(price) < MIN_REASONABLE_PRICE && (
+              <span className="block mt-1 text-xs text-amber-700">Giá có vẻ quá thấp — nhập đầy đủ, VD 6000000</span>
+            )}
           </label>
           <Button type="submit" loading={busy} disabled={!(Number(price) > 0)}>Lưu giá</Button>
           <Button variant="ghost" onClick={() => setMode('idle')}>Hủy</Button>

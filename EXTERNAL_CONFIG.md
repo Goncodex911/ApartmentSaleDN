@@ -24,7 +24,8 @@ Tài liệu này tổng hợp toàn bộ các dịch vụ bên ngoài, API Key v
 | **[EPIC-16](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_16_ADMIN_CONSOLE_AND_ACTIVITY_MONITORING.md)** | Bảng Điều Khiển Quản Trị Riêng & Giám Sát Hoạt Động | Tái sử dụng MongoDB Atlas & JWT có sẵn (0 VND) | ✅ **Sẵn sàng (Thuần nội bộ)** |
 | **[EPIC-17](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_17_MULTI_CHANNEL_AUTO_POSTING_AND_PRECISION_MAPS.md)** | Đăng Tin Đa Kênh (Zalo, WhatsApp) & Chuẩn Hóa Google Maps | Web Share API, WhatsApp Deep-links, HTTP Resolver (0 VND) | ✅ **Sẵn sàng (0 VND)** |
 | **[COVER-EPIC](file:///d:/CODE/AppartmentSaleProject/docs/stories/coverEpic.md)** | Telegram MTProto Client (API ID & Hash) | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` | 📝 **Cần lấy API ID/Hash miễn phí từ Telegram (Xem mục 11)** |
-| **[EPIC-18](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_18_RELIABLE_TELEGRAM_ACCOUNT_LINKING.md)** | Liên Kết Tài Khoản Telegram Ổn Định (OTP đúng kênh, QR máy tính, chuyển tiếp cho Bot) | Tái sử dụng `TELEGRAM_API_ID/HASH`, `TELEGRAM_BOT_TOKEN`, `JWT_SECRET` — **không thêm biến mới**; gói frontend `qrcode` (miễn phí) | 📝 **Đang làm (Xem mục 11.7)** |
+| **[EPIC-18](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_18_RELIABLE_TELEGRAM_ACCOUNT_LINKING.md)** | Liên Kết Tài Khoản Telegram Ổn Định (OTP đúng kênh, QR máy tính, chuyển tiếp cho Bot) | Tái sử dụng `TELEGRAM_API_ID/HASH`, `TELEGRAM_BOT_TOKEN`, `JWT_SECRET` — **không thêm biến mới**; gói frontend `qrcode` (miễn phí) | ✅ **Đã triển khai — chờ kiểm thử thiết bị thật (Story 18.7, mục 11.7)** |
+| **[EPIC-19](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_19_QA_AUDIT_FIXES.md)** | Khắc Phục Kết Quả QA Audit (link chia sẻ, Telegram, Map QA, khử trùng, bảo mật vận hành) | **Không thêm biến bắt buộc.** Kiểm tra `TRUST_PROXY`, `USD_VND_RATE`, header CSP, gói CARTO; deploy lại Netlify khi có credit; gói dev `vitest` | 📝 **Chờ triển khai (Xem mục 12)** |
 
 ---
 
@@ -481,6 +482,27 @@ Từ Story 18.1, trang ghi đúng kênh và có nút gửi lại qua SMS / cuộ
 **4. Đường dự phòng không cần đăng nhập (Story 18.6):** Quản lý / Admin liên kết Bot trong app (`/start <mã>`), sau đó **chuyển tiếp bài hoặc album** từ nhóm BĐS vào chat riêng với Bot → bài được AI bóc tách và nạp vào Bảng hàng với người chuyển tiếp là người phụ trách. Cần `TELEGRAM_BOT_TOKEN` (đã có ở Epic 03) và chỉ 1 máy chủ nhận tin của bot.
 
 **5. Gói thư viện mới (Story 18.4, đã được duyệt):** `qrcode` (frontend, MIT, ~30KB) để vẽ QR đăng nhập ngay trên trình duyệt — **không gửi token đăng nhập ra dịch vụ ngoài**.
+
+---
+
+### 12. EPIC-19: Khắc Phục Kết Quả QA Audit — Việc Cần Cấu Hình
+
+Epic 19 chủ yếu sửa code, **không thêm biến môi trường bắt buộc**. Các việc cấu hình / vận hành đi kèm, theo Story:
+
+| Story | Việc cần làm | Nơi làm | Ai làm | Khi nào |
+|---|---|---|---|---|
+| **19.2** | Deploy lại frontend Netlify từ `main` **hoặc** deploy bản chỉ chuyển hướng sang `apartmentsaledn.pages.dev`. Trước khi làm được: nhắc Quản lý / CTV **chỉ dùng link `pages.dev`** để kết nối Telegram. | Netlify → Deploys | Chủ dự án | Khi Netlify có credit (đầu chu kỳ tháng mới) |
+| **19.1** | Đặt `USD_VND_RATE` (tỷ giá hiện hành) — sau Story 19.1, bài WhatsApp dùng đúng biến này thay vì số ghi cứng. Bỏ trống = 25.000. | Render → Environment | Chủ dự án | Trước khi merge 19.1 (tùy chọn) |
+| **19.4** | Sau khi deploy: chạy lại `npm run geocode-streets` (backend) để tạo tọa độ cho các đường có số hiệu (An Thượng 1…40, Mỹ An 1…, 2/9, 30/4). Khóa cache cũ dạng "an thuong" không còn dùng. | Render → Shell (hoặc máy local trỏ DB thật) | Lập trình viên | Ngay sau deploy 19.4 |
+| **19.9** | **IP khách:** xác nhận header IP thật do hạ tầng Render đặt (`CF-Connecting-IP` / `True-Client-IP`) trước khi đổi cách đọc IP; giữ `TRUST_PROXY` hiện tại cho tới khi Story 19.9 merge. Sau merge: kiểm tra Nhật ký hoạt động ghi đúng IP mạng của bạn (tra ở whatismyip). | Render → Environment + Nhật ký hoạt động | Chủ dự án + Lập trình viên | Khi làm 19.9 |
+| **19.9** | **Content-Security-Policy:** thêm vào `frontend/public/_headers` (trong code, không cấu hình tay). Nếu sau này đổi backend / thêm dịch vụ ảnh, bản đồ → phải bổ sung tên miền vào `connect-src` / `img-src`, nếu không trang sẽ không tải được dữ liệu. | Code (`_headers`) | Lập trình viên | Khi làm 19.9 |
+| **19.12** | Cài gói dev `vitest` (miễn phí, MIT) cho backend + frontend; chạy `npm test` trước mỗi lần merge. | `package.json` | Lập trình viên | Khi làm 19.12 |
+| **19.12** | **Giấy phép bản đồ:** key CARTO đang ở gói *Free – Non-commercial*. Chọn 1: (a) chuyển key sang gói thương mại tại dashboard.basemaps.carto.com, hoặc (b) đổi `VITE_MAP_TILE_URL` sang nguồn bản đồ cho phép dùng thương mại miễn phí (Story 19.12 đề xuất nguồn cụ thể). Đổi biến → deploy lại frontend. | CARTO / Cloudflare Pages → Variables | Chủ dự án | Trước khi mở rộng người dùng |
+| **19.12** | Sau khi Netlify chạy bản mới (hoặc tắt hẳn Netlify): báo lập trình viên xóa phần tương thích ngược cho giao diện cũ trong API cào tin. | — | Chủ dự án báo | Sau mục 19.2 ở trên |
+
+**Không cần làm gì thêm** cho các Story 19.3, 19.5, 19.6, 19.7, 19.8, 19.10, 19.11 (chỉ sửa code, deploy như bình thường).
+
+**Lưu ý repo công khai:** báo cáo QA chi tiết (`docs/QA_AUDIT_REPORT.md`) mô tả điểm yếu kèm vị trí trong code. Repo đang để **Public** → nên ưu tiên Story 19.1, 19.2, 19.9 (nhóm bảo mật / rò rỉ dữ liệu) trước khi đẩy báo cáo lên GitHub.
 
 
 

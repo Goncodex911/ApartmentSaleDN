@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, createContext, lazy, useContext, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { User, authApi } from '../../api/authApi.js';
 import { submissionApi } from '../../api/submissionApi.js';
@@ -11,13 +11,15 @@ import { BottomNav } from './BottomNav.js';
 import { AccountMenu } from './AccountMenu.js';
 import { BottomSheet } from './BottomSheet.js';
 import { InstallPrompt } from './InstallPrompt.js';
-import { ProfileModal } from '../profile/ProfileModal.js';
 import { ChangePasswordSheet } from '../profile/ChangePasswordSheet.js';
-import { QuickPasteModal } from '../apartment/QuickPasteModal.js';
-import { ApartmentModal } from '../apartment/ApartmentModal.js';
 import { LiveToast } from './LiveToast.js';
 import { useRealtimeInventory } from '../../hooks/useRealtimeInventory.js';
 import { saveAdminMode } from '../admin/adminNav.js';
+
+// Story 19.11: hộp chỉ mở khi bấm (Hồ sơ, Nhập tin AI, Đăng tin) tải khi cần → bundle chính nhẹ hơn
+const ProfileModal = lazy(() => import('../profile/ProfileModal.js').then((m) => ({ default: m.ProfileModal })));
+const QuickPasteModal = lazy(() => import('../apartment/QuickPasteModal.js').then((m) => ({ default: m.QuickPasteModal })));
+const ApartmentModal = lazy(() => import('../apartment/ApartmentModal.js').then((m) => ({ default: m.ApartmentModal })));
 
 interface AppContextValue {
   user: User | null;
@@ -99,6 +101,7 @@ export const AppShell: React.FC = () => {
       </div>
 
       {panel === 'account' && accountMenu && <BottomSheet title="Tài khoản" onClose={close}>{accountMenu}</BottomSheet>}
+      <Suspense fallback={null}>
       {panel === 'profile' && user && <ProfileModal user={user} onClose={close} onProfileUpdated={setUser} onChangePassword={() => setPanel('password')} />}
       {panel === 'password' && <ChangePasswordSheet forced={mustChangePassword} onDone={setUser} onClose={close} />}
       {panel === 'quickPaste' && (
@@ -122,6 +125,7 @@ export const AppShell: React.FC = () => {
           onClose={close}
         />
       )}
+      </Suspense>
     </AppContext.Provider>
   );
 };

@@ -44,6 +44,7 @@ export interface ISearchOptions {
 const KM_IN_QUERY = /(\d+(?:[.,]\d+)?)\s*km\b/i;
 const MIN_RADIUS_KM = 0.5;
 const MAX_RADIUS_KM = 20;
+const EARTH_RADIUS_KM = 6378.1; // $centerSphere tính bán kính theo radian
 
 export class SearchService {
   /**
@@ -146,7 +147,8 @@ export class SearchService {
   /**
    * Tìm kiếm bằng câu tự nhiên AI (Story 4.4): Bóc tách thực thể và tự động áp dụng bộ lọc
    */
-  public static async searchNatural(rawQuery: string, options: ISearchOptions) {
+  /** Câu tự nhiên → tiêu chí tìm kiếm (dùng chung cho danh sách và ghim bản đồ — Story 19.7) */
+  public static async naturalOptions(rawQuery: string, options: ISearchOptions) {
     const analysis = await NaturalSearchService.analyze(rawQuery);
     const searchOptions: ISearchOptions = {
       ...options,
@@ -155,7 +157,11 @@ export class SearchService {
       // Giữ các từ khóa có nghĩa chưa được bóc thành tiêu chí (VD tên phường "Mỹ An", tên đường) → vẫn lọc theo chữ
       q: QueryAnalyzer.analyze(rawQuery).cleanedQuery || undefined,
     };
+    return { analysis, searchOptions };
+  }
 
+  public static async searchNatural(rawQuery: string, options: ISearchOptions) {
+    const { analysis, searchOptions } = await this.naturalOptions(rawQuery, options);
     const searchResult = await this.search(searchOptions);
     return {
       ...searchResult,
@@ -210,7 +216,12 @@ export class SearchService {
       }
     } catch (_err) {}
 
-    const candidates = await Apartment.find(filter).limit(100);
+    // Story 19.11: lấy đúng các căn trong bán kính bằng truy vấn địa lý (index 2dsphere) — trước đây lấy 100 căn bất kỳ
+    // rồi mới tính khoảng cách nên bỏ sót căn gần nằm ngoài 100 dòng đầu
+    const candidates = await Apartment.find({
+      ...filter,
+      'location.coordinates': { $geoWithin: { $centerSphere: [coordinates, radiusKm / EARTH_RADIUS_KM] } },
+    }).limit(1000);
     const matched = candidates
       .map((item) => {
         const coords = item.location?.coordinates;

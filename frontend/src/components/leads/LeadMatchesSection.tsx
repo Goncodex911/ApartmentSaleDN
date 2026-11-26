@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LeadMatchedApartment, leadApi } from '../../api/leadApi.js';
+import { Lead, LeadMatchedApartment, leadApi } from '../../api/leadApi.js';
 import { useApp } from '../layout/AppShell.js';
 import { formatVnd } from '../../utils/format.js';
 import { MatchShareModal } from './MatchShareModal.js';
@@ -14,7 +14,7 @@ export const ScoreBadge: React.FC<{ score: number }> = ({ score }) => (
 );
 
 /** Mục "Căn phù hợp" trong chi tiết khách: căn đang trống khớp ≥ 80%, bấm để gửi khách 1 chạm. */
-export const LeadMatchesSection: React.FC<{ leadId: string }> = ({ leadId }) => {
+export const LeadMatchesSection: React.FC<{ leadId: string; onLeadUpdated?: (lead: Lead) => void }> = ({ leadId, onLeadUpdated }) => {
   const { user } = useApp();
   const [matches, setMatches] = useState<LeadMatchedApartment[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -53,7 +53,7 @@ export const LeadMatchesSection: React.FC<{ leadId: string }> = ({ leadId }) => 
           <ChevronRight className="w-4 h-4 text-slate-600 shrink-0" aria-hidden />
         </button>
       ))}
-      {openId && <MatchShareModal apartmentId={openId} leadId={leadId} currentUser={user} onClose={() => setOpenId(null)} />}
+      {openId && <MatchShareModal apartmentId={openId} leadId={leadId} currentUser={user} onClose={() => setOpenId(null)} onShared={onLeadUpdated} />}
     </section>
   );
 };

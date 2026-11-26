@@ -92,7 +92,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, pendingS
 
         {error && <p className="p-2.5 rounded-xl bg-rose-50 text-rose-700 text-xs">{error}</p>}
 
-        {lead.stage !== 'DEPOSITED' && lead.stage !== 'LOST' && <LeadMatchesSection leadId={lead._id} />}
+        {lead.stage !== 'DEPOSITED' && lead.stage !== 'LOST' && <LeadMatchesSection leadId={lead._id} onLeadUpdated={onUpdated} />}
 
         {/* Chuyển giai đoạn 1 chạm */}
         <div className="space-y-2">
