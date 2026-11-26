@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { clientIp } from '../utils/request-context.js';
 
 /**
  * Bộ đếm số lần trong cửa sổ thời gian, lưu trong bộ nhớ (không cài package). Đủ cho 1 instance server;
@@ -42,7 +43,7 @@ interface RateLimitOptions {
  * Giới hạn tần suất: tối đa `max` request trong `windowMs` cho mỗi key (mặc định IP).
  * Lưu ý: chạy sau reverse proxy phải bật TRUST_PROXY để lấy đúng IP khách (xem app.ts).
  */
-export function rateLimit({ windowMs, max, message, key: keyOf = (req) => req.ip || 'unknown', resetOnSuccess, onLimit }: RateLimitOptions) {
+export function rateLimit({ windowMs, max, message, key: keyOf = (req) => clientIp(req) || 'unknown', resetOnSuccess, onLimit }: RateLimitOptions) {
   const counter = createCounter({ windowMs, max });
 
   return (req: Request, res: Response, next: NextFunction): void => {

@@ -1,9 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Apartment, apartmentApi, Pagination } from '../api/apartmentApi.js';
-import { APARTMENT_REALTIME, RealtimeMessage } from '../api/realtimeStream.js';
+import { APARTMENT_REALTIME, RealtimeData, RealtimeMessage } from '../api/realtimeStream.js';
 
 // Nhãn tạm trên thẻ khi căn vừa đổi trong lúc đang xem (Story 11.4) — mất khi tải lại danh sách
 export type LiveTag = 'DEPOSITED' | 'RENTED' | 'PRICE_DROP';
+
+/**
+ * Áp 1 sự kiện real-time (đổi trạng thái / giá / cờ "Chờ xác minh") vào 1 căn — dùng chung cho danh sách và
+ * hộp chi tiết đang mở (Story 19.10: căn mở từ bản đồ không nằm trong trang danh sách hiện tại).
+ */
+export function applyRealtime(item: Apartment, data: RealtimeData): Apartment {
+  // Story 13.6: mọi sự kiện mang cờ "Chờ xác minh" hiện tại (gắn khi đủ 2 người báo, gỡ khi Quản lý xử lý)
+  const verification = data.flagged ? item.verification ?? { flaggedAt: new Date().toISOString(), reasons: [] } : undefined;
+  // CTV nhận căn đã cho thuê không kèm giá → chỉ đổi trạng thái
+  const changes = data.price ? { status: data.status, price: data.price, priceUsd: data.priceUsd } : { status: data.status };
+  return { ...item, verification, ...changes };
+}
 
 // Phát sự kiện này khi kho căn đổi ở nơi khác (VD Nhập tin AI từ menu đáy) → Bảng hàng tự tải lại
 export const APARTMENTS_CHANGED = 'apartments:changed';
@@ -70,7 +82,7 @@ export function toParams(f: ApartmentFilterValues, page: number) {
  *   AI không bóc được (VD tên phường "Mỹ An") để lọc thêm. Lỗi (VD quá giới hạn) → tìm theo từ khóa.
  * - Có cả câu tìm và bộ lọc: tìm theo từ khóa kết hợp bộ lọc.
  */
-export function useApartmentSearch() {
+export function useApartmentSearch(enabled = true) {
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<ApartmentFilterValues>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
@@ -83,6 +95,8 @@ export function useApartmentSearch() {
   const [liveTags, setLiveTags] = useState<Record<string, LiveTag>>({});
 
   useEffect(() => {
+    // Story 19.7: chế độ Bản đồ không hiện danh sách → không tải (không tốn lượt Gemini); quay lại danh sách mới tải
+    if (!enabled) return;
     let cancelled = false; // Bỏ kết quả của request cũ khi người dùng đổi điều kiện nhanh
     const params = toParams(filters, page);
 
@@ -112,7 +126,7 @@ export function useApartmentSearch() {
     return () => {
       cancelled = true;
     };
-  }, [query, filters, page, reloadKey]);
+  }, [query, filters, page, reloadKey, enabled]);
 
   const search = useCallback((text: string) => {
     setQuery(text.trim());
@@ -142,13 +156,9 @@ export function useApartmentSearch() {
     const onRealtime = (event: Event) => {
       const { type, data } = (event as CustomEvent<RealtimeMessage>).detail;
       if (type !== 'apartment.status' && type !== 'apartment.price' && type !== 'apartment.flagged') return;
-      // Story 13.6: mọi sự kiện mang cờ "Chờ xác minh" hiện tại (gắn khi đủ 2 người báo, gỡ khi Quản lý xử lý)
-      const withFlag = (item: Apartment) => ({ ...item, verification: data.flagged ? item.verification ?? { flaggedAt: new Date().toISOString(), reasons: [] } : undefined });
       const tag: LiveTag | undefined = type === 'apartment.price' ? 'PRICE_DROP' : data.status === 'DEPOSITED' || data.status === 'RENTED' ? data.status : undefined;
       if (type !== 'apartment.flagged') setLiveTags(({ [data.id]: _previous, ...rest }) => (tag ? { ...rest, [data.id]: tag } : rest));
-      // CTV nhận căn đã cho thuê không kèm giá → chỉ đổi trạng thái
-      const changes = data.price ? { status: data.status, price: data.price, priceUsd: data.priceUsd } : { status: data.status };
-      setApartments((list) => list.map((item) => (item._id === data.id ? { ...withFlag(item), ...changes } : item)));
+      setApartments((list) => list.map((item) => (item._id === data.id ? applyRealtime(item, data) : item)));
     };
     window.addEventListener(APARTMENT_REALTIME, onRealtime);
     return () => window.removeEventListener(APARTMENT_REALTIME, onRealtime);

@@ -3,97 +3,71 @@ import { User } from '../api/authApi.js';
 import { priceShort } from './priceShort.js';
 import { propertyTypeLabel } from './danang.js';
 import { resolveSpintax, SPINTAX_TEMPLATES, generateDanangHashtags } from './spintax.js';
+import { highlightsOf, placeOf } from './shareFacts.js';
 
 export type ZaloPostTone = 'deal' | 'professional' | 'short';
 
-export interface GenerateZaloOptions {
-  tone?: ZaloPostTone;
-}
-
 /**
  * Trình tạo bài đăng Zalo thông minh kết hợp Spintax Engine (Story 17.2).
- * Giữ nguyên các thông số cốt lõi: Giá, SĐT, Tên CTV, Link xem phòng.
+ * Story 19.1: `link` là link chia sẻ thật của CTV (`/p/<slug>-<mã>`) — mở được trang căn, ghi nhận lượt xem;
+ * vị trí chỉ gồm tên đường + khu vực; tiện ích lấy từ dữ liệu thật của căn.
  */
-export function generateZaloPost(
-  apartment: Apartment,
-  ctv: User | null,
-  options: GenerateZaloOptions = {}
-): string {
-  const tone = options.tone || 'deal';
+export function generateZaloPost(apartment: Apartment, ctv: User | null, link: string, tone: ZaloPostTone = 'deal'): string {
+  const { street, area } = placeOf(apartment);
   const zone = apartment.location?.zone || '';
-  const street = apartment.location?.street || apartment.location?.address || 'Đà Nẵng';
+  const place = street ? `${street}${area ? ` - ${area}` : ''}` : area || 'Đà Nẵng';
   const pType = propertyTypeLabel(apartment.attributes?.propertyType);
-  const priceDisplay = priceShort(apartment.price, apartment.priceUsd);
-  const formattedPrice = apartment.price ? `${apartment.price.toLocaleString('vi-VN')} đ/tháng` : priceDisplay;
+  const formattedPrice = apartment.price ? `${apartment.price.toLocaleString('vi-VN')} đ/tháng` : priceShort(apartment.price, apartment.priceUsd);
   const ctvPhone = ctv?.zaloPhone || ctv?.phone || '09xx xxx xxx';
   const ctvName = ctv?.name || 'Em';
-  const ctvCode = ctv?.ctvCode || '';
-
-  // Link xem phòng công khai
-  const clientBase = typeof window !== 'undefined' ? window.location.origin : 'https://apartmentsaledn.netlify.app';
-  const publicLink = apartment._id
-    ? `${clientBase}/p/${apartment._id}${ctvCode ? `?ctv=${encodeURIComponent(ctvCode)}` : ''}`
-    : '';
-
+  const highlights = highlightsOf(apartment, 'vi');
   const zoneHighlight = SPINTAX_TEMPLATES.locationHighlights[zone] || '{vị trí trung tâm thuận tiện | khu vực dân trí cao an ninh}';
   const hashtags = generateDanangHashtags(zone);
 
   if (tone === 'short') {
-    // Phong cách Ngắn gọn (Micro-post 4-5 dòng)
-    const rawShort = `
-{🏠 | ⚡ | 🔥} ${pType} - ${street}${zone ? ` (${zone})` : ''}
+    return resolveSpintax(`
+{🏠 | ⚡ | 🔥} ${pType} - ${place}
 💰 {Giá chỉ: | Giá: | Giá thuê:} ${formattedPrice}
-✨ {Full nội thất xách vali vào ở | Phòng đẹp ban công thoáng mát | Bếp riêng, máy giặt riêng}
-${publicLink ? `👉 Xem ảnh & video chi tiết: ${publicLink}\n` : ''}📞 Zalo/Call: ${ctvPhone} (${ctvName})
-    `.trim();
-    return resolveSpintax(rawShort);
+${highlights.length ? `✨ ${highlights.slice(0, 3).join(', ')}\n` : ''}👉 Xem ảnh & video chi tiết: ${link}
+📞 Zalo/Call: ${ctvPhone} (${ctvName})
+    `);
   }
 
+  const list = (bullet: string) => highlights.map((item) => `${bullet} ${item}`).join('\n');
+
   if (tone === 'professional') {
-    // Phong cách Chuyên nghiệp
     const heading = SPINTAX_TEMPLATES.proHeadings[Math.floor(Math.random() * SPINTAX_TEMPLATES.proHeadings.length)];
-    const rawPro = `
+    return resolveSpintax(`
 ${heading} ${zone ? zone.toUpperCase() : 'ĐÀ NẴNG'}
 
-📍 Vị trí: Đường ${street}, ${zone ? `khu vực ${zone}, ` : ''}Đà Nẵng (${zoneHighlight})
+📍 Vị trí: ${street ? `Đường ${street}, ` : ''}${area ? `khu vực ${area}, ` : ''}Đà Nẵng (${zoneHighlight})
 🏢 Loại căn: ${pType}${apartment.attributes?.area ? ` (${apartment.attributes.area}m²)` : ''}
 💵 Giá thuê niêm yết: ${formattedPrice}
+${highlights.length ? `\n📋 {THÔNG TIN DỊCH VỤ & TIỆN NGHI: | TIỆN ÍCH CĂN HỘ:}\n${list('-')}\n` : ''}
+🔗 Chi tiết mặt bằng, hình ảnh & video tour:
+${link}
 
-📋 {THÔNG TIN DỊCH VỤ & TIỆN NGHI: | TIỆN ÍCH TÒA NHÀ:}
-- ${SPINTAX_TEMPLATES.furnitureVariants[0]}
-- ${SPINTAX_TEMPLATES.furnitureVariants[1]}
-- ${SPINTAX_TEMPLATES.furnitureVariants[2]}
-- ${SPINTAX_TEMPLATES.furnitureVariants[3]}
-${apartment.attributes?.allowPets ? '- 🐾 Cho phép nuôi thú cưng (Pet-friendly)\n' : ''}
-${publicLink ? `🔗 Chi tiết mặt bằng, hình ảnh & video tour:\n${publicLink}\n` : ''}
 ${SPINTAX_TEMPLATES.ctaVariants[1]} ${ctvPhone} (${ctvName})
 
 ${hashtags}
-    `.trim();
-    return resolveSpintax(rawPro);
+    `);
   }
 
   // Phong cách Bắt Mắt / Hot Deal (Mặc định)
   const heading = SPINTAX_TEMPLATES.dealHeadings[Math.floor(Math.random() * SPINTAX_TEMPLATES.dealHeadings.length)];
-  const rawDeal = `
+  return resolveSpintax(`
 ${heading} 💥
 
-🏡 Căn hộ ${pType} cực xinh tại ${street}${zone ? ` - ${zone}` : ''}
-📍 Vị trí đắc địa: ${zoneHighlight}
-💰 {Giá thuê hấp dẫn chỉ: | Giá thuê sốc: | Chỉ từ:} ${formattedPrice}
+🏡 ${pType} tại ${place}
+📍 Vị trí: ${zoneHighlight}
+💰 {Giá thuê hấp dẫn chỉ: | Giá thuê: | Chỉ từ:} ${formattedPrice}
+${highlights.length ? `\n🌟 {Điểm cộng nổi bật: | Tiện nghi:}\n${list('✔')}\n` : ''}
+📸 Xem trọn bộ ảnh gốc & video phòng tại đây:
+👉 ${link}
 
-🌟 {Ưu điểm vượt trội: | Điểm cộng nổi bật: | Tiện nghi đầy đủ:}
-✔ ${SPINTAX_TEMPLATES.furnitureVariants[0]}
-✔ ${SPINTAX_TEMPLATES.furnitureVariants[1]}
-✔ ${SPINTAX_TEMPLATES.furnitureVariants[2]}
-✔ ${SPINTAX_TEMPLATES.furnitureVariants[3]}
-${apartment.attributes?.allowPets ? '✔ 🐾 Nhận thú cưng ngoan ngoãn\n' : ''}
-${publicLink ? `📸 Xem trọn bộ ảnh gốc & video phòng tại đây:\n👉 ${publicLink}\n` : ''}
 ${SPINTAX_TEMPLATES.ctaVariants[0]}
 📞 Hotline/Zalo: ${ctvPhone} (${ctvName})
 
 ${hashtags}
-  `.trim();
-
-  return resolveSpintax(rawDeal);
+  `);
 }

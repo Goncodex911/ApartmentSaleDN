@@ -7,6 +7,7 @@ import {
   renewLeaseSchema,
   addSubListingSchema,
   uploadSignatureSchema,
+  calibrateLocationSchema,
 } from './apartment.validation.js';
 import { AuthRequest } from '../../middlewares/auth.js';
 import { asyncHandler } from '../../utils/async-handler.js';
@@ -141,7 +142,7 @@ export class ApartmentController {
   // Story 17.6: Căn chỉnh vị trí 1-chạm
   static calibrateLocation = asyncHandler(async (req, res) => {
     const id = apartmentId(req);
-    const { coordinates } = req.body || {};
+    const { coordinates } = calibrateLocationSchema.parse(req.body);
     const data = await ApartmentService.calibrateLocation(id, coordinates, auditActor(req));
     res.status(200).json({ success: true, message: 'Đã chuẩn hóa vị trí chính xác', data });
   });

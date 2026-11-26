@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type * as Leaflet from 'leaflet';
 import { Check, Layers, LocateFixed, Loader2, MapPin, X } from 'lucide-react';
-import { DANANG_CENTER, TILE_ATTRIBUTION, TILE_URL } from '../../utils/mapTiles.js';
+import { DANANG_LNG_LAT, TILE_ATTRIBUTION, TILE_URL, isLngLat } from '../../utils/mapTiles.js';
 import { reverseGeocodeDanang } from '../../utils/reverseGeocoding.js';
 import { Zone } from '../../utils/danang.js';
 
@@ -24,7 +24,9 @@ interface LocationPickerProps {
  * - Bắt GPS hiện tại nơi môi giới đứng khảo sát.
  * - Tự động phân giải tên đường / khu vực (Reverse Geocoding).
  */
-export const LocationPicker: React.FC<LocationPickerProps> = ({ initial, onConfirm, onClose }) => {
+export const LocationPicker: React.FC<LocationPickerProps> = ({ initial: rawInitial, onConfirm, onClose }) => {
+  // [kinh độ, vĩ độ]; mảng rỗng / sai → coi như chưa có vị trí (Story 19.3)
+  const initial = isLngLat(rawInitial) ? rawInitial : undefined;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
   const tileLayerRef = useRef<Leaflet.TileLayer | null>(null);
@@ -33,14 +35,15 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ initial, onConfi
   const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [mapType, setMapType] = useState<'STREET' | 'SATELLITE'>('STREET');
-  const [centerCoords, setCenterCoords] = useState<[number, number]>(() => initial || DANANG_CENTER);
+  const [centerCoords, setCenterCoords] = useState<[number, number]>(() => initial || DANANG_LNG_LAT);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let disposed = false;
     Promise.all([import('leaflet'), import('leaflet/dist/leaflet.css')]).then(([{ default: L }]) => {
       if (disposed || !containerRef.current) return;
-      const initialPos = initial ? [initial[1], initial[0]] as [number, number] : [DANANG_CENTER[1], DANANG_CENTER[0]] as [number, number];
+      const start = initial || DANANG_LNG_LAT;
+      const initialPos: [number, number] = [start[1], start[0]];
       const map = L.map(containerRef.current, { zoomControl: false }).setView(initialPos, initial ? 18 : 14);
 
       const layer = L.tileLayer(TILE_URL, { maxZoom: 20, attribution: TILE_ATTRIBUTION }).addTo(map);

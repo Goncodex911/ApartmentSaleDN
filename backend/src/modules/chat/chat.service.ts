@@ -37,7 +37,7 @@ async function suggestApartments(session: IChatSession): Promise<IChatSuggestion
     zones: zones.length ? zones : undefined,
     district: zones.length ? undefined : districts[0],
     maxPrice: budgetVnd ? Math.round(budgetVnd * 1.05) : undefined,
-    bedrooms: bedrooms || undefined,
+    bedrooms: bedrooms ?? undefined, // Story 19.6: giữ 0 (Studio)
     allowPets: allowPets || undefined,
     carParking: carParking || undefined,
     status: 'AVAILABLE',

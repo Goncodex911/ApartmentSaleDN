@@ -5,11 +5,11 @@ import { PullIndicator } from '../components/layout/PullIndicator.js';
 import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
 import { tapFeedback } from '../utils/haptics.js';
 import { Apartment, MapPin, apartmentApi } from '../api/apartmentApi.js';
-import { useApartmentSearch, EMPTY_FILTERS, countActiveFilters } from '../hooks/useApartmentSearch.js';
+import { useApartmentSearch, EMPTY_FILTERS, countActiveFilters, applyRealtime } from '../hooks/useApartmentSearch.js';
+import { APARTMENT_REALTIME, RealtimeMessage } from '../api/realtimeStream.js';
 import { activeChips } from '../components/apartment/filterChips.js';
 import { ApartmentCard } from '../components/apartment/ApartmentCard.js';
 import { ApartmentDetailModal } from '../components/apartment/ApartmentDetailModal.js';
-import { ApartmentModal } from '../components/apartment/ApartmentModal.js';
 import { FilterSheet } from '../components/apartment/FilterSheet.js';
 import { Search, SlidersHorizontal, X, Plus, RotateCcw, WifiOff } from 'lucide-react';
 import { ListingsHeader, ListingView, readListingView, saveListingView } from '../components/apartment/ListingsHeader.js';
@@ -23,11 +23,16 @@ import { AnnouncementBanner } from '../components/layout/AnnouncementBanner.js';
 
 // Story 11.2: bản đồ + Leaflet chỉ tải khi bấm "Bản đồ" lần đầu
 const MapPanel = lazy(() => import('../components/map/MapPanel.js'));
+// Story 19.11: form thêm / sửa căn tải khi mở
+const ApartmentModal = lazy(() => import('../components/apartment/ApartmentModal.js').then((m) => ({ default: m.ApartmentModal })));
 
 export const ApartmentsPage: React.FC = () => {
   const { user: currentUser, openQuickPaste, openSubmit } = useApp(); // AppShell: người dùng + hộp Nhập tin AI / Đăng tin dùng chung
+  const [view, setView] = useState<ListingView>(readListingView);
+  const [mapTotal, setMapTotal] = useState(0); // Story 19.7: chế độ Bản đồ đếm theo số ghim
+  // Story 19.7: chế độ Bản đồ không tải danh sách (bản đồ tự tìm theo cùng điều kiện)
   const { apartments, liveTags, pagination, status, query, filters, aiSummary, search, applyFilters, setPage, reload, removeApartment } =
-    useApartmentSearch();
+    useApartmentSearch(view !== 'map');
   const pullState = usePullToRefresh(reload); // Story 9.4: kéo xuống ở đầu trang để tải lại (app đã cài)
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,7 +40,6 @@ export const ApartmentsPage: React.FC = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedApartment, setSelectedApartment] = useState<Apartment | null>(null);
   const [editingApartment, setEditingApartment] = useState<Apartment | null | undefined>(undefined); // undefined = đóng form
-  const [view, setView] = useState<ListingView>(readListingView);
   const tour = useTourSelection(); // Story 11.3: chọn căn dẫn khách (dùng chung danh sách & bản đồ)
 
   const pickForTour = (id: string, label: string) => {
@@ -57,6 +61,18 @@ export const ApartmentsPage: React.FC = () => {
     setView(next);
     saveListingView(next);
   };
+  // Story 19.10: hộp chi tiết đang mở nhận cập nhật real-time theo mã căn (kể cả căn mở từ bản đồ, không có trong trang danh sách)
+  const openedId = selectedApartment?._id;
+  useEffect(() => {
+    if (!openedId) return;
+    const onRealtime = (event: Event) => {
+      const { type, data } = (event as CustomEvent<RealtimeMessage>).detail;
+      if (data.id !== openedId || (type !== 'apartment.status' && type !== 'apartment.price' && type !== 'apartment.flagged')) return;
+      setSelectedApartment((current) => current && applyRealtime(current, data));
+    };
+    window.addEventListener(APARTMENT_REALTIME, onRealtime);
+    return () => window.removeEventListener(APARTMENT_REALTIME, onRealtime);
+  }, [openedId]);
   // Mở chi tiết theo mã căn (ghim bản đồ, thông báo nhắc tái ký): tải đủ thông tin rồi mở hộp chi tiết dùng chung
   const openById = (id: string) =>
     apartmentApi
@@ -109,7 +125,7 @@ export const ApartmentsPage: React.FC = () => {
       <main className="max-w-5xl mx-auto px-4 pt-4 pb-app space-y-3" style={{ '--map-extra': query || chips.length ? '44px' : '0px' } as React.CSSProperties}>
         <AnnouncementBanner /> {/* Story 16.9: thông báo chung từ Admin */}
         <ListingsHeader
-          total={pagination.total}
+          total={view === 'map' ? mapTotal : pagination.total}
           view={view}
           onViewChange={changeView}
           tourActive={tour.active}
@@ -170,7 +186,7 @@ export const ApartmentsPage: React.FC = () => {
 
         {view === 'map' ? (
           <Suspense fallback={<div className="-mx-4 sm:mx-0 h-map bg-slate-200/70 animate-pulse motion-reduce:animate-none" aria-busy="true" />}>
-            <MapPanel filters={filters} query={query} hasFilters={filterCount > 0} onClearFilters={() => applyFilters(EMPTY_FILTERS)} onOpen={openById} pinActions={tourAction} />
+            <MapPanel filters={filters} query={query} hasFilters={filterCount > 0} onClearFilters={() => applyFilters(EMPTY_FILTERS)} onOpen={openById} pinActions={tourAction} onCount={setMapTotal} />
           </Suspense>
         ) : status === 'loading' ? (
           // Story 12.5: khung chờ đúng hình thẻ của kiểu xem đang chọn
@@ -244,7 +260,11 @@ export const ApartmentsPage: React.FC = () => {
         onDelete={handleDelete}
       />
       {/* Chỉ mount modal khi mở → form reset mỗi lần mở */}
-      {editingApartment !== undefined && <ApartmentModal initialData={editingApartment} onClose={() => setEditingApartment(undefined)} onSuccess={reload} />}
+      {editingApartment !== undefined && (
+        <Suspense fallback={null}>
+          <ApartmentModal initialData={editingApartment} onClose={() => setEditingApartment(undefined)} onSuccess={reload} />
+        </Suspense>
+      )}
     </>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { formatVnd } from '../../utils/format.js';
 import { Apartment, apartmentApi } from '../../api/apartmentApi.js';
 import { Lead, LeadMatch, leadApi } from '../../api/leadApi.js';
@@ -15,10 +15,11 @@ interface MatchShareModalProps {
   leadId: string;
   currentUser: User | null;
   onClose: () => void;
+  onShared?: (lead: Lead) => void; // Story 19.10: chi tiết khách bên dưới cập nhật ghi chú ngay
 }
 
 // Bấm thông báo ghép căn → gửi căn cho khách trong 1 chạm (Story 6.3 - AC3)
-export const MatchShareModal: React.FC<MatchShareModalProps> = ({ apartmentId, leadId, currentUser, onClose }) => {
+export const MatchShareModal: React.FC<MatchShareModalProps> = ({ apartmentId, leadId, currentUser, onClose, onShared }) => {
   const [data, setData] = useState<{ apartment: Apartment; lead: Lead; match: LeadMatch | null } | null>(null);
   const [error, setError] = useState('');
 
@@ -27,11 +28,20 @@ export const MatchShareModal: React.FC<MatchShareModalProps> = ({ apartmentId, l
     Promise.all([apartmentApi.getApartmentById(apartmentId), leadApi.getById(leadId), leadApi.getMatchScore(leadId, apartmentId).catch(() => null)])
       .then(([apartmentRes, lead, match]) => {
         setData({ apartment: apartmentRes.data, lead, match });
-        // Ghi lại vào lịch sử khách để CTV biết đã xem/gửi căn nào (không chặn giao diện nếu lỗi)
-        leadApi.addNote(leadId, `Đã xem căn gợi ý: ${apartmentRes.data.title}`).catch(() => undefined);
       })
       .catch(() => setError('Căn hộ hoặc khách hàng không còn tồn tại'));
   }, [apartmentId, leadId]);
+
+  // Story 19.10: chỉ ghi lịch sử khách khi CTV THỰC SỰ gửi / sao chép căn (mở xem thử không ghi), tối đa 1 lần mỗi lần mở
+  const noted = useRef(false);
+  const recordShare = () => {
+    if (noted.current || !data) return;
+    noted.current = true;
+    leadApi
+      .addNote(leadId, `Đã gửi căn gợi ý: ${data.apartment.title}`)
+      .then((lead) => onShared?.(lead))
+      .catch(() => undefined);
+  };
 
   const thumbnail = data?.apartment.images.find((url) => !data.apartment.hiddenImages?.includes(url));
 
@@ -69,7 +79,7 @@ export const MatchShareModal: React.FC<MatchShareModalProps> = ({ apartmentId, l
               {!!data.match?.reasons.length && <p className="mt-1 text-emerald-800">{data.match.reasons.join(' · ')}</p>}
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2" onClickCapture={recordShare}>
               <CopyShareButton apartment={data.apartment} ctv={currentUser} />
               <ShareLinkButton apartmentId={data.apartment._id} />
               {data.lead.phone && (

@@ -9,6 +9,19 @@ const SPIN_MS = 800;
 const hasOverlay = () => !!document.querySelector('.fixed.inset-0');
 
 /**
+ * Story 19.10: chạm bắt đầu trong vùng cuộn con (cột Kanban đã cuộn, dải ảnh / chip cuộn ngang) → không kéo làm mới,
+ * để thao tác cuộn của vùng đó không bị nuốt.
+ */
+function insideScrollableChild(target: EventTarget | null): boolean {
+  for (let el = target instanceof Element ? target : null; el && el !== document.body; el = el.parentElement) {
+    if (el.scrollTop > 0) return true;
+    const { overflowX } = getComputedStyle(el);
+    if ((overflowX === 'auto' || overflowX === 'scroll') && el.scrollWidth > el.clientWidth) return true;
+  }
+  return false;
+}
+
+/**
  * Kéo xuống ở đầu trang để tải lại (Story 9.4). Chỉ bật khi chạy dạng app đã cài:
  * trong trình duyệt, Chrome Android đã có kéo-làm-mới riêng → tránh tải 2 lần.
  * `force` = bật cả trong trình duyệt (dùng khi kiểm thử).
@@ -23,7 +36,7 @@ export function usePullToRefresh(onRefresh: () => void, force = false) {
     let distance = 0;
 
     const onStart = (e: TouchEvent) => {
-      startY = window.scrollY <= 0 && !hasOverlay() ? e.touches[0].clientY : null;
+      startY = window.scrollY <= 0 && !hasOverlay() && !insideScrollableChild(e.target) ? e.touches[0].clientY : null;
       distance = 0;
     };
     const onMove = (e: TouchEvent) => {

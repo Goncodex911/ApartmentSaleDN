@@ -75,7 +75,8 @@ export class FilterBuilder {
           ],
         });
       }
-    } else if (options.bedrooms) {
+    } else if (options.bedrooms !== undefined && options.bedrooms !== null && String(options.bedrooms) !== '' && Number.isFinite(Number(options.bedrooms))) {
+      // Story 19.6: 0 (Studio) là giá trị lọc hợp lệ
       filter['attributes.bedrooms'] = Number(options.bedrooms);
     }
 

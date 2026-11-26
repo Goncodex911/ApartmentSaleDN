@@ -1,16 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
-import {
-  ExternalLink,
-  MessageCircle,
-  Send,
-  Share2,
-  Sparkles,
-  Globe,
-  Loader2,
-} from 'lucide-react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { AlertCircle, ExternalLink, Globe, Loader2, Send, Share2, Sparkles, X } from 'lucide-react';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
-import { dispatchZaloShare, dispatchWhatsAppShare } from '../../utils/shareChannel.js';
+import { shareApi, ShareLinkInfo } from '../../api/shareApi.js';
+import { dispatchWhatsAppShare, dispatchZaloShare, zaloOpenUrl } from '../../utils/shareChannel.js';
 import { ZaloPostStudioModal } from './ZaloPostStudioModal.js';
 import { WhatsAppPreviewModal } from './WhatsAppPreviewModal.js';
 
@@ -20,74 +14,113 @@ interface MultiChannelSharePopoverProps {
   compact?: boolean; // Hiển thị nút gọn trong ApartmentCard
 }
 
-export const MultiChannelSharePopover: React.FC<MultiChannelSharePopoverProps> = ({
-  apartment,
-  ctv,
-  compact,
-}) => {
+const MENU_WIDTH = 256;
+const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+
+/**
+ * Story 19.8: menu / modal / thông báo đưa ra document.body (không bị overflow-hidden của thẻ căn cắt mất).
+ * Sự kiện React vẫn nổi bọt theo cây component kể cả qua portal → bọc chặn click + phím,
+ * bấm / gõ Enter trong modal không mở nhầm chi tiết căn hay chọn căn vào Tour.
+ */
+const Layer: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+  createPortal(
+    <div onClick={stop} onKeyDown={stop} onPointerDown={stop}>
+      {children}
+    </div>,
+    document.body
+  );
+
+type Toast = { text: string; tone: 'ok' | 'error'; openZalo?: boolean };
+
+export const MultiChannelSharePopover: React.FC<MultiChannelSharePopoverProps> = ({ apartment, ctv, compact }) => {
   const [open, setOpen] = useState(false);
-  const [loadingZalo, setLoadingZalo] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [position, setPosition] = useState<React.CSSProperties>({});
+  const [link, setLink] = useState<ShareLinkInfo | null>(null);
+  const [linkError, setLinkError] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const [modal, setModal] = useState<'zalo' | 'whatsapp' | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const [showZaloStudio, setShowZaloStudio] = useState(false);
-  const [showWhatsAppPreview, setShowWhatsAppPreview] = useState(false);
+  // Story 19.1: tạo link chia sẻ thật ngay khi mở menu → lúc bấm Zalo / WhatsApp đã có sẵn, thao tác chạy trọn trong cú bấm
+  const loadLink = () => {
+    setLinkError(false);
+    shareApi
+      .getLink(apartment._id)
+      .then(setLink)
+      .catch(() => setLinkError(true));
+  };
 
-  const popoverRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    if (open) {
-      document.addEventListener('mousedown', handleOutsideClick);
-    }
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  // Đặt menu sát nút, luôn nằm trọn trong màn hình (màn hẹp 360px không bị cắt); thiếu chỗ phía trên thì mở xuống dưới
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const left = Math.min(Math.max(8, rect.right - MENU_WIDTH), window.innerWidth - MENU_WIDTH - 8);
+    setPosition(rect.top > 280 ? { left, bottom: window.innerHeight - rect.top + 8 } : { left, top: rect.bottom + 8 });
   }, [open]);
 
-  // Hành động 1-Chạm Đăng Zalo
-  const handleQuickZalo = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setLoadingZalo(true);
-    setOpen(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => {
+      const target = e.target as Node;
+      if (!menuRef.current?.contains(target) && !triggerRef.current?.contains(target)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('pointerdown', close);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      document.removeEventListener('pointerdown', close);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [open]);
 
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), toast.openZalo ? 8000 : 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!open && !link) loadLink();
+    setOpen((prev) => !prev);
+  };
+
+  const quickZalo = async () => {
+    if (!link) return;
+    setOpen(false);
+    setBusy(true);
     try {
-      const res = await dispatchZaloShare(apartment, ctv);
-      setToast(`Đã sao chép bài & tải ${res.photosDownloaded} ảnh! Hãy mở Zalo dán bài.`);
-      setTimeout(() => setToast(null), 3500);
+      const { photosDownloaded, photosTotal } = await dispatchZaloShare(apartment, ctv, link);
+      const photoText = photosTotal ? ` và tải ${photosDownloaded}/${photosTotal} ảnh` : '';
+      setToast({ text: `Đã sao chép bài${photoText}. Mở Zalo rồi dán bài.`, tone: 'ok', openZalo: true });
     } catch {
-      setToast('Lỗi khi chuẩn bị bài đăng.');
-      setTimeout(() => setToast(null), 2500);
+      setToast({ text: 'Không chuẩn bị được bài đăng, vui lòng thử lại.', tone: 'error' });
     } finally {
-      setLoadingZalo(false);
+      setBusy(false);
     }
   };
 
-  // Hành động 1-Chạm Gửi WhatsApp
-  const handleQuickWhatsApp = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const quickWhatsApp = () => {
+    if (!link) return;
     setOpen(false);
-    dispatchWhatsAppShare(apartment, ctv);
+    dispatchWhatsAppShare(apartment, ctv, link);
   };
 
-  return (
-    <div className="relative inline-block" ref={popoverRef}>
-      {/* Toast thông báo nổi */}
-      {toast && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[70] px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold shadow-2xl border border-slate-700 animate-in fade-in slide-in-from-top-2">
-          {toast}
-        </div>
-      )}
+  const item = 'w-full flex items-center gap-2 min-h-11 px-3 py-2 rounded-xl text-left transition-colors disabled:opacity-50 disabled:pointer-events-none';
 
-      {/* Nút kích hoạt Popover */}
+  return (
+    <>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((prev) => !prev);
-        }}
+        onClick={toggle}
         disabled={apartment.status === 'RENTED' || !ctv}
+        aria-haspopup="menu"
+        aria-expanded={open}
         title="Chia sẻ đa kênh (Zalo, WhatsApp...)"
         className={`inline-flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold transition-colors ${
           compact
@@ -95,108 +128,95 @@ export const MultiChannelSharePopover: React.FC<MultiChannelSharePopoverProps> =
             : 'h-11 px-3 bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'
         } disabled:opacity-40 disabled:cursor-not-allowed`}
       >
-        {loadingZalo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+        {busy ? <Loader2 className="w-4 h-4 motion-safe:animate-spin" aria-hidden /> : <Share2 className="w-4 h-4" aria-hidden />}
         {!compact && 'Đăng bài'}
       </button>
 
-      {/* Menu thả xuống */}
       {open && (
-        <div
-          role="menu"
-          className="absolute right-0 bottom-full mb-2 w-64 rounded-2xl bg-white border border-slate-200/80 shadow-2xl z-50 p-1.5 text-xs font-medium divide-y divide-slate-100 animate-in fade-in zoom-in-95"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Nhóm Đăng Nhanh 1-Chạm */}
-          <div className="p-1 space-y-1">
-            <div className="px-2 py-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-              Chia sẻ 1-Chạm Siêu Tốc
+        <Layer>
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{ ...position, width: MENU_WIDTH }}
+            className="fixed z-[60] rounded-2xl bg-white border border-slate-200/80 shadow-2xl p-1.5 text-xs font-medium divide-y divide-slate-100 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95"
+          >
+            {!link && (
+              <p className="flex items-center gap-2 px-3 py-2 text-slate-600" aria-live="polite">
+                {linkError ? (
+                  <>
+                    <AlertCircle className="w-4 h-4 text-rose-600" aria-hidden /> Không tạo được link.
+                    <button type="button" onClick={loadLink} className="ml-auto min-h-9 px-2 font-semibold text-indigo-700">Thử lại</button>
+                  </>
+                ) : (
+                  <>
+                    <Loader2 className="w-4 h-4 motion-safe:animate-spin" aria-hidden /> Đang tạo link xem phòng...
+                  </>
+                )}
+              </p>
+            )}
+            <div className="p-1 space-y-1">
+              <p className="px-2 py-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">Chia sẻ 1-chạm</p>
+              <button type="button" role="menuitem" onClick={quickZalo} disabled={!link} className={`${item} justify-between text-slate-800 hover:bg-blue-50`}>
+                <span className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-md bg-[#0068ff] text-white grid place-items-center font-bold text-[10px]" aria-hidden>Z</span>
+                  <span>
+                    <span className="block font-semibold text-slate-900">Đăng Zalo 1-chạm</span>
+                    <span className="block text-[10px] text-slate-600">Copy bài + tải 4 ảnh</span>
+                  </span>
+                </span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-600" aria-hidden />
+              </button>
+              <button type="button" role="menuitem" onClick={quickWhatsApp} disabled={!link} className={`${item} justify-between text-slate-800 hover:bg-emerald-50`}>
+                <span className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-md bg-[#25d366] text-white grid place-items-center" aria-hidden><Send className="w-3.5 h-3.5" /></span>
+                  <span>
+                    <span className="block font-semibold text-slate-900">Gửi WhatsApp (tiếng Anh)</span>
+                    <span className="block text-[10px] text-slate-600">Giá USD + gần biển</span>
+                  </span>
+                </span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-600" aria-hidden />
+              </button>
             </div>
+            <div className="p-1 pt-1 space-y-0.5">
+              <button type="button" role="menuitem" disabled={!link} onClick={() => { setOpen(false); setModal('zalo'); }} className={`${item} text-slate-700 hover:bg-slate-100`}>
+                <Sparkles className="w-4 h-4 text-amber-500" aria-hidden /> Zalo Studio (đổi giọng văn)
+              </button>
+              <button type="button" role="menuitem" disabled={!link} onClick={() => { setOpen(false); setModal('whatsapp'); }} className={`${item} text-slate-700 hover:bg-slate-100`}>
+                <Globe className="w-4 h-4 text-emerald-600" aria-hidden /> Xem trước bản WhatsApp
+              </button>
+            </div>
+          </div>
+        </Layer>
+      )}
 
-            <button
-              type="button"
-              role="menuitem"
-              onClick={handleQuickZalo}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-slate-800 hover:bg-blue-50 hover:text-[#0068ff] transition-colors text-left"
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-[#0068ff] text-white flex items-center justify-center font-bold text-[10px]">
-                  Z
-                </div>
-                <div>
-                  <div className="font-semibold text-slate-900">Đăng Zalo 1-Chạm</div>
-                  <div className="text-[10px] text-slate-600">Copy bài + Tải 4 ảnh + Mở Zalo</div>
-                </div>
-              </div>
-              <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
-            </button>
-
-            <button
-              type="button"
-              role="menuitem"
-              onClick={handleQuickWhatsApp}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 transition-colors text-left"
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-[#25d366] text-white flex items-center justify-center">
-                  <Send className="w-3.5 h-3.5" />
-                </div>
-                <div>
-                  <div className="font-semibold text-slate-900">Gửi WhatsApp (Tiếng Anh)</div>
-                  <div className="text-[10px] text-slate-600">Chuẩn Expat + Giá USD + Gần biển</div>
-                </div>
-              </div>
-              <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
+      {toast && (
+        <Layer>
+          <div
+            role={toast.tone === 'error' ? 'alert' : 'status'}
+            className="fixed top-16 inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-3 rounded-2xl bg-slate-900 text-white text-sm shadow-2xl"
+          >
+            <span className="flex-1">{toast.text}</span>
+            {toast.openZalo && (
+              <a href={zaloOpenUrl()} target="_blank" rel="noopener noreferrer" onClick={() => setToast(null)} className="shrink-0 min-h-11 px-3 grid place-items-center rounded-xl bg-[#0068ff] font-semibold">
+                Mở Zalo
+              </a>
+            )}
+            <button type="button" onClick={() => setToast(null)} aria-label="Đóng thông báo" className="shrink-0 w-9 h-9 grid place-items-center rounded-lg text-slate-300 hover:text-white">
+              <X className="w-4 h-4" aria-hidden />
             </button>
           </div>
-
-          {/* Nhóm Tùy Chỉnh & Xem Trước */}
-          <div className="p-1 space-y-0.5 pt-1">
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                setShowZaloStudio(true);
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors text-left"
-            >
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <span>Zalo Studio (Spin Text chống spam)</span>
-            </button>
-
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                setShowWhatsAppPreview(true);
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors text-left"
-            >
-              <Globe className="w-4 h-4 text-emerald-600" />
-              <span>Xem trước bản WhatsApp</span>
-            </button>
-          </div>
-        </div>
+        </Layer>
       )}
 
-      {/* Modal Zalo Studio */}
-      {showZaloStudio && (
-        <ZaloPostStudioModal
-          apartment={apartment}
-          ctv={ctv}
-          onClose={() => setShowZaloStudio(false)}
-        />
+      {modal && link && (
+        <Layer>
+          {modal === 'zalo' ? (
+            <ZaloPostStudioModal apartment={apartment} ctv={ctv} link={link.url} onClose={() => setModal(null)} />
+          ) : (
+            <WhatsAppPreviewModal apartment={apartment} ctv={ctv} link={link} onClose={() => setModal(null)} />
+          )}
+        </Layer>
       )}
-
-      {/* Modal WhatsApp Preview */}
-      {showWhatsAppPreview && (
-        <WhatsAppPreviewModal
-          apartment={apartment}
-          ctv={ctv}
-          onClose={() => setShowWhatsAppPreview(false)}
-        />
-      )}
-    </div>
+    </>
   );
 };

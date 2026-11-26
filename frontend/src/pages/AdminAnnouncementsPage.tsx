@@ -80,12 +80,17 @@ const ComposeSheet: React.FC<{ onSent: (message: string) => void; onClose: () =>
 
 const AnnouncementRow: React.FC<{ item: Announcement; onRevoked: () => void }> = ({ item, onRevoked }) => {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   const pinned = !item.revokedAt && new Date(item.pinnedUntil).getTime() > Date.now();
   const revoke = async () => {
     setBusy(true);
+    setError('');
     try {
       await adminApi.revokeAnnouncement(item._id);
       onRevoked();
+    } catch (err: any) {
+      // Story 19.10: báo lỗi thay vì im lặng
+      setError(err?.response?.data?.message || 'Không thu hồi được, vui lòng thử lại');
     } finally {
       setBusy(false);
     }
@@ -104,6 +109,7 @@ const AnnouncementRow: React.FC<{ item: Announcement; onRevoked: () => void }> =
       <p className="text-sm text-slate-700 whitespace-pre-wrap break-words line-clamp-3">{item.body}</p>
       <p className="text-xs text-slate-600">{item.sentByName} · {item.seenCount}/{item.recipientCount} người đã xem</p>
       {pinned && <Button size="sm" variant="outline" loading={busy} onClick={revoke}>Thu hồi (ẩn dải ghim)</Button>}
+      {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
     </li>
   );
 };

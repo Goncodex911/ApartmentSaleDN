@@ -12,6 +12,7 @@ export interface ITelegramUserbotSession {
   username?: string;
   connectedAt: Date;
   isActive: boolean;
+  listener?: { chat: string; targetSender: string }; // Bộ đón tin đang bật → máy chủ khởi động lại tự bật lại (Story 19.2)
 }
 
 export interface IUser extends Document {
@@ -104,6 +105,7 @@ const userSchema = new Schema<IUser>(
         username: String,
         connectedAt: { type: Date, default: Date.now },
         isActive: { type: Boolean, default: true },
+        listener: { type: { chat: String, targetSender: String }, required: false },
       },
       required: false,
     },

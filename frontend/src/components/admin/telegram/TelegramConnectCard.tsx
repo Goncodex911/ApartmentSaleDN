@@ -18,8 +18,6 @@ const timeText = (value?: string | null) => (value ? new Date(value).toLocaleStr
 
 export const TelegramConnectCard: React.FC<Props> = ({ session, onConnected, onDisconnected }) => {
   const isTouch = isTouchDevice();
-  // Đang dở bước nhập mã (tải lại trang / máy chủ khởi động lại) → mở thẳng tab OTP
-  const [mode, setMode] = useState<'QR' | 'OTP'>(isTouch || session?.pendingLogin ? 'OTP' : 'QR');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,19 +79,30 @@ export const TelegramConnectCard: React.FC<Props> = ({ session, onConnected, onD
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          <p className="text-sm text-slate-600">Kết nối một lần để hệ thống đọc các nhóm BĐS bạn đang tham gia. Phiên đăng nhập được mã hóa trên máy chủ.</p>
-          <div role="tablist" aria-label="Cách kết nối" className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100">
-            <button type="button" role="tab" aria-selected={mode === 'QR'} onClick={() => setMode('QR')} className={ui.segment(mode === 'QR')}>Quét QR</button>
-            <button type="button" role="tab" aria-selected={mode === 'OTP'} onClick={() => setMode('OTP')} className={ui.segment(mode === 'OTP')}>Mã OTP</button>
-          </div>
-          {mode === 'QR' ? (
-            <TelegramQrLogin isTouch={isTouch} onConnected={onConnected} />
-          ) : (
-            <TelegramOtpLogin initialPending={session.pendingLogin} onConnected={onConnected} />
-          )}
-        </div>
+        <LoginTabs session={session} isTouch={isTouch} onConnected={onConnected} />
       )}
     </section>
+  );
+};
+
+/**
+ * Chỉ tạo khi trạng thái đã tải xong (Story 19.2 / CRIT-03): tab ban đầu biết có phiên chờ OTP hay không.
+ * Trước đây tab được chốt lúc `session` còn null → máy tính luôn mở tab QR, tạo mã QR và xóa mất phiên chờ OTP.
+ */
+const LoginTabs: React.FC<{ session: TelegramSessionStatus; isTouch: boolean; onConnected: () => void }> = ({ session, isTouch, onConnected }) => {
+  const [mode, setMode] = useState<'QR' | 'OTP'>(isTouch || session.pendingLogin ? 'OTP' : 'QR');
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-600">Kết nối một lần để hệ thống đọc các nhóm BĐS bạn đang tham gia. Phiên đăng nhập được mã hóa trên máy chủ.</p>
+      <div role="tablist" aria-label="Cách kết nối" className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100">
+        <button type="button" role="tab" aria-selected={mode === 'QR'} onClick={() => setMode('QR')} className={ui.segment(mode === 'QR')}>Quét QR</button>
+        <button type="button" role="tab" aria-selected={mode === 'OTP'} onClick={() => setMode('OTP')} className={ui.segment(mode === 'OTP')}>Mã OTP</button>
+      </div>
+      {mode === 'QR' ? (
+        <TelegramQrLogin isTouch={isTouch} onConnected={onConnected} />
+      ) : (
+        <TelegramOtpLogin initialPending={session.pendingLogin} onConnected={onConnected} />
+      )}
+    </div>
   );
 };

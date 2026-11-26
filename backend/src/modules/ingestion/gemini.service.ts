@@ -84,6 +84,12 @@ export interface IParsedResult {
   extracted?: IParsedApartmentData;
 }
 
+/** Story 19.6: Studio = 0 phòng ngủ (`Number(x) || 1` từng biến 0 thành 1); chỉ mặc định 1 khi AI không trả số nguyên hợp lệ */
+export function toBedrooms(value: unknown): number {
+  const n = typeof value === 'string' && value.trim() === '' ? NaN : Number(value ?? NaN);
+  return Number.isInteger(n) && n >= 0 && n <= 20 ? n : 1;
+}
+
 export class GeminiService {
   public static getApiKey(): string {
     const key = process.env.GEMINI_API_KEY;
@@ -245,7 +251,7 @@ ${rawText.trim()}
         zone,
         propertyType: guessedType || 'APARTMENT',
         area: ext.area ? Number(ext.area) : undefined,
-        bedrooms: Number(ext.bedrooms) || 1,
+        bedrooms: toBedrooms(ext.bedrooms),
         bathrooms: Number(ext.bathrooms) || 1,
         furnishing: ['FULL', 'BASIC', 'EMPTY'].includes(ext.furnishing) ? ext.furnishing : 'BASIC',
         elevator: Boolean(ext.elevator),

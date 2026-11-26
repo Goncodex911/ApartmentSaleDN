@@ -33,11 +33,19 @@ export async function cleanupSubmissionMedia(now = new Date()) {
     const urls = [...(submission.data.images || []), ...(submission.data.videos || [])];
     const [apartments, others] = await Promise.all([
       Apartment.find({ $or: [{ images: { $in: urls } }, { videos: { $in: urls } }] }).select('images videos').lean(),
-      ListingSubmission.find({ _id: { $ne: submission._id }, status: { $in: ['PENDING', 'APPROVED'] }, 'data.images': { $in: urls } })
-        .select('data.images')
+      // Story 19.10: kiểm tra cả video (trước đây chỉ ảnh → video tin khác đang dùng có thể bị xóa khỏi Cloudinary)
+      ListingSubmission.find({
+        _id: { $ne: submission._id },
+        status: { $in: ['PENDING', 'APPROVED'] },
+        $or: [{ 'data.images': { $in: urls } }, { 'data.videos': { $in: urls } }],
+      })
+        .select('data.images data.videos')
         .lean(),
     ]);
-    const inUse = new Set([...apartments.flatMap((a) => [...a.images, ...(a.videos || [])]), ...others.flatMap((s) => s.data.images || [])]);
+    const inUse = new Set([
+      ...apartments.flatMap((a) => [...a.images, ...(a.videos || [])]),
+      ...others.flatMap((s) => [...(s.data.images || []), ...(s.data.videos || [])]),
+    ]);
     const media = urls.filter((url) => !inUse.has(url)).map(parseSubmissionMedia).filter((item) => item !== null);
 
     await deleteCloudinaryMedia(media.filter((m) => m.type === 'image').map((m) => m.id), 'image');

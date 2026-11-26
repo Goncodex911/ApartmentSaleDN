@@ -18,6 +18,8 @@ searchRoutes.get('/natural', authMiddleware, naturalLimiter, SearchController.se
 
 // GET /api/v1/apartments/search/pins - Ghim bản đồ trong app (Story 11.2), chỉ người đã đăng nhập
 searchRoutes.get('/pins', authMiddleware, SearchController.pins);
+// Ghim bản đồ theo câu tự nhiên (Story 19.7) — có gọi Gemini nên dùng chung giới hạn tần suất với /natural
+searchRoutes.get('/pins/natural', authMiddleware, naturalLimiter, SearchController.naturalPins);
 
 // GET /api/v1/apartments/search - Tìm kiếm mờ, tiếng lóng, bán kính GPS & Faceted
 searchRoutes.get('/', authMiddleware, SearchController.search);

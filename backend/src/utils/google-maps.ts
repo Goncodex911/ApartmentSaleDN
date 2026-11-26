@@ -57,20 +57,50 @@ const toCoordinates = (latStr: string, lngStr: string): [number, number] | null 
 };
 
 const OLC_ALPHABET = '23456789CFGHJMPQRVWX';
-const DANANG_OLC_PREFIX = '7P8C'; // Tiền tố OLC chuẩn cho khu vực Đà Nẵng
+const OLC_STEPS = [20, 1, 0.05, 0.0025, 0.000125];
+const DANANG_REF = { lat: 16.0544, lng: 108.2022 }; // Điểm tham chiếu khôi phục mã Plus Code rút gọn
+
+/** Mã hóa `length` ký tự đầu của Plus Code cho 1 điểm (dùng tạo tiền tố khi khôi phục mã rút gọn) */
+function encodePrefix(lat: number, lng: number, length: number): string {
+  let [la, ln] = [lat + 90, lng + 180];
+  let out = '';
+  for (const step of OLC_STEPS) {
+    if (out.length >= length) break;
+    const [a, b] = [Math.floor(la / step), Math.floor(ln / step)];
+    out += OLC_ALPHABET[a] + OLC_ALPHABET[b];
+    [la, ln] = [la - a * step, ln - b * step];
+  }
+  return out.slice(0, length);
+}
 
 /**
  * Giải mã mã định vị mở Plus Code (Open Location Code) thuần JS không phụ thuộc thư viện ngoài.
+ * Story 19.5: mã rút gọn (4 / 6 ký tự trước dấu +, VD "36FF+WH Đà Nẵng") khôi phục theo thuật toán
+ * "recover nearest" của OLC với điểm tham chiếu tâm Đà Nẵng — trước đây ghép cứng "7P8C" (chỉ đúng cho vĩ độ 16–17°)
+ * nên FPT City, Hòa Hải, Hội An (< 16°N, ô "7P7C") bị đẩy lên phía Bắc ~111 km.
  */
 export function decodePlusCode(code: string): [number, number] | null {
-  let cleaned = code.trim().toUpperCase().replace(/%2B/g, '+');
+  const cleaned = code.trim().toUpperCase().replace(/%2B/g, '+');
   const plusIdx = cleaned.indexOf('+');
-  if (plusIdx === -1) return null;
+  if (plusIdx === 4 || plusIdx === 6) {
+    const padding = 8 - plusIdx;
+    const resolution = 20 ** (2 - padding / 2); // 4 ký tự thiếu → ô 1°, 2 ký tự thiếu → ô 20°
+    const prefix = encodePrefix(Math.floor(DANANG_REF.lat / resolution) * resolution, Math.floor(DANANG_REF.lng / resolution) * resolution, padding);
+    const full = decodeFullPlusCode(prefix + cleaned);
+    if (!full) return null;
+    let [lng, lat] = full;
+    // Chọn ô kề gần điểm tham chiếu nhất
+    if (DANANG_REF.lat + resolution / 2 < lat && lat - resolution >= -90) lat -= resolution;
+    else if (DANANG_REF.lat - resolution / 2 > lat && lat + resolution <= 90) lat += resolution;
+    if (DANANG_REF.lng + resolution / 2 < lng) lng -= resolution;
+    else if (DANANG_REF.lng - resolution / 2 > lng) lng += resolution;
+    return [Number(lng.toFixed(6)), Number(lat.toFixed(6))];
+  }
+  return plusIdx === 8 ? decodeFullPlusCode(cleaned) : null;
+}
 
-  // Nếu là mã ngắn (4 hoặc 6 ký tự trước dấu +), ghép tiền tố Đà Nẵng
-  if (plusIdx === 4) cleaned = DANANG_OLC_PREFIX + cleaned;
-  else if (plusIdx === 6) cleaned = DANANG_OLC_PREFIX.slice(0, 2) + cleaned;
-
+/** Giải mã Plus Code đầy đủ (8 ký tự trước dấu +) → tâm ô [kinh độ, vĩ độ] */
+function decodeFullPlusCode(cleaned: string): [number, number] | null {
   const digits = cleaned.replace('+', '').slice(0, 10);
   if (digits.length < 8) return null;
   for (const c of digits) {
@@ -79,16 +109,14 @@ export function decodePlusCode(code: string): [number, number] | null {
 
   let lat = -90;
   let lng = -180;
-  const steps = [20, 1, 0.05, 0.0025, 0.000125];
-
   for (let i = 0; i < digits.length; i += 2) {
     const idx = i / 2;
-    if (idx >= steps.length) break;
-    lat += OLC_ALPHABET.indexOf(digits[i]) * steps[idx];
-    lng += OLC_ALPHABET.indexOf(digits[i + 1]) * steps[idx];
+    if (idx >= OLC_STEPS.length) break;
+    lat += OLC_ALPHABET.indexOf(digits[i]) * OLC_STEPS[idx];
+    lng += OLC_ALPHABET.indexOf(digits[i + 1]) * OLC_STEPS[idx];
   }
 
-  const lastStep = steps[Math.min(Math.floor(digits.length / 2) - 1, steps.length - 1)];
+  const lastStep = OLC_STEPS[Math.min(Math.floor(digits.length / 2) - 1, OLC_STEPS.length - 1)];
   lat += lastStep / 2;
   lng += lastStep / 2;
 

@@ -1,29 +1,52 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage.js';
 import { ApartmentsPage } from './pages/ApartmentsPage.js';
 import { ProtectedRoute } from './components/layout/ProtectedRoute.js';
-import { PublicListingPage } from './pages/PublicListingPage.js';
-import { LeadsPage } from './pages/LeadsPage.js';
-import { SubmissionsPage } from './pages/SubmissionsPage.js';
-import { AdminDashboardPage } from './pages/AdminDashboardPage.js';
-import { AdminUsersPage } from './pages/AdminUsersPage.js';
-import { AdminUserDetailPage } from './pages/AdminUserDetailPage.js';
-import { AdminAlertsPage } from './pages/AdminAlertsPage.js';
-import { AdminTrashPage } from './pages/AdminTrashPage.js';
-import { AdminStalePage } from './pages/AdminStalePage.js';
-import { AdminHealthPage } from './pages/AdminHealthPage.js';
-import { AdminAnnouncementsPage } from './pages/AdminAnnouncementsPage.js';
-import { AdminAuditLogsPage } from './pages/AdminAuditLogsPage.js';
-import { AdminPerformancePage } from './pages/AdminPerformancePage.js';
-import { AdminSettingsPage } from './pages/AdminSettingsPage.js';
-import { MapQAPage } from './pages/admin/MapQAPage.js';
-import { TelegramScraperPage } from './pages/admin/TelegramScraperPage.js';
-import { ModerationPage } from './pages/ModerationPage.js';
 import { PwaStatus } from './components/layout/PwaStatus.js';
 import { AppShell } from './components/layout/AppShell.js';
 import { AdminLayout } from './components/admin/AdminLayout.js';
 import { lastAdminMode } from './components/admin/adminNav.js';
+import { Skeleton } from './components/ui/Skeleton.js';
+
+/**
+ * Story 19.11: trang ít dùng (Quản trị, Cào tin, Kiểm duyệt, Khách hàng, trang khách...) tải khi cần → bundle chính nhẹ cho CTV dùng 4G.
+ * Mỗi trang tự bọc Suspense → khung app (menu, thanh trên) đứng yên trong lúc tải trang con.
+ */
+function lazyPage<K extends string>(loader: () => Promise<Record<K, React.ComponentType>>, name: K): React.FC {
+  const Page = lazy(async () => ({ default: (await loader())[name] as React.ComponentType }));
+  return () => (
+    <Suspense fallback={<PageFallback />}>
+      <Page />
+    </Suspense>
+  );
+}
+
+const PageFallback: React.FC = () => (
+  <div className="max-w-5xl mx-auto px-4 pt-4 space-y-3" aria-busy="true" aria-label="Đang tải trang">
+    <Skeleton className="h-7 w-48 rounded-lg" />
+    <Skeleton className="h-40 rounded-2xl" />
+    <Skeleton className="h-40 rounded-2xl" />
+  </div>
+);
+
+const PublicListingPage = lazyPage(() => import('./pages/PublicListingPage.js'), 'PublicListingPage');
+const LeadsPage = lazyPage(() => import('./pages/LeadsPage.js'), 'LeadsPage');
+const SubmissionsPage = lazyPage(() => import('./pages/SubmissionsPage.js'), 'SubmissionsPage');
+const AdminDashboardPage = lazyPage(() => import('./pages/AdminDashboardPage.js'), 'AdminDashboardPage');
+const AdminUsersPage = lazyPage(() => import('./pages/AdminUsersPage.js'), 'AdminUsersPage');
+const AdminUserDetailPage = lazyPage(() => import('./pages/AdminUserDetailPage.js'), 'AdminUserDetailPage');
+const AdminAlertsPage = lazyPage(() => import('./pages/AdminAlertsPage.js'), 'AdminAlertsPage');
+const AdminTrashPage = lazyPage(() => import('./pages/AdminTrashPage.js'), 'AdminTrashPage');
+const AdminStalePage = lazyPage(() => import('./pages/AdminStalePage.js'), 'AdminStalePage');
+const AdminHealthPage = lazyPage(() => import('./pages/AdminHealthPage.js'), 'AdminHealthPage');
+const AdminAnnouncementsPage = lazyPage(() => import('./pages/AdminAnnouncementsPage.js'), 'AdminAnnouncementsPage');
+const AdminAuditLogsPage = lazyPage(() => import('./pages/AdminAuditLogsPage.js'), 'AdminAuditLogsPage');
+const AdminPerformancePage = lazyPage(() => import('./pages/AdminPerformancePage.js'), 'AdminPerformancePage');
+const AdminSettingsPage = lazyPage(() => import('./pages/AdminSettingsPage.js'), 'AdminSettingsPage');
+const MapQAPage = lazyPage(() => import('./pages/admin/MapQAPage.js'), 'MapQAPage');
+const TelegramScraperPage = lazyPage(() => import('./pages/admin/TelegramScraperPage.js'), 'TelegramScraperPage');
+const ModerationPage = lazyPage(() => import('./pages/ModerationPage.js'), 'ModerationPage');
 
 export const App: React.FC = () => {
   return (

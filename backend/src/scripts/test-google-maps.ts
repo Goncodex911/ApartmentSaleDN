@@ -47,6 +47,11 @@ const plusDecoded = decodePlusCode('7P8C36FF+WH');
 assert('Plus Code decoded to Da Nang', plusDecoded !== null && isValidDanangCoordinates(plusDecoded[0], plusDecoded[1]));
 const shortPlus = decodePlusCode('36FF+WH');
 assert('Short Plus Code with Da Nang context', shortPlus !== null && isValidDanangCoordinates(shortPlus[0], shortPlus[1]));
+// Story 19.5: phía Nam vĩ tuyến 16° (ô 7P7C) — FPT City, Hội An
+const fptCity = decodePlusCode('X7H4+5W');
+assert('Short Plus Code south of 16°N (FPT City)', fptCity !== null && fptCity[1] < 16 && isValidDanangCoordinates(fptCity[0], fptCity[1]));
+const hoiAn = decodePlusCode('V8JQ+25');
+assert('Short Plus Code south of 16°N (Hội An)', hoiAn !== null && hoiAn[1] < 15.9 && isValidDanangCoordinates(hoiAn[0], hoiAn[1]));
 
 // 6. Geofence checking
 assert('Da Nang coordinate accepted', isValidDanangCoordinates(108.2022, 16.0544));

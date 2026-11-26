@@ -11,7 +11,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { apartmentApi, Apartment } from '../../api/apartmentApi.js';
-import { DANANG_CENTER, TILE_ATTRIBUTION, TILE_URL } from '../../utils/mapTiles.js';
+import { DANANG_CENTER, DANANG_LNG_LAT, TILE_ATTRIBUTION, TILE_URL, isLngLat } from '../../utils/mapTiles.js';
 import { ZONES } from '../../utils/danang.js';
 import { priceShort } from '../../utils/priceShort.js';
 
@@ -55,9 +55,8 @@ export const MapQAPage: React.FC = () => {
       setExactCount(data.exactCount);
       setPendingCount(data.pendingCount);
 
-      if (data.apartments.length > 0 && !selectedId) {
-        setSelectedId(data.apartments[0]._id);
-      }
+      // Đổi khu vực: căn đang chọn không còn trong danh sách → chọn căn đầu (thanh Lưu không biến mất)
+      setSelectedId((current) => (data.apartments.some((a) => a._id === current) ? current : data.apartments[0]?._id ?? null));
     } catch {
       // Bỏ qua lỗi
     } finally {
@@ -76,7 +75,7 @@ export const MapQAPage: React.FC = () => {
       if (disposed || !mapContainerRef.current) return;
 
       const map = L.map(mapContainerRef.current, { zoomControl: false }).setView(
-        [DANANG_CENTER[1], DANANG_CENTER[0]],
+        DANANG_CENTER,
         13
       );
       const layer = L.tileLayer(TILE_URL, { maxZoom: 20, attribution: TILE_ATTRIBUTION }).addTo(map);
@@ -118,7 +117,9 @@ export const MapQAPage: React.FC = () => {
     import('leaflet').then(({ default: L }) => {
       if (!mapRef.current) return;
 
-      const coords: [number, number] = selected.location?.coordinates || DANANG_CENTER;
+      // Căn chưa có tọa độ (mảng rỗng) → đặt ghim ở tâm Đà Nẵng để kéo tới đúng vị trí, không làm sập bản đồ
+      const saved = selected.location?.coordinates;
+      const coords: [number, number] = isLngLat(saved) ? saved : DANANG_LNG_LAT;
       setCurrentCoords(coords);
 
       const icon = L.divIcon({
@@ -390,7 +391,7 @@ export const MapQAPage: React.FC = () => {
 
           {/* Action Bar Nổi Dưới Đáy Bản Đồ */}
           {selected && (
-            <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-4 z-[500] max-w-md w-full p-4 rounded-2xl bg-white/95 border border-slate-200/80 shadow-2xl backdrop-blur-md space-y-3 animate-in fade-in slide-in-from-bottom-2">
+            <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-[28rem] z-[500] p-4 rounded-2xl bg-white/95 border border-slate-200/80 shadow-2xl backdrop-blur-md space-y-3 animate-in fade-in slide-in-from-bottom-2">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Căn đang chọn</h3>

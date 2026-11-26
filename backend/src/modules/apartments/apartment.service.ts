@@ -291,7 +291,8 @@ export class ApartmentService {
       $or: [
         { 'location.geoPrecision': { $ne: 'EXACT' } },
         { 'location.geoPrecision': { $exists: false } },
-        { 'location.coordinates': { $exists: false } },
+        // Mảng tọa độ mặc định là [] (không phải thiếu trường) → kiểm tra phần tử thứ 2 (Story 19.3)
+        { 'location.coordinates.1': { $exists: false } },
       ],
     };
 
@@ -300,10 +301,11 @@ export class ApartmentService {
         .sort({ updatedAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select('_id title price location attributes media status updatedAt'),
+        .select('_id title price location attributes images hiddenImages status updatedAt'), // Story 19.3: trường ảnh là images (không phải media)
       Apartment.countDocuments(pendingFilter),
-      Apartment.countDocuments({ deletedAt: null }),
-      Apartment.countDocuments({ deletedAt: null, 'location.geoPrecision': 'EXACT' }),
+      // Tiến độ theo đúng khu vực đang lọc
+      Apartment.countDocuments(baseFilter),
+      Apartment.countDocuments({ ...baseFilter, 'location.geoPrecision': 'EXACT' }),
     ]);
 
     return {

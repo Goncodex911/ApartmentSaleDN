@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, authApi } from '../api/authApi.js';
+import { clearOfflineData } from '../utils/offlineCache.js';
 
 // localStorage có thể bị chặn (ẩn danh, trình duyệt trong Zalo) → bọc try/catch
 const readSavedUser = (): User | null => {
@@ -30,6 +31,9 @@ export function useCurrentUser() {
     authApi
       .getMe()
       .then((res) => {
+        // Story 19.9: đổi tài khoản / bị đổi quyền (VD Quản lý → CTV) → xóa dữ liệu ngoại tuyến của phiên cũ (có SĐT chủ nhà)
+        const previous = readSavedUser();
+        if (previous && (previous._id !== res.data._id || previous.role !== res.data.role)) void clearOfflineData();
         setUserState(res.data);
         saveUser(res.data);
       })

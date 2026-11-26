@@ -14,6 +14,7 @@ interface MapPanelProps {
   onClearFilters: () => void;
   onOpen: (id: string) => void;
   pinActions?: (pin: MapPin) => React.ReactNode;
+  onCount?: (total: number) => void; // Story 19.7: số căn của bản đồ (ghim + căn chưa có vị trí) cho tiêu đề trang
 }
 
 const Overlay: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -46,9 +47,12 @@ const chip = 'px-2.5 py-1 rounded-full bg-white/95 text-xs text-slate-700 shadow
  * Chế độ Bản đồ của Bảng hàng (Story 11.2) — tải riêng (React.lazy) cùng Leaflet để không làm chậm lần mở danh sách.
  * Story 15.3: "Tìm ở khu vực này" / tự tìm khi di chuyển. Story 15.4: vòng bán kính điểm mốc + lớp tiện ích Đà Nẵng.
  */
-const MapPanel: React.FC<MapPanelProps> = ({ filters, query, hasFilters, onClearFilters, onOpen, pinActions }) => {
+const MapPanel: React.FC<MapPanelProps> = ({ filters, query, hasFilters, onClearFilters, onOpen, pinActions, onCount }) => {
   const [bbox, setBbox] = useState<string>();
   const { pins, withoutLocation, landmark, truncated, status, reload } = useMapPins(filters, query, bbox);
+  useEffect(() => {
+    if (status === 'ready') onCount?.(pins.length + (bbox ? 0 : withoutLocation));
+  }, [status, pins.length, withoutLocation, bbox, onCount]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [online, setOnline] = useState(navigator.onLine);
   const [poiGroups, setPoiGroups] = useState<PoiGroup[]>(() => readStored(POI_KEY, []));

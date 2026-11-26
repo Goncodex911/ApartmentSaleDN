@@ -2,22 +2,25 @@ import React, { useState } from 'react';
 import { Check, Copy, ExternalLink, Send, X } from 'lucide-react';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
-import { buildWhatsAppExpatPost, createWhatsAppShareUrl } from '../../utils/whatsappFormatter.js';
+import { buildWhatsAppExpatPost, whatsAppShareUrl } from '../../utils/whatsappFormatter.js';
+import { ShareLinkInfo } from '../../api/shareApi.js';
 import { copyText } from '../../utils/clipboard.js';
 import { getWalkingDistanceToBeach } from '../../utils/distance.js';
 
 interface WhatsAppPreviewModalProps {
   apartment: Apartment;
   ctv: User | null;
+  link: ShareLinkInfo; // Link chia sẻ thật + tỷ giá (Story 19.1)
   onClose: () => void;
 }
 
 export const WhatsAppPreviewModal: React.FC<WhatsAppPreviewModalProps> = ({
   apartment,
   ctv,
+  link,
   onClose,
 }) => {
-  const [content, setContent] = useState(() => buildWhatsAppExpatPost(apartment, ctv));
+  const [content, setContent] = useState(() => buildWhatsAppExpatPost(apartment, ctv, link));
   const [copied, setCopied] = useState(false);
   const beach = getWalkingDistanceToBeach(apartment.location?.coordinates);
 
@@ -27,10 +30,8 @@ export const WhatsAppPreviewModal: React.FC<WhatsAppPreviewModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSend = () => {
-    const url = createWhatsAppShareUrl(apartment, ctv);
-    window.open(url, '_blank');
-  };
+  // Gửi đúng nội dung CTV đã sửa trong ô soạn thảo (trước đây tạo lại bài mới, mất phần sửa)
+  const handleSend = () => window.open(whatsAppShareUrl(content), '_blank', 'noopener');
 
   return (
     <div

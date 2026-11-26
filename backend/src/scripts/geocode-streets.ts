@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
 import { Apartment, locationPrecision } from '../modules/apartments/apartment.model.js';
 import { geocodeStreet } from '../modules/search/street-geocoder.js';
+import { ADDRESS_PLACEHOLDER } from '../utils/street.js';
 
 /**
  * Story 15.6: định vị lại theo TÊN ĐƯỜNG các căn đang ở vị trí ước lượng (AREA: điểm mốc / tâm quận).
@@ -14,7 +15,11 @@ const apply = process.argv.includes('--apply');
 await connectDB();
 
 const candidates = (
-  await Apartment.find({ 'location.street': { $exists: true, $ne: '' } }, { title: 1, 'location.street': 1, 'location.district': 1, 'location.mapUrl': 1, 'location.geoPrecision': 1 }).lean()
+  // Story 19.4: bỏ căn đã xóa và chuỗi giữ chỗ "Đang cập nhật địa chỉ" (không gửi lên Nominatim)
+  await Apartment.find(
+    { deletedAt: null, 'location.street': { $exists: true, $nin: ['', ADDRESS_PLACEHOLDER] } },
+    { title: 1, 'location.street': 1, 'location.district': 1, 'location.mapUrl': 1, 'location.geoPrecision': 1 }
+  ).lean()
 ).filter((apartment) => locationPrecision(apartment.location) === 'AREA');
 const streets = new Set(candidates.map((a) => `${a.location.street}|${a.location.district}`));
 console.log(`${apply ? 'GHI DB' : 'CHẠY THỬ'}: ${candidates.length} căn đang ở vị trí ước lượng có tên đường — ${streets.size} tên đường khác nhau (~${streets.size} giây gọi Nominatim)`);

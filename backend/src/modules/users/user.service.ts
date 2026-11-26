@@ -37,9 +37,12 @@ export class UserService {
   static async updateProfile(userId: string, input: UpdateProfileInput) {
     const updateData: any = { ...input };
 
-    // Tự động sinh link Zalo nếu có cập nhật số điện thoại Zalo
+    // Tự động sinh link Zalo nếu có cập nhật số điện thoại Zalo; xóa trống (Story 19.10) → bỏ cả số lẫn link
     if (input.zaloPhone) {
       updateData.zaloLink = `https://zalo.me/${input.zaloPhone}`;
+    } else if (input.zaloPhone === '') {
+      delete updateData.zaloPhone;
+      updateData.$unset = { zaloPhone: 1, zaloLink: 1 };
     }
 
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
