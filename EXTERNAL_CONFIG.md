@@ -26,6 +26,7 @@ Tài liệu này tổng hợp toàn bộ các dịch vụ bên ngoài, API Key v
 | **[COVER-EPIC](file:///d:/CODE/AppartmentSaleProject/docs/stories/coverEpic.md)** | Telegram MTProto Client (API ID & Hash) | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` | 📝 **Cần lấy API ID/Hash miễn phí từ Telegram (Xem mục 11)** |
 | **[EPIC-18](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_18_RELIABLE_TELEGRAM_ACCOUNT_LINKING.md)** | Liên Kết Tài Khoản Telegram Ổn Định (OTP đúng kênh, QR máy tính, chuyển tiếp cho Bot) | Tái sử dụng `TELEGRAM_API_ID/HASH`, `TELEGRAM_BOT_TOKEN`, `JWT_SECRET` — **không thêm biến mới**; gói frontend `qrcode` (miễn phí) | ✅ **Đã triển khai — chờ kiểm thử thiết bị thật (Story 18.7, mục 11.7)** |
 | **[EPIC-19](file:///d:/CODE/AppartmentSaleProject/docs/stories/EPIC_19_QA_AUDIT_FIXES.md)** | Khắc Phục Kết Quả QA Audit (link chia sẻ, Telegram, Map QA, khử trùng, bảo mật vận hành) | **Không thêm biến bắt buộc.** Kiểm tra `TRUST_PROXY`, `USD_VND_RATE`, header CSP, gói CARTO; deploy lại Netlify khi có credit; gói dev `vitest` | 📝 **Chờ triển khai (Xem mục 12)** |
+| **[CE-03](file:///d:/CODE/AppartmentSaleProject/docs/stories/coverEpic.md)** | Khắc phục trùng nhầm đường đánh số (Mỹ An 22 ↔ Mỹ An) | **Không thêm biến.** Chạy 1 lần `npm run audit-street-dedup` sau deploy | 📝 **Xem mục 13** |
 
 ---
 
@@ -506,3 +507,20 @@ Epic 19 chủ yếu sửa code, **không thêm biến môi trường bắt buộ
 
 
 
+
+---
+
+### 13. CE-03: Trùng Nhầm Đường Đánh Số (Mỹ An 22 ↔ Mỹ An) — Việc Cần Làm Sau Deploy
+
+CE-03 chỉ sửa code, **không thêm biến môi trường**. Sau khi deploy, chạy 1 lần script rà các căn đã bị luật cũ **tự gộp nhầm** (VD tin ở `Mỹ An 22` thành nguồn phụ của căn `Mỹ An`):
+
+1. Mở terminal VS Code (PowerShell) tại thư mục `backend`.
+2. Đặt chuỗi kết nối DB thật **chỉ cho phiên terminal này** (không lưu vào file, không dán vào chat):
+   `$env:MONGODB_URI = "<chuỗi kết nối lấy ở MongoDB Atlas → Connect → Drivers>"`
+3. Chạy thử (chỉ đọc): `npm run audit-street-dedup` → in tóm tắt và tạo file `audit-street-dedup-<ngày>.csv` (đã nằm trong `.gitignore`, không có SĐT).
+4. Mở CSV kiểm tra. Nếu đúng là gộp nhầm: `npm run audit-street-dedup -- --apply` → gắn cờ **"Cần kiểm tra"** cho các căn đó (không đổi ngày cập nhật, không xóa, không tự tách nguồn). Quản lý vào từng căn → mục Nguồn → xóa nguồn sai và tạo lại căn đúng.
+5. Đóng terminal (biến `$env:MONGODB_URI` mất theo).
+
+Phát hiện bằng cách tìm trong nội dung tin gốc tên đường **cùng tên, khác số** với căn chính → có thể có vài dòng báo nhầm (VD tin nhắc "gần Mỹ An 3"); vì vậy luôn chạy thử và xem CSV trước khi `--apply`.
+
+Đường ngày lễ (30/4, 2/9…) đổi khóa tọa độ sang dạng `30 thang 4`: cache tọa độ cũ của các đường này tự hết hiệu lực, không cần làm gì (lần tìm sau sẽ tra lại).

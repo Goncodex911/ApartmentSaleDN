@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Apartment, ApartmentPayload, MatchedApartment, apartmentApi } from '../../api/apartmentApi.js';
-import { X, AlertTriangle } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Button } from '../ui/Button.js';
 import { PhotoUploader, MediaValue } from './PhotoUploader.js';
 import { splitMedia } from '../../utils/media.js';
@@ -10,9 +10,9 @@ import { AmenitiesSection } from './AmenitiesSection.js';
 import { Field, FormSection, inputClass, numberOr, textOr } from './formFields.js';
 import { AmenityKey, amenityKeysOf, amenityPayload } from '../../utils/amenities.js';
 import { PROPERTY_TYPES, PropertyType } from '../../utils/danang.js';
-import { formatVnd } from '../../utils/format.js';
 import { useApp } from '../layout/AppShell.js';
 import { DuplicateConfirmDialog } from './DuplicateConfirmDialog.js';
+import { DuplicateSoftWarning } from './DuplicateSoftWarning.js';
 
 interface ApartmentModalProps {
   initialData?: Apartment | null;
@@ -66,18 +66,14 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
   const [market, setMarket] = useState(() => toMarketForm(initialData)); // Thông tin Đà Nẵng (Story 7.2)
 
   // Story 13.10 — AC1: CTV đang điền form -> kiểm tra trùng lặp ngầm và hiện cảnh báo mềm
+  // CE-03.3: dữ liệu đổi → ẩn cảnh báo cũ ngay, hủy lần kiểm tra trước để kết quả cũ không ghi đè kết quả mới
   useEffect(() => {
-    if (isManager || isEdit) {
-      setSoftWarning(null);
-      return;
-    }
+    setSoftWarning(null);
     const street = location.street.trim();
     const numPrice = Number(price);
-    if (!street || !numPrice || numPrice <= 0) {
-      setSoftWarning(null);
-      return;
-    }
+    if (isManager || isEdit || !street || !(numPrice > 0)) return;
 
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
         const res = await apartmentApi.checkDuplicate({
@@ -86,17 +82,21 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
           location: fromLocationForm(location, undefined),
           attributes: { propertyType: propertyType || undefined, bedrooms: bedrooms !== '' ? Number(bedrooms) : undefined },
           ownerContact: { phone: ownerPhone.trim() || undefined },
-        });
+        }, controller.signal);
         setSoftWarning(res.isDuplicate && res.matchedApartment ? res.matchedApartment : null);
       } catch (_e) {
-        // Lỗi kiểm tra ngầm không ảnh hưởng form
+        // Bị hủy hoặc lỗi mạng: kiểm tra ngầm không ảnh hưởng form
       }
     }, 600);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [isManager, isEdit, location.street, location.houseNumber, location.zone, location.district, price, propertyType, bedrooms, title, ownerPhone]);
 
-  const executeSave = async (payload: ApartmentPayload) => {
+  /** Lưu căn; trả true khi thành công (CE-03.3: hộp thoại trùng chỉ bỏ dữ liệu chờ khi lưu xong). */
+  const executeSave = async (payload: ApartmentPayload): Promise<boolean> => {
     try {
       setLoading(true);
       setError(null);
@@ -108,8 +108,10 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
         onSuccess?.(result.data);
       }
       onClose();
+      return true;
     } catch (err: any) {
       setError(err.response?.data?.message || 'Có lỗi xảy ra khi lưu căn hộ');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -148,7 +150,8 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
     };
 
     // Story 13.10 — AC3: Quản lý tạo căn mới kiểm tra trùng lặp ngầm trước khi lưu
-    if (isManager && !isEdit && !onSave) {
+    // Đã bấm "Vẫn tạo căn mới" nhưng lần lưu trước lỗi → lưu tiếp, không hỏi trùng lại
+    if (isManager && !isEdit && !onSave && !pendingPayload) {
       try {
         setLoading(true);
         setError(null);
@@ -175,10 +178,8 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
   };
 
   const handleConfirmCreate = async () => {
-    const toSave = pendingPayload;
     setDuplicateCandidate(null);
-    setPendingPayload(null);
-    if (toSave) await executeSave(toSave);
+    if (pendingPayload && (await executeSave(pendingPayload))) setPendingPayload(null);
   };
 
   const handleViewExisting = () => {
@@ -282,17 +283,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
         </div>
 
         {/* Story 13.10 — AC1: Cảnh báo mềm cho CTV khi phát hiện căn tương tự (không chặn gửi) */}
-        {softWarning && (
-          <div className="shrink-0 mx-3 sm:mx-4 mb-2 p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs sm:text-sm flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div className="flex-1 leading-relaxed">
-              <span className="font-semibold text-amber-950">⚠️ Lưu ý:</span> Trong kho đã có 1 căn tương tự tại địa chỉ này (
-              <span className="font-medium text-amber-950">{softWarning.title}</span> ·{' '}
-              <span className="font-medium text-amber-950">{formatVnd(softWarning.price)}/tháng</span>
-              {softWarning.area ? ` · ${softWarning.area}` : ''}). Vui lòng kiểm tra lại số phòng/tầng trước khi gửi để tránh gửi trùng.
-            </div>
-          </div>
-        )}
+        {softWarning && <DuplicateSoftWarning matched={softWarning} />}
 
         {/* Nút Lưu ghim cuối màn hình, chừa chỗ huy hiệu Netlify */}
         <div className="shrink-0 flex gap-2 p-3 pb-badge-safe sm:pb-3 border-t border-slate-100">

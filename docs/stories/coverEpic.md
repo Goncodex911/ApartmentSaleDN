@@ -17,6 +17,7 @@ Tài liệu này là không gian tập trung để ghi nhận, phân rã và the
 | Mã Story | Tên Story & Tính Năng | Phạm Vi Ảnh Hưởng | Độ Ưu Tiên | Trạng Thái | Link Task Chi Tiết |
 | :---: | :--- | :--- | :---: | :---: | :--- |
 | **CE-01** | Hệ Thống Cào & Đồng Bộ Căn Hộ Theo Tài Khoản Mục Tiêu Trong Nhóm Telegram (Self-Service Userbot Scraper & Real-Time Listener) | Backend (`telegram-userbot`, `crypto`, `dedup`, `gemini`), Frontend (`TelegramScraperPage`, `adminNav`) | P0 (Ưu tiên cao) | 📝 Chuẩn bị lập trình | [STORY-CE-01-TELEGRAM-TARGET-SENDER-FILTER.md](file:///d:/CODE/AppartmentSaleProject/tasks/STORY-CE-01-TELEGRAM-TARGET-SENDER-FILTER.md) |
+| **CE-03** | Rà Soát & Khắc Phục Lỗi Trùng Nhầm Căn Hộ Đường Đánh Số (Mỹ An 22 ↔ Mỹ An 2) & Tối Ưu Luồng Dedup | Backend (`street-key`, `similar-apartment`, `dedup.service`, `street.ts`), Frontend (`ApartmentModal`, `DuplicateConfirmDialog`, `apartmentApi`) | P1 (Ưu tiên cao) | 📝 Đã tách 4 story — chờ duyệt | [CE-03.1](../../tasks/STORY-CE-03.1-STREET-KEY-STRICT-MATCH.md) · [CE-03.2](../../tasks/STORY-CE-03.2-TRIPLET-MATCH-TIGHTENING.md) · [CE-03.3](../../tasks/STORY-CE-03.3-DUPLICATE-WARNING-UI.md) · [CE-03.4](../../tasks/STORY-CE-03.4-NUMBERED-STREET-AUDIT-SCRIPT.md) |
 
 ---
 
@@ -223,3 +224,138 @@ frontend/src/
 * [ ] **Lắng Nghe Thời Gian Thực:** Khi tài khoản mục tiêu đăng bài mới $\rightarrow$ Hệ thống tự động nạp vào Bảng hàng trong 3 giây.
 * [ ] **Bảo Mật & An Toàn:** Chuỗi session được mã hóa AES-256; có cơ chế rate-limiting 1.5s–2.0s chống khóa nick.
 * [ ] **Kiểm tra Biên Dịch (Build Check):** Cả Backend và Frontend biên dịch sạch 100% không có lỗi TypeScript hay Vite build.
+
+---
+
+## 📌 Chi Tiết User Story CE-03: Rà Soát & Khắc Phục Lỗi Trùng Nhầm Căn Hộ Đường Đánh Số (Mỹ An 22 ↔ Mỹ An 2) & Tối Ưu Luồng Dedup
+
+### 1. Mô tả bài toán & Kết quả Rà soát Hệ thống (Business Context & Audit Findings)
+* **Phản ánh từ người dùng:** Khi nhập một căn hộ mới ở đường **Mỹ An 22**, hệ thống lại bật cảnh báo nghi trùng với căn hộ đang có trong kho ở đường **Mỹ An 2**.
+* **Tác động nghiệp vụ:**
+  * CTV thấy cảnh báo trùng giả trên form nhập tin dẫn đến hoang mang, mất thời gian đối chiếu thủ công (thậm chí nhầm tưởng kho đã có căn đó nên bỏ qua không đăng).
+  * Quản lý bị làm phiền bởi hộp thoại xác nhận trùng sai lệch khi tạo căn hoặc duyệt tin, và pipeline tự động (`DedupService`) có nguy cơ **gộp nhầm** 2 căn hộ khác đường thành một căn Master.
+
+#### Kết quả rà soát nguyên nhân (Kiểm chứng trên cả `HEAD` và Working Tree Epic 19):
+
+1. **Nguyên nhân trực tiếp trên bản `HEAD` (commit `f742e14`, chưa deploy Epic 19):**
+   * Trong `backend/src/modules/dedup/street-key.ts` ở `HEAD`, hàm `streetKey` lọc bỏ toàn bộ từ có chứa chữ số (`!/\d/.test(w)`).
+   * Kết quả: `streetKey("Mỹ An 22") === "my an"` và `streetKey("Mỹ An 2") === "my an"`. Chỉ cần hai căn cùng quận (`Ngũ Hành Sơn`) và khớp giá `± 5%` + loại căn/phòng ngủ (hoặc cùng SĐT), `sameStreet` luôn trả `true` → báo trùng 100%.
+
+2. **5 lỗ hổng VẪN CÒN TỒN TẠI ngay cả trong bản sửa Story 19.4 (đang ở working tree):**
+   Mặc dù `Story 19.4` đã cập nhật `streetKey` để giữ số đứng sau tên đường (`"Mỹ An 22"` → `"my an 22"`, `"Mỹ An 2"` → `"my an 2"`), việc rà soát toàn bộ luồng kiểm tra trùng (`ApartmentModal` → `/apartments/check-duplicate` → `findSimilarApartment` / `DedupService`) cho thấy vẫn còn 5 nguyên nhân gây báo trùng sai và cảnh báo giả:
+
+   * **(A) `sameStreet` dùng phép chứa chuỗi con (`.includes`) → vẫn khớp nhầm khi dữ liệu cũ/AI bị rớt số đường:**
+     * Tại `street-key.ts:43-47`, `sameStreet` kiểm tra `` ` ${x} `.includes(` ${y} `) || ` ${y} `.includes(` ${x} `) ``.
+     * Nếu một căn ở Mỹ An 2 trong DB từng bị lưu `street = "Mỹ An"` (do dữ liệu cũ trước đây, hoặc do AI bóc từ câu *"Cho thuê căn 2 Mỹ An"* tách `"2"` thành `houseNumber` còn `street` thành `"Mỹ An"`), hay `street` trống và fallback sang `address = "2 Mỹ An"` / `"Kiệt 2 Mỹ An"`, thì `streetKey("2 Mỹ An")` bỏ số `2` đứng đầu và trả về **`"my an"`**.
+     * Khi đó `" my an 22 ".includes(" my an ")` trả **`true`** → `"Mỹ An 22"` tiếp tục bị khớp với mọi căn `"Mỹ An"` hoặc `"2 Mỹ An"`.
+
+   * **(B) Race condition khi gõ trên Form CTV (`ApartmentModal.tsx` dòng 69–97):**
+     * Với CTV (`!isManager`), mỗi khi `location.street` hoặc `price` thay đổi, `useEffect` chờ debounce `600ms` rồi gọi `apartmentApi.checkDuplicate(...)`, nhưng **không có `AbortController` hay cờ `cancelled`**.
+     * Kịch bản thực tế: CTV gõ `"Mỹ An 2"` (ngừng 0.6s → gửi Request #1 kiểm tra `"Mỹ An 2"` và khớp căn Mỹ An 2), sau đó gõ tiếp thành `"Mỹ An 22"` (Request #2). Nếu Request #1 phản hồi chậm hơn Request #2, `setSoftWarning` của Request #1 ghi đè lên UI → màn hình đang ghi `"Mỹ An 22"` nhưng bên dưới vẫn hiện cảnh báo trùng của `"Mỹ An 2"`.
+     * Đồng thời, [`summarizeDuplicate(match, false)`](file:///d:/CODE/AppartmentSaleProject/backend/src/modules/dedup/similar-apartment.ts#L81-L84) không trả về `street` cho CTV mà chỉ trả `area` (VD: `"Mỹ An"`), và banner `softWarning` (`ApartmentModal.tsx:285-295`) không hiển thị `reason` hay tên đường đối chiếu, khiến CTV không biết căn bị nghi trùng thực tế nằm ở Mỹ An 2 hay Mỹ An 22.
+
+   * **(C) `checkTripletMatch` & `findSimilarApartment` quá lỏng (`similar-apartment.ts` dòng 29–78):**
+     * **Bỏ qua `houseNumber` và `buildingName`:** Hai căn khác hẳn số nhà (VD `12 Mỹ An 2` vs `95 Mỹ An 2`) hoặc khác tòa nhà vẫn bị báo trùng nếu giá lệch `<= 5%`.
+     * **Không loại trừ khi `ownerContact.phone` khác nhau:** Khi cả 2 căn đều có SĐT chủ hợp lệ nhưng khác hẳn nhau, `findSimilarApartment` vẫn chạy xuống `checkTripletMatch` và báo trùng.
+     * **Điều kiện `||` quá rộng (dòng 49–53):** `(propertyType === ...) || (bedrooms === ...) || (jaccard >= 0.5)`. Chỉ cần trùng **1 trong 3** yếu tố là báo trùng (VD Studio trùng 2PN vì cùng `propertyType = "APARTMENT"`, hoặc Nhà nguyên căn 1PN trùng Căn hộ 1PN vì cùng `bedrooms = 1`).
+     * **Query `.limit(200)` thiếu `.sort` và không lọc đường trên DB (dòng 42):** Dễ lấy ngẫu nhiên 200 bản ghi cũ nhất ở các phân khúc giá phổ biến (> 200 căn/quận), gây bỏ sót căn trùng mới hoặc tốn tài nguyên lọc JS.
+
+   * **(D) Ca biên trong `streetKey` & `splitAddress` (`street-key.ts` & `utils/street.ts`):**
+     * Nhập tên đường kèm hậu tố không có dấu phẩy (VD `"Mỹ An 2 - Ngũ Hành Sơn"`, `"Mỹ An 2 (gần biển)"`) khiến `streetKey` giữ nguyên phần sau và gây lệch khóa.
+     * Tên đường bắt đầu bằng ngày/số không có chữ `"Đường"` (VD `"30/4 Hải Châu"`, `"2 tháng 9"`) bị regex `HOUSE_PART` trong `splitAddress` (`street.ts:5, 18`) nuốt mất phần số làm `houseNumber`.
+
+   * **(E) Xử lý tạm ở Form Quản lý (`ApartmentModal.tsx` dòng 177–181):**
+     * Trong `handleConfirmCreate`, `setPendingPayload(null)` được gọi trước `await executeSave(toSave)`. Nếu lưu thất bại do lỗi mạng hoặc validation server, dữ liệu xác nhận tạm bị xóa mất.
+
+---
+
+### 2. Kiến Trúc Luồng Kiểm Tra & Khử Trùng Sau Nâng Cấp
+
+```
++-----------------------------------------------------------------------------------+
+| TẦNG 1: FRONTEND FORM & UI MINH BẠCH (ApartmentModal + DuplicateConfirmDialog)    |
+| - Hủy request cũ bằng AbortController + reset softWarning ngay khi sửa street/giá |
+| - Hiển thị rõ tên đường (street) & lý do nghi trùng (reason) cho cả CTV & Quản lý |
+| - Giữ pendingPayload cho đến khi executeSave() thành công                          |
++-----------------------------------------------------------------------------------+
+                                       │
+                                       ▼
++-----------------------------------------------------------------------------------+
+| TẦNG 2: CHUẨN HÓA KHÓA TÊN ĐƯỜNG & ĐỊA CHỈ (street-key.ts & utils/street.ts)     |
+| - splitAddress(): bảo vệ danh sách đường số/ngày tháng Đà Nẵng (2/9, 30/4, 3/2…)  |
+| - streetKey(): cắt hậu tố sau ",", "-", "(" và bỏ tên phường ở đuôi (từ điển)     |
+| - sameStreet(): SO KHỚP BẰNG NHAU TUYỆT ĐỐI (x === y), loại bỏ .includes()        |
++-----------------------------------------------------------------------------------+
+                                       │
+                                       ▼
++-----------------------------------------------------------------------------------+
+| TẦNG 3: BỘ LỌC KHỬ TRÙNG CHÍNH XÁC (similar-apartment.ts & dedup.service.ts)      |
+| 1. Trùng SĐT chủ + cùng quận + sameStreet(x === y) + (không mâu thuẫn số nhà)    |
+| 2. Bộ 3 (checkTripletMatch):                                                      |
+|    - Sắp xếp mới nhất (.sort({ updatedAt: -1 }).limit(300))                       |
+|    - Loại trừ nếu khác số nhà rõ ràng / khác buildingName / khác hẳn SĐT chủ     |
+|    - Khớp cùng propertyType (nếu có) VÀ cùng bedrooms (nếu có)                    |
+| 3. Trùng ảnh pHash (CheckVisualMatch ghép 1-1)                                    |
++-----------------------------------------------------------------------------------+
+```
+
+---
+
+### 3. Tiêu chí Chấp nhận Chi tiết (Acceptance Criteria - Gherkin Standard)
+
+#### AC1: So khớp Tên đường Chính xác Tuyệt đối (`streetKey` & `sameStreet`)
+* **Given** hệ thống thực hiện kiểm tra trùng giữa hai tên đường hoặc địa chỉ
+* **When** gọi `sameStreet(a, b)`
+* **Then** hàm chỉ trả về `true` khi khóa chuẩn hóa `streetKey(a) === streetKey(b)` (không còn dùng `.includes()` một chiều):
+  * `"Mỹ An 22"` (`"my an 22"`) **không** khớp `"Mỹ An 2"` (`"my an 2"`).
+  * `"Mỹ An 22"` (`"my an 22"`) **không** khớp `"Mỹ An"` hay `"2 Mỹ An"` (`"my an"`).
+  * `"An Thượng 2"` **không** khớp `"An Thượng 22"` hay `"An Thượng"`.
+  * Vẫn khớp đúng khi khác số nhà: `"12 Mỹ An 22"` và `"Kiệt 5/3 Mỹ An 22"` đều chuẩn hóa về `"my an 22"` → `true`.
+* **And** `streetKey` loại bỏ phần hậu tố phụ sau `,`, `-`, `(` (VD `"Mỹ An 2 - Ngũ Hành Sơn"` → `"my an 2"`) và tự động bóc tên phường/quận Đà Nẵng hợp lệ dính ở cuối tên đường không dấu phẩy (VD `"Nguyễn Văn Thoại Mỹ An"` → `"nguyen van thoai"`).
+* **And** `splitAddress` không cắt nhầm phần số của các tuyến đường ngày/số Đà Nẵng (`2/9`, `2 Tháng 9`, `30/4`, `30 Tháng 4`, `3/2`, `3 Tháng 2`) thành `houseNumber`.
+
+#### AC2: Siết chặt Thuật toán Bộ 3 (`checkTripletMatch` & `findSimilarApartment`)
+* **Given** hai căn hộ nằm trên cùng `sameStreet`, cùng quận và giá chênh lệch `≤ 5%`
+* **When** chạy `findSimilarApartment` / `checkTripletMatch`
+* **Then**:
+  * Nếu cả 2 căn đều có `houseNumber` hợp lệ sau chuẩn hóa và **khác nhau** (trừ khi cùng `buildingName`) → **không** báo trùng bộ 3.
+  * Nếu cả 2 căn đều có `buildingName` rõ ràng và **khác nhau** → **không** báo trùng bộ 3.
+  * Nếu cả 2 căn đều có `ownerContact.phone` hợp lệ và **khác nhau** (không cùng tòa nhà) → **không** báo trùng bộ 3 ở bước nhập thủ công (tránh cảnh báo nhầm giữa 2 chủ nhà khác nhau trên cùng con đường có mức giá phổ thông giống nhau).
+  * Phải khớp **đồng thời** `propertyType` (nếu cả 2 đều khai báo) **VÀ** `bedrooms` (nếu cả 2 đều khai báo), không dùng phép `||` gộp Studio với 2PN hay Nhà nguyên căn với Căn hộ.
+  * Truy vấn DB trong `checkTripletMatch` sắp xếp `.sort({ updatedAt: -1 })` và nâng giới hạn hợp lý (VD `.limit(300)`), chỉ chọn các trường cần thiết (`.select(...)`).
+
+#### AC3: Chống Race Condition & Minh bạch Giao diện Kiểm tra Trùng
+* **Given** CTV đang gõ ô Tên đường trên [ApartmentModal.tsx](file:///d:/CODE/AppartmentSaleProject/frontend/src/components/apartment/ApartmentModal.tsx)
+* **When** CTV gõ `"Mỹ An 2"` rồi gõ tiếp thành `"Mỹ An 22"`
+* **Then**
+  * Cảnh báo `softWarning` cũ được xóa ngay khi tiêu chí thay đổi.
+  * Mọi request `POST /api/v1/apartments/check-duplicate` trước đó bị hủy bằng `AbortController` / bỏ qua theo cờ `cancelled` → kết quả cũ của `"Mỹ An 2"` **tuyệt đối không** ghi đè lên trạng thái của `"Mỹ An 22"`.
+* **And** `summarizeDuplicate` trả thêm `street` (tên đường công khai, không lộ số nhà cho CTV) và `buildingName` (nếu có); UI hiển thị rõ **Tên đường** + **Lý do trùng** trên cả `softWarning` (CTV) lẫn `DuplicateConfirmDialog` (Quản lý).
+* **And** `ApartmentModal` chỉ reset `pendingPayload` sau khi `executeSave` thành công.
+
+#### AC4: Dọn dẹp Dữ liệu Lịch sử (One-time Audit Script)
+* **Given** các căn hộ cũ trong MongoDB từng bị lưu thiếu số đường (VD `location.street = "Mỹ An"` trong khi `location.address` hoặc `title` chứa `"Mỹ An 2"` / `"Mỹ An 22"`)
+* **When** chạy script rà soát ở chế độ chạy thử (`dry-run`) và `--apply`
+* **Then** hệ thống liệt kê và chuẩn hóa lại đúng `location.street` cho các căn sai lệch, không làm thay đổi `updatedAt` (`timestamps: false`).
+
+---
+
+### 4. Thiết Kế Kỹ Thuật & Phạm Vi Tác Động
+
+| Thành phần | Tệp | Thay đổi chính |
+| :--- | :--- | :--- |
+| **Chuẩn hóa đường** | `backend/src/modules/dedup/street-key.ts` | Cắt hậu tố `,`, `-`, `(`; bóc tên phường/quận Đà Nẵng theo từ điển ở cuối tên đường; đổi `sameStreet` sang so khớp bằng nhau `x === y`. |
+| **Tách địa chỉ** | `backend/src/utils/street.ts` | Nhận diện ngoại lệ tên đường ngày/số Đà Nẵng (`2/9`, `30/4`, `3/2`...) trước regex `HOUSE_PART`. |
+| **Khử trùng Bộ 3** | `backend/src/modules/dedup/similar-apartment.ts` | Truyền `houseNumber` & `buildingName`; loại trừ khi khác số nhà / tòa nhà / khác hẳn SĐT chủ; siết `propertyType && bedrooms`; `.sort({ updatedAt: -1 })`; bổ sung `street` trong `summarizeDuplicate`. |
+| **UI Form & Modal** | `frontend/src/api/apartmentApi.ts`, `frontend/src/components/apartment/ApartmentModal.tsx`, `frontend/src/components/apartment/DuplicateConfirmDialog.tsx` | Hỗ trợ `AbortSignal` cho `checkDuplicate`, hủy request cũ khi đổi input, hiện rõ `street` & `reason` trong `softWarning` & `DuplicateConfirmDialog`, giữ `pendingPayload` khi lỗi lưu. |
+| **Script & Tests** | `backend/tests/core-rules.test.ts`, script rà soát DB (tùy chọn) | Bổ sung unit test cho toàn bộ ca biên `"Mỹ An 22"` vs `"Mỹ An 2"`, `"2 Mỹ An"`, `"30/4"`, `houseNumber`, `propertyType && bedrooms`. |
+
+---
+
+### 5. Tiêu Chuẩn Hoàn Thành & Kịch Bản Kiểm Thử (Definition of Done & QA Checklist)
+
+* [ ] **Unit Tests Đường đánh số:** Kiểm tra `sameStreet('Mỹ An 22', 'Mỹ An 2') === false`, `sameStreet('Mỹ An 22', '2 Mỹ An') === false`, `sameStreet('Mỹ An 22', 'Mỹ An') === false`, `sameStreet('Mỹ An 22', 'K12/3 Mỹ An 22') === true`, `sameStreet('Mỹ An 2 - Ngũ Hành Sơn', 'Mỹ An 2') === true`.
+* [ ] **Unit Tests Tách địa chỉ:** Kiểm tra `splitAddress('30/4 Hải Châu')` và `splitAddress('2 tháng 9')` không cắt nhầm số đường thành số nhà.
+* [ ] **Unit Tests Bộ 3 (`checkTripletMatch`):** Kiểm tra 2 căn khác số nhà / khác tòa nhà / khác SĐT chủ / khác loại căn (`Studio` vs `2PN`) trên cùng đường không bị báo trùng nhầm.
+* [ ] **Kiểm thử thủ công trên Form CTV & Quản lý:** Gõ nhanh `"Mỹ An 2"` rồi `"Mỹ An 22"` (giả lập mạng chậm bằng DevTools) xác nhận cảnh báo của `"Mỹ An 2"` không hiển thị đè lên `"Mỹ An 22"`.
+* [ ] **Kiểm tra Biên Dịch & Test Suite:** `npx tsc --noEmit` (Backend + Frontend) và `npm test` (Vitest) đạt 100%, không phát sinh lỗi hồi quy.
