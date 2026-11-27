@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Landmark, apartmentApi } from '../../api/apartmentApi.js';
-import { AMENITY_KEYS, ApartmentFilterValues, EMPTY_FILTERS, countActiveFilters } from '../../hooks/useApartmentSearch.js';
+import { AMENITY_KEYS, AREA_RANGES, ApartmentFilterValues, EMPTY_FILTERS, countActiveFilters } from '../../hooks/useApartmentSearch.js';
 import { amenityLabel } from '../../utils/amenities.js';
 import { BottomSheet } from '../layout/BottomSheet.js';
 import { tapFeedback } from '../../utils/haptics.js';
@@ -69,7 +69,7 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({ initial, isManager, on
   }, []);
 
   // Chip chọn 1: bấm lại chip đang chọn thì bỏ chọn
-  const pick = (field: 'priceRange' | 'roomType' | 'status', value: string) =>
+  const pick = (field: 'priceRange' | 'areaRange' | 'roomType' | 'status', value: string) =>
     setDraft((d) => ({ ...d, [field]: d[field] === value ? '' : value }));
 
   // Chip chọn nhiều
@@ -100,6 +100,11 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({ initial, isManager, on
           <Section title="Khoảng giá">
             {PRICE_RANGES.map((p) => (
               <Chip key={p.id} active={draft.priceRange === p.id} onClick={() => pick('priceRange', p.id)}>{p.label}</Chip>
+            ))}
+          </Section>
+          <Section title="Diện tích">
+            {AREA_RANGES.map((a) => (
+              <Chip key={a.id} active={draft.areaRange === a.id} onClick={() => pick('areaRange', a.id)}>{a.label}</Chip>
             ))}
           </Section>
           <Section title="Khu vực">

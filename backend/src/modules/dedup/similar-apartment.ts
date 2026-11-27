@@ -12,7 +12,7 @@ export interface ListingLike {
   title?: string;
   price: number;
   location: { street?: string; houseNumber?: string; buildingName?: string; address?: string; zone?: Zone; district?: string };
-  attributes?: { propertyType?: string; bedrooms?: number };
+  attributes?: { propertyType?: string; bedrooms?: number; area?: number };
   ownerContact?: { phone?: string };
 }
 
@@ -99,7 +99,10 @@ export async function findSimilarApartment(data: ListingLike, imageHashes?: () =
   const district = (location.zone && districtOfZone(location.zone)) || location.district || '';
   const street = location.street || location.address || '';
 
-  const byPhone = await DedupService.checkDeterministicMatch(data.ownerContact?.phone || '', street, district, excludeId);
+  // Story 20.1: căn khác chữ ký (khác PN / loại / diện tích / tòa) của cùng chủ, cùng đường không bị báo trùng
+  const unit = { propertyType: attributes?.propertyType, bedrooms: attributes?.bedrooms, area: attributes?.area, buildingName: location.buildingName };
+  const { match, uncertain } = await DedupService.checkDeterministicMatch(data.ownerContact?.phone || '', street, district, unit, excludeId);
+  const byPhone = match || uncertain; // Luồng có người xác nhận → "chưa chắc" vẫn cảnh báo
   if (byPhone) return { apartment: byPhone, reason: 'Trùng SĐT chủ nhà và tên đường' };
 
   const byTriplet = await checkTripletMatch(
@@ -118,7 +121,7 @@ export async function findSimilarApartment(data: ListingLike, imageHashes?: () =
   );
   if (byTriplet) return byTriplet;
 
-  const byPhoto = imageHashes && (await DedupService.checkVisualMatch(await imageHashes(), district));
+  const byPhoto = imageHashes && (await DedupService.checkVisualMatch(await imageHashes(), district, unit));
   return byPhoto ? { apartment: byPhoto.matchedApartment, reason: 'Trùng ảnh' } : null;
 }
 

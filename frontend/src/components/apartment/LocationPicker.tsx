@@ -4,6 +4,8 @@ import { Check, Layers, LocateFixed, Loader2, MapPin, X } from 'lucide-react';
 import { DANANG_LNG_LAT, TILE_ATTRIBUTION, TILE_URL, isLngLat } from '../../utils/mapTiles.js';
 import { reverseGeocodeDanang } from '../../utils/reverseGeocoding.js';
 import { Zone } from '../../utils/danang.js';
+import { GeoPlace } from '../../api/apartmentApi.js';
+import { PlaceSearchBox } from '../map/PlaceSearchBox.js';
 
 const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 const SATELLITE_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP';
@@ -13,7 +15,7 @@ const round6 = (value: number) => Number(value.toFixed(6));
 
 interface LocationPickerProps {
   initial?: [number, number];
-  onConfirm: (coordinates: [number, number], info?: { street?: string; zone?: Zone; ward?: string }) => void;
+  onConfirm: (coordinates: [number, number], info?: { street?: string; zone?: Zone; ward?: string; mapUrl?: string }) => void;
   onClose: () => void;
 }
 
@@ -37,6 +39,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ initial: rawInit
   const [mapType, setMapType] = useState<'STREET' | 'SATELLITE'>('STREET');
   const [centerCoords, setCenterCoords] = useState<[number, number]>(() => initial || DANANG_LNG_LAT);
   const [error, setError] = useState('');
+  const [linkUrl, setLinkUrl] = useState<string>();
 
   useEffect(() => {
     let disposed = false;
@@ -88,6 +91,14 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ initial: rawInit
     });
   };
 
+  // Bay tới kết quả tìm; link Google Maps → nhớ link để điền vào form khi xác nhận (Chỉ đường dùng link — Story 20.5)
+  const goTo = (place: GeoPlace, query: string) => {
+    const [lng, lat] = place.coordinates;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    mapRef.current?.flyTo([lat, lng], place.source === 'OSM' ? 18 : 19, { animate: !reduceMotion, duration: 1 });
+    setLinkUrl(place.source === 'GOOGLE_LINK' ? query : undefined);
+  };
+
   const useMyLocation = () => {
     setLocating(true);
     setError('');
@@ -121,9 +132,10 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ initial: rawInit
         street: info.street,
         zone: info.zone as Zone | undefined,
         ward: info.ward,
+        mapUrl: linkUrl,
       });
     } catch {
-      onConfirm(coords);
+      onConfirm(coords, { mapUrl: linkUrl });
     } finally {
       setSubmitting(false);
     }
@@ -162,9 +174,11 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ initial: rawInit
         {/* Ghim cố định giữa khung: mũi ghim cắm đúng tâm bản đồ */}
         <MapPin className="absolute left-1/2 top-1/2 z-[500] w-10 h-10 -translate-x-1/2 -translate-y-full text-rose-600 fill-rose-600/25 drop-shadow-lg pointer-events-none" aria-hidden />
 
-        <div className="absolute left-3 right-16 top-3 z-[500] flex flex-col gap-1 pointer-events-none">
-          <p className="inline-block px-3 py-1.5 rounded-xl bg-white/95 text-xs font-medium text-slate-800 shadow-sm border border-slate-200/60 backdrop-blur-sm">
-            🎯 Kéo bản đồ để mũi ghim đúng cửa nhà / nóc tòa nhà
+        {/* Story 20.4: tìm địa chỉ / dán link ngay trên bản đồ — chỉ di chuyển bản đồ, vị trí lưu vẫn là tâm ghim */}
+        <div className="absolute left-3 right-16 top-3 z-[500] flex flex-col gap-1.5 pointer-events-none">
+          <PlaceSearchBox onPick={goTo} />
+          <p className="self-start px-3 py-1.5 rounded-xl bg-white/95 text-xs font-medium text-slate-800 shadow-sm border border-slate-200/60">
+            {linkUrl ? 'Đã định vị theo link Google Maps — kéo nhẹ nếu cần chỉnh' : 'Kéo bản đồ để mũi ghim đúng cửa nhà / nóc tòa nhà'}
           </p>
         </div>
 

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Loader2, CheckCircle2, AlertCircle, Info, ClipboardPaste } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { ingestionApi } from '../../api/ingestionApi.js';
+import { MergeResultCard } from './MergeResultCard.js';
 
 interface QuickPasteModalProps {
   onClose: () => void;
@@ -23,6 +25,7 @@ export const QuickPasteModal: React.FC<QuickPasteModalProps> = ({ onClose, onSuc
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +67,12 @@ export const QuickPasteModal: React.FC<QuickPasteModalProps> = ({ onClose, onSuc
     setError(null);
   };
 
+  // Mở chi tiết căn ở trang Bảng hàng (cơ chế openApartmentId sẵn có — Story 11.5)
+  const viewApartment = (apartmentId: string) => {
+    navigate('/apartments', { state: { openApartmentId: apartmentId } });
+    onClose();
+  };
+
   const style = result && RESULT_STYLE[!result.isRentalListing ? 'rejected' : result.isDuplicate ? 'duplicate' : 'created'];
 
   return (
@@ -92,6 +101,7 @@ export const QuickPasteModal: React.FC<QuickPasteModalProps> = ({ onClose, onSuc
               </div>
             </div>
           )}
+          {result?.isRentalListing && <MergeResultCard result={result} onView={viewApartment} onChanged={onSuccess} />}
           <label className="flex-1 flex flex-col gap-1.5 min-h-[40vh] sm:min-h-0">
             <span className="flex items-center justify-between">
               <span className="text-sm font-medium text-slate-700">Nội dung tin</span>

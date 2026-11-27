@@ -2,6 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Apartment, apartmentApi, Pagination } from '../api/apartmentApi.js';
 import { APARTMENT_REALTIME, RealtimeData, RealtimeMessage } from '../api/realtimeStream.js';
 
+// Story 20.7: mốc diện tích m², nửa mở [min, max) như khoảng giá
+export const AREA_RANGES: { id: string; label: string; min?: number; max?: number }[] = [
+  { id: 'under_30', label: 'Dưới 30 m²', max: 30 },
+  { id: '30_50', label: '30 – 50 m²', min: 30, max: 50 },
+  { id: '50_80', label: '50 – 80 m²', min: 50, max: 80 },
+  { id: 'above_80', label: 'Trên 80 m²', min: 80 },
+];
+
 // Nhãn tạm trên thẻ khi căn vừa đổi trong lúc đang xem (Story 11.4) — mất khi tải lại danh sách
 export type LiveTag = 'DEPOSITED' | 'RENTED' | 'PRICE_DROP';
 
@@ -25,6 +33,7 @@ type AmenityKey = (typeof AMENITY_KEYS)[number];
 
 export type ApartmentFilterValues = {
   priceRange: string;
+  areaRange: string; // Story 20.7: mã mốc diện tích (AREA_RANGES) → gửi minArea / maxArea
   roomType: string;
   status: string;
   landmark: string;
@@ -37,6 +46,7 @@ export type ApartmentFilterValues = {
 
 export const EMPTY_FILTERS: ApartmentFilterValues = {
   priceRange: '',
+  areaRange: '',
   roomType: '',
   status: '',
   landmark: '',
@@ -58,7 +68,7 @@ export const EMPTY_FILTERS: ApartmentFilterValues = {
 };
 
 export const countActiveFilters = (f: ApartmentFilterValues) =>
-  [f.priceRange, f.roomType, f.status, f.landmark, f.needsLocation].filter(Boolean).length + f.zones.length + f.propertyTypes.length + AMENITY_KEYS.filter((key) => f[key]).length;
+  [f.priceRange, f.areaRange, f.roomType, f.status, f.landmark, f.needsLocation].filter(Boolean).length + f.zones.length + f.propertyTypes.length + AMENITY_KEYS.filter((key) => f[key]).length;
 
 const PAGE_SIZE = 12;
 const EMPTY_PAGINATION: Pagination = { total: 0, page: 1, limit: PAGE_SIZE, totalPages: 1 };
@@ -66,6 +76,9 @@ const EMPTY_PAGINATION: Pagination = { total: 0, page: 1, limit: PAGE_SIZE, tota
 export function toParams(f: ApartmentFilterValues, page: number) {
   const params: Record<string, string | number | boolean> = { page, limit: PAGE_SIZE };
   if (f.priceRange) params.priceRange = f.priceRange;
+  const area = AREA_RANGES.find((range) => range.id === f.areaRange);
+  if (area?.min) params.minArea = area.min;
+  if (area?.max) params.maxArea = area.max;
   if (f.roomType) params.roomType = f.roomType;
   if (f.status) params.status = f.status;
   if (f.zones.length) params.zones = f.zones.join(',');

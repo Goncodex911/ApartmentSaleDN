@@ -45,6 +45,14 @@ export function isGoogleMapsUrl(raw: string): boolean {
   return /^(www\.)?google\.com(\.vn)?$/.test(host) && url.pathname.startsWith('/maps');
 }
 
+/** Story 20.5: link Google Maps đầu tiên trong nội dung tin (bỏ dấu câu dính cuối link), không có → undefined. */
+export function extractMapUrl(text = ''): string | undefined {
+  return text
+    .match(/https:\/\/\S+/g)
+    ?.map((link) => link.replace(/[),.;!?]+$/, ''))
+    .find(isGoogleMapsUrl);
+}
+
 const toCoordinates = (latStr: string, lngStr: string): [number, number] | null => {
   const latitude = Number(latStr);
   const longitude = Number(lngStr);

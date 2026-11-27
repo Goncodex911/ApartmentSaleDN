@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { lazy, Suspense, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BedDouble, Bath, Check, Maximize2, Waves } from 'lucide-react';
 import { Apartment } from '../../api/apartmentApi.js';
 import { User } from '../../api/authApi.js';
@@ -16,6 +17,8 @@ import { STATUS_STYLE } from '../../utils/statusStyle.js';
 import { Badge } from '../ui/Badge.js';
 
 export type CardLayout = 'card' | 'list';
+
+const MediaLightbox = lazy(() => import('../media/MediaLightbox.js')); // Chỉ tải khi chạm ảnh lần đầu
 
 interface ApartmentCardProps {
   apartment: Apartment;
@@ -46,6 +49,9 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
   const zone = zoneText({ ...location, ward: undefined }); // Thẻ gọn: khu vực hoặc quận, không kèm phường
   const beachNear = attributes.distanceToBeachM != null && attributes.distanceToBeachM <= 2000; // Tiêu chí số 1 của khách Đà Nẵng
   const price = apartment.price ? formatVnd(apartment.price) : `$${apartment.priceUsd}`;
+  // Story 20.8: chạm ảnh xem toàn màn hình như album Zalo; đang chọn căn lập lộ trình thì chạm ảnh vẫn là tích chọn
+  const [lightboxAt, setLightboxAt] = useState<number | null>(null);
+  const openPhoto = selection ? undefined : setLightboxAt;
 
   // Thẻ ảnh: trạng thái là huy hiệu soft (chữ đậm, nền nhạt, có viền — đọc rõ ngoài nắng, Story 12.6); danh sách gọn: chấm màu + chữ
   const statusLine = (
@@ -105,7 +111,7 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
 
       {layout === 'card' ? (
         <>
-          <CardPhotoCarousel photos={photos} videoCount={media.videos.length} title={apartment.title} />
+          <CardPhotoCarousel photos={photos} videoCount={media.videos.length} title={apartment.title} onPhotoTap={openPhoto} />
           <div className="p-3 space-y-2">
             <div className="flex items-start justify-between gap-2">
               <p className="text-lg font-bold text-brand-navy leading-tight">
@@ -133,7 +139,25 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
       ) : (
         <>
           {photos[0] ? (
-            <img src={photos[0]} alt={apartment.title} loading="lazy" crossOrigin={imageCors(photos[0])} className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl object-cover shrink-0 bg-slate-100" />
+            <div className="relative shrink-0">
+              <img
+                src={photos[0]}
+                alt={apartment.title}
+                loading="lazy"
+                crossOrigin={imageCors(photos[0])}
+                onClick={
+                  openPhoto &&
+                  ((e) => {
+                    e.stopPropagation();
+                    openPhoto(0);
+                  })
+                }
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl object-cover bg-slate-100"
+              />
+              {photos.length > 1 && (
+                <span className="absolute right-1 bottom-1 px-1.5 py-0.5 rounded-md bg-black/60 text-white text-xs font-semibold pointer-events-none">+{photos.length - 1}</span>
+              )}
+            </div>
           ) : (
             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-slate-100 shrink-0" aria-hidden />
           )}
@@ -164,6 +188,16 @@ export const ApartmentCard: React.FC<ApartmentCardProps> = ({ apartment, current
           </div>
         </>
       )}
+      {lightboxAt !== null &&
+        // Portal ra body: thẻ "vừa cọc" có filter grayscale làm lệch position: fixed; chặn click lan lên thẻ (mở chi tiết)
+        createPortal(
+          <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            <Suspense fallback={null}>
+              <MediaLightbox items={[...photos, ...media.videos]} startIndex={lightboxAt} title={apartment.title} onClose={() => setLightboxAt(null)} />
+            </Suspense>
+          </div>,
+          document.body
+        )}
     </article>
   );
 };

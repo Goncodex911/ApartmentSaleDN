@@ -10,6 +10,8 @@ export interface ISearchOptions {
   district?: string;
   minPrice?: number;
   maxPrice?: number;
+  minArea?: number; // Story 20.7: diện tích m², nửa mở [min, max)
+  maxArea?: number;
   status?: string;
   bedrooms?: number;
   furnishing?: string;

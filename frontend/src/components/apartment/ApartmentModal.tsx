@@ -5,14 +5,15 @@ import { Button } from '../ui/Button.js';
 import { PhotoUploader, MediaValue } from './PhotoUploader.js';
 import { splitMedia } from '../../utils/media.js';
 import { LocationSection, toLocationForm, fromLocationForm, isLocationComplete } from './LocationSection.js';
-import { MarketFieldsSection, toMarketForm, fromMarketForm } from './MarketFieldsSection.js';
+import { MarketField, toMarketForm, fromMarketForm } from './MarketFieldsSection.js';
 import { AmenitiesSection } from './AmenitiesSection.js';
 import { Field, FormSection, inputClass, numberOr, textOr } from './formFields.js';
 import { AmenityKey, amenityKeysOf, amenityPayload } from '../../utils/amenities.js';
-import { PROPERTY_TYPES, PropertyType } from '../../utils/danang.js';
+import { PropertyType } from '../../utils/danang.js';
 import { useApp } from '../layout/AppShell.js';
 import { DuplicateConfirmDialog } from './DuplicateConfirmDialog.js';
 import { DuplicateSoftWarning } from './DuplicateSoftWarning.js';
+import { ApartmentRoomFields, Furnishing } from './ApartmentRoomFields.js';
 
 interface ApartmentModalProps {
   initialData?: Apartment | null;
@@ -24,8 +25,8 @@ interface ApartmentModalProps {
   submitLabel?: string;
 }
 
-type Furnishing = Apartment['attributes']['furnishing'];
 const toText = (value?: number) => (value !== undefined && value !== null ? String(value) : '');
+const toNum = (value?: number | null): number | '' => (value !== undefined && value !== null ? value : '');
 
 /**
  * Form thêm/sửa căn (Story 8.1): toàn màn hình trên điện thoại, KHÔNG điền sẵn số liệu giả,
@@ -50,8 +51,8 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
   const [location, setLocation] = useState(() => toLocationForm(initialData));
   const [propertyType, setPropertyType] = useState<PropertyType | ''>(attrs?.propertyType || '');
   const [area, setArea] = useState(toText(attrs?.area));
-  const [bedrooms, setBedrooms] = useState(toText(attrs?.bedrooms));
-  const [bathrooms, setBathrooms] = useState(toText(attrs?.bathrooms));
+  const [bedrooms, setBedrooms] = useState<number | ''>(() => (attrs?.propertyType === 'STUDIO' ? 0 : toNum(attrs?.bedrooms)));
+  const [bathrooms, setBathrooms] = useState<number | ''>(() => toNum(attrs?.bathrooms));
   const [furnishing, setFurnishing] = useState<Furnishing | ''>(attrs?.furnishing || '');
   // Tiện ích (Story 8.5): mã đang chọn; tạo mới không chọn sẵn gì
   const [amenities, setAmenities] = useState<AmenityKey[]>(() => (initialData ? amenityKeysOf(initialData) : []));
@@ -80,7 +81,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
           title: title.trim() || undefined,
           price: numPrice,
           location: fromLocationForm(location, undefined),
-          attributes: { propertyType: propertyType || undefined, bedrooms: bedrooms !== '' ? Number(bedrooms) : undefined },
+          attributes: { propertyType: propertyType || undefined, bedrooms: bedrooms !== '' ? bedrooms : undefined },
           ownerContact: { phone: ownerPhone.trim() || undefined },
         }, controller.signal);
         setSoftWarning(res.isDuplicate && res.matchedApartment ? res.matchedApartment : null);
@@ -106,6 +107,10 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
           ? await apartmentApi.updateApartment(initialData!._id, payload)
           : await apartmentApi.createApartment(payload);
         onSuccess?.(result.data);
+        // Story 20.5: link Google Maps không đọc được → toạ độ chỉ ước lượng, Chỉ đường vẫn mở theo link
+        if (result.warnings?.includes('MAP_URL_UNRESOLVED')) {
+          alert('Đã lưu căn, nhưng không đọc được vị trí từ link Google Maps. Hãy mở lại căn và ghim vị trí trên bản đồ để chính xác.');
+        }
       }
       onClose();
       return true;
@@ -117,9 +122,17 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
     }
   };
 
+  // Studio quy ước 0 phòng ngủ; khi đổi từ Studio sang loại khác đặt sẵn 1 phòng ngủ
+  const handlePropertyTypeChange = (nextType: PropertyType) => {
+    if (nextType === 'STUDIO') setBedrooms(0);
+    else if (propertyType === 'STUDIO') setBedrooms(1);
+    setPropertyType(nextType);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !price || !isLocationComplete(location) || !propertyType || bedrooms === '' || !furnishing) {
+    const missingBedrooms = propertyType !== 'STUDIO' && (bedrooms === '' || bedrooms === 0);
+    if (!title || !price || !isLocationComplete(location) || !propertyType || missingBedrooms || !furnishing) {
       setError('Vui lòng điền đủ các ô có dấu *');
       return;
     }
@@ -127,6 +140,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
     const empty = isEdit ? null : undefined;
     const { distanceToBeachM, ...marketPayload } = fromMarketForm(market, empty);
     const amenityData = amenityPayload(amenities, attrs?.washingMachine);
+    const normalizedBedrooms = propertyType === 'STUDIO' ? 0 : Math.max(0, Math.trunc(Number(bedrooms)));
     const payload = {
       ...marketPayload,
       includedServices: amenityData.includedServices,
@@ -136,8 +150,8 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
       attributes: {
         propertyType,
         area: numberOr(area, empty),
-        bedrooms: Math.max(0, Math.trunc(Number(bedrooms))),
-        bathrooms: bathrooms.trim() ? Math.max(0, Math.trunc(Number(bathrooms))) : undefined, // Bắt buộc ở DB → không xóa được
+        bedrooms: normalizedBedrooms,
+        bathrooms: bathrooms !== '' ? Math.max(0, Math.trunc(bathrooms)) : undefined, // Bắt buộc ở DB → không xóa được
         furnishing,
         distanceToBeachM,
         ...amenityData.attributes,
@@ -159,7 +173,7 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
           title,
           price: Number(price),
           location: payload.location as any,
-          attributes: { propertyType, bedrooms: Math.max(0, Math.trunc(Number(bedrooms))) },
+          attributes: { propertyType, bedrooms: normalizedBedrooms },
           ownerContact: { phone: ownerPhone.trim() || undefined },
         });
         if (dup.isDuplicate && dup.matchedApartment) {
@@ -182,15 +196,6 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
     if (pendingPayload && (await executeSave(pendingPayload))) setPendingPayload(null);
   };
 
-  const handleViewExisting = () => {
-    if (duplicateCandidate) window.open(`/apartments?id=${duplicateCandidate._id}`, '_blank');
-  };
-
-  const handleCancelDuplicate = () => {
-    setDuplicateCandidate(null);
-    setPendingPayload(null);
-  };
-
   return (
     <div className="fixed inset-0 z-50 sm:flex sm:items-center sm:justify-center sm:p-4 bg-black/50">
       <form
@@ -210,48 +215,34 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
 
           <PhotoUploader value={media} onChange={setMedia} onError={setError} />
 
-          <FormSection title="Thông tin chính">
-            <Field label="Tiêu đề" required>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="VD: Căn 2PN view biển Mỹ An" className={inputClass} />
-            </Field>
-            <Field label="Giá thuê (đ/tháng)" required>
-              <input type="number" inputMode="numeric" min={0} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="8000000" className={inputClass} />
-            </Field>
-          </FormSection>
+          <Field label="Tiêu đề" required>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="VD: Căn 2PN view biển Mỹ An" className={inputClass} />
+          </Field>
+
+          <ApartmentRoomFields
+            propertyType={propertyType} onPropertyTypeChange={handlePropertyTypeChange}
+            bedrooms={bedrooms} onBedroomsChange={setBedrooms}
+            bathrooms={bathrooms} onBathroomsChange={setBathrooms}
+            area={area} onAreaChange={setArea}
+            furnishing={furnishing} onFurnishingChange={setFurnishing}
+          />
 
           <LocationSection value={location} onChange={setLocation} saved={initialData?.location} />
 
-          <FormSection title="Căn hộ">
+          <MarketField field="beach" value={market} onChange={setMarket} />
+
+          <FormSection title="Giá thuê">
             <div className="grid grid-cols-2 gap-3 items-end">
-              <Field label="Loại căn" required className="col-span-2">
-                <select value={propertyType} onChange={(e) => setPropertyType(e.target.value as PropertyType)} className={inputClass}>
-                  <option value="" disabled>Chọn loại căn</option>
-                  {PROPERTY_TYPES.map((type) => <option key={type.id} value={type.id}>{type.vi}</option>)}
-                </select>
+              <Field label="Giá thuê (đ/tháng)" required>
+                <input type="number" inputMode="numeric" min={0} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="8000000" className={inputClass} />
               </Field>
-              <Field label="Phòng ngủ" required>
-                <input type="number" inputMode="numeric" min={0} value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} placeholder="0 = studio" className={inputClass} />
-              </Field>
-              <Field label="Phòng tắm">
-                <input type="number" inputMode="numeric" min={0} value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} className={inputClass} />
-              </Field>
-              <Field label="Diện tích (m²)">
-                <input type="number" inputMode="decimal" min={0} value={area} onChange={(e) => setArea(e.target.value)} className={inputClass} />
-              </Field>
-              <Field label="Nội thất" required>
-                <select value={furnishing} onChange={(e) => setFurnishing(e.target.value as Furnishing)} className={inputClass}>
-                  <option value="" disabled>Chọn</option>
-                  <option value="FULL">Full nội thất</option>
-                  <option value="BASIC">Cơ bản</option>
-                  <option value="EMPTY">Nhà trống</option>
-                </select>
-              </Field>
+              <MarketField field="usd" value={market} onChange={setMarket} />
             </div>
           </FormSection>
 
-          <AmenitiesSection value={amenities} onChange={setAmenities} />
+          <MarketField field="lease" value={market} onChange={setMarket} />
 
-          <MarketFieldsSection value={market} onChange={setMarket} />
+          <AmenitiesSection value={amenities} onChange={setAmenities} />
 
           <FormSection title="Phí hàng tháng">
             <div className="grid grid-cols-3 gap-3 items-end">
@@ -300,8 +291,8 @@ export const ApartmentModal: React.FC<ApartmentModalProps> = ({ initialData, onC
           matched={duplicateCandidate}
           busy={loading}
           onConfirmCreate={handleConfirmCreate}
-          onViewExisting={handleViewExisting}
-          onCancel={handleCancelDuplicate}
+          onViewExisting={() => window.open(`/apartments?id=${duplicateCandidate._id}`, '_blank')}
+          onCancel={() => { setDuplicateCandidate(null); setPendingPayload(null); }}
         />
       )}
     </div>

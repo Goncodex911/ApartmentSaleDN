@@ -7,6 +7,7 @@ import { asyncHandler } from '../../utils/async-handler.js';
 import { PROPERTY_TYPES, ZONES } from '../apartments/listing-taxonomy.js';
 import { NEW_AMENITY_KEYS } from './slang.dictionary.js';
 import { POIS } from './landmarks.data.js';
+import { searchPlaces } from './geo-search.service.js';
 
 // Ép kiểu tham số query: qs có thể tạo object/mảng (?x[$ne]=1) → chỉ nhận chuỗi
 const text = (value: unknown) => (typeof value === 'string' && value ? value : undefined);
@@ -48,6 +49,17 @@ async function runNaturalSearch(req: AuthRequest, res: Response) {
   });
 }
 
+// Story 20.7: diện tích m² hợp lệ 1–10 000; sai → 400 (không lọc lặng lẽ sai)
+const AREA_MAX = 10_000;
+function parseArea(query: AuthRequest['query']) {
+  const [minArea, maxArea] = [num(query.minArea), num(query.maxArea)];
+  const invalid = [minArea, maxArea].some((value) => value !== undefined && (value <= 0 || value > AREA_MAX));
+  if (invalid || (minArea !== undefined && maxArea !== undefined && minArea >= maxArea)) {
+    throw { status: 400, message: 'Diện tích không hợp lệ: nhập số dương, "từ" nhỏ hơn "đến"' };
+  }
+  return { minArea, maxArea };
+}
+
 /** Tham số bộ lọc dùng chung cho danh sách và bản đồ (Story 11.2). */
 const parseSearchOptions = (req: AuthRequest): ISearchOptions => {
   const query = req.query;
@@ -56,6 +68,7 @@ const parseSearchOptions = (req: AuthRequest): ISearchOptions => {
     district: text(query.district),
     minPrice: num(query.minPrice),
     maxPrice: num(query.maxPrice),
+    ...parseArea(query),
     status: text(query.status),
     bedrooms: num(query.bedrooms),
     furnishing: text(query.furnishing),
@@ -110,6 +123,13 @@ export class SearchController {
   });
 
   static searchNatural = asyncHandler(runNaturalSearch);
+
+  /** GET /api/v1/apartments/search/geo?q= — tìm địa chỉ / dán link Google Maps trên bản đồ đặt vị trí (Story 20.4) */
+  static geo = asyncHandler(async (req, res) => {
+    const query = text(req.query.q)?.trim() ?? '';
+    if (query.length < 2 || query.length > 500) throw { status: 400, message: 'Nhập từ 2 ký tự để tìm địa chỉ' };
+    res.status(200).json({ success: true, data: await searchPlaces(query) });
+  });
 
   /** GET /api/v1/apartments/search/pois — tiện ích Đà Nẵng cho lớp phủ bản đồ (Story 15.4); "phố Tây" chỉ dùng cho trang khách */
   static getPois = asyncHandler(async (_req, res) => {

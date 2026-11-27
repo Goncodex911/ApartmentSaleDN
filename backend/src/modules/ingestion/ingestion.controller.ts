@@ -1,4 +1,5 @@
-import { parseRawPostSchema } from './ingestion.validation.js';
+import { keepSeparateSchema, mergeIntoSchema, parseRawPostSchema, splitSchema } from './ingestion.validation.js';
+import { MergeActionsService } from '../dedup/merge-actions.service.js';
 import { GeminiService } from './gemini.service.js';
 import { DedupService } from '../dedup/dedup.service.js';
 import { UserService } from '../users/user.service.js';
@@ -65,4 +66,21 @@ export class IngestionController {
 
   // AC4: Hộp thoại Nhập Nhanh trên Portal Web dành cho Quản lý (POST /quick-paste)
   static quickPaste = ingestFrom({ sourceType: 'MANUAL', sourceName: 'Nhập nhanh Portal Web' });
+
+  // Story 20.2: sửa quyết định gộp của AI ngay trên màn kết quả Nhập tin
+  static split = asyncHandler(async (req, res) => {
+    const { masterId, subListingId } = splitSchema.parse(req.body);
+    res.json({ success: true, data: await MergeActionsService.split(masterId, subListingId, auditActor(req as AuthRequest)) });
+  });
+
+  static keepSeparate = asyncHandler(async (req, res) => {
+    const { apartmentId } = keepSeparateSchema.parse(req.body);
+    await MergeActionsService.keepSeparate(apartmentId, auditActor(req as AuthRequest));
+    res.json({ success: true });
+  });
+
+  static mergeInto = asyncHandler(async (req, res) => {
+    const { apartmentId, targetId } = mergeIntoSchema.parse(req.body);
+    res.json({ success: true, data: await MergeActionsService.mergeInto(apartmentId, targetId, auditActor(req as AuthRequest)) });
+  });
 }

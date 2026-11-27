@@ -49,6 +49,15 @@ export class FilterBuilder {
       if (options.maxPrice !== undefined) filter.price.$lte = Number(options.maxPrice);
     }
 
+    // Story 20.7: diện tích [min, max) như khoảng giá (căn đúng 50 m² thuộc "50–80");
+    // căn chưa ghi diện tích không có trường → tự bị loại khi đang lọc
+    if (options.minArea !== undefined || options.maxArea !== undefined) {
+      filter['attributes.area'] = {
+        ...(options.minArea !== undefined && { $gte: options.minArea }),
+        ...(options.maxArea !== undefined && { $lt: options.maxArea }),
+      };
+    }
+
     // 4. Lọc theo Loại phòng (Room Type Facet)
     if (options.roomType) {
       if (options.roomType === 'studio') {
