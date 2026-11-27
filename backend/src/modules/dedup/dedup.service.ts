@@ -1,27 +1,41 @@
 import { Apartment, IApartment } from '../apartments/apartment.model.js';
-import { GeminiService } from '../ingestion/gemini.service.js';
-import { GeminiVisionService } from '../ingestion/gemini-vision.service.js';
-import { fetchImageBuffer } from '../../utils/fetch-image.js';
+import { GeminiService, IParsedApartmentData } from '../ingestion/gemini.service.js';
 import { escapeRegex, maskPhonesInText } from '../../utils/phone-text.js';
 import { toVnPhone } from '../../utils/validators.js';
 import { NotificationService } from '../notifications/notification.service.js';
 import { sameDistrict, sameStreet, streetKey } from './street-key.js';
-import { LeadMatchingService } from '../leads/lead-matching.service.js';
-import { publishApartmentEvent } from '../realtime/realtime.bus.js';
-import { GeocodingService } from '../search/geocoding.service.js';
-import { geocodeStreet } from '../search/street-geocoder.js';
 import { PHashUtil } from './phash.util.js';
 import { IProcessListingInput } from './dedup.types.js';
 import { recordIngestion } from '../ingestion/ingestion-event.model.js';
 import { applyReviewPolicy } from './review-policy.js';
+import { compareUnit, unitOfApartment, UnitSignature } from './unit-signature.js';
+import { createMasterApartment, downloadImages } from './create-master.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const VISUAL_MATCH_DAYS = 180; // So ảnh chỉ với căn còn "sống" gần đây — không quét cả kho
 const VISUAL_MATCH_LIMIT = 500;
 const POSSIBLE_DUPLICATE_REASON = 'Có thể trùng căn của cùng SĐT — tin chưa có tên đường';
+export const POSSIBLE_SAME_UNIT_REASON = 'Có thể trùng căn';
 const SOURCE_AVAILABLE_REASON = 'Nguồn mới báo còn trống — kiểm tra trạng thái';
-// Căn master đã gộp: chỉ trả mã + tên (không kèm SĐT chủ nhà — kết quả có thể trả ra webhook bên ngoài)
-const masterSummary = (master: IApartment) => ({ _id: master._id, title: master.title });
+// Căn master đã gộp: mã, tên, giá, ảnh đại diện (KHÔNG kèm SĐT chủ nhà, KHÔNG lấy ảnh dán SĐT nguồn — kết quả có thể trả ra webhook bên ngoài)
+const masterSummary = (master: IApartment) => ({
+  _id: master._id,
+  title: master.title,
+  price: master.price,
+  image: master.images?.find((url) => !master.hiddenImages?.includes(url)),
+});
+// Story 20.2: lý do gộp bằng lời cho người dán tin
+const unitText = (apt: IApartment) =>
+  [apt.attributes.bedrooms === 0 ? 'Studio' : `${apt.attributes.bedrooms} PN`, apt.attributes.area && `${apt.attributes.area} m²`].filter(Boolean).join(' / ');
+
+/** Chữ ký căn của tin AI vừa bóc — số PN chỉ tính khi tin ghi rõ (Story 20.1). */
+const unitOfParsed =(ext: IParsedApartmentData): UnitSignature => ({
+  propertyType: ext.propertyType,
+  bedrooms: ext.bedroomsStated ? ext.bedrooms : undefined,
+  area: ext.area,
+  buildingName: ext.buildingName,
+  unitLabel: ext.unitLabel,
+});
 
 export class DedupService {
   /** Điều kiện tìm căn có SĐT chủ (căn Master hoặc nguồn phụ). */
@@ -33,18 +47,30 @@ export class DedupService {
   }
 
   /**
-   * Tầng 1: cùng SĐT chủ + cùng quận + cùng TÊN ĐƯỜNG (Story 14.2).
-   * Trước đây chỉ cần chung 1 từ bất kỳ trong địa chỉ ("kiet", "van", "nguyen") → gộp nhầm các căn khác nhau của cùng môi giới.
+   * Tầng 1: cùng SĐT chủ + cùng quận + cùng TÊN ĐƯỜNG (Story 14.2) + cùng "chữ ký căn" (Story 20.1).
+   * Môi giới hay có nhiều căn trong CÙNG TÒA → phải so thêm loại căn, số PN, diện tích, tên tòa, số phòng:
+   * - match: căn đầu tiên khớp chữ ký (SAME) → gộp được;
+   * - uncertain: không đủ dữ liệu để phân biệt (UNKNOWN) → KHÔNG tự gộp, chỉ gắn cờ cho Quản lý.
    * Tin chưa có tên đường → không tự gộp (xem runPipeline).
    */
-  public static async checkDeterministicMatch(phone: string, street: string, district: string, excludeId?: string): Promise<IApartment | null> {
+  public static async checkDeterministicMatch(
+    phone: string,
+    street: string,
+    district: string,
+    unit: UnitSignature = {},
+    excludeId?: string
+  ): Promise<{ match?: IApartment; uncertain?: IApartment }> {
     const cleanPhone = toVnPhone(phone); // Story 14.1: "+84 905…" phải khớp "0905…" đã lưu
-    if (!cleanPhone || !streetKey(street)) return null;
+    if (!cleanPhone || !streetKey(street)) return {};
     const candidates = await Apartment.find(this.phoneQuery(cleanPhone, excludeId));
-    return (
-      candidates.find((apt) => sameDistrict(district, apt.location.district) && sameStreet(street, apt.location.street || apt.location.address)) ||
-      null
-    );
+    let uncertain: IApartment | undefined;
+    for (const apt of candidates) {
+      if (!sameDistrict(district, apt.location.district) || !sameStreet(street, apt.location.street || apt.location.address)) continue;
+      const result = compareUnit(unit, unitOfApartment(apt));
+      if (result === 'SAME') return { match: apt };
+      if (result === 'UNKNOWN') uncertain ??= apt;
+    }
+    return { uncertain };
   }
 
   /** Đã có căn mang SĐT chủ này chưa (tin chưa có tên đường → gắn cờ "có thể trùng" thay vì tự gộp). */
@@ -56,10 +82,12 @@ export class DedupService {
   /**
    * Tầng 2: So khớp ảnh bằng dHash 64-bit. Story 14.2: bỏ qua ảnh trơn / banner (hash không đặc trưng),
    * chỉ xét căn cùng quận (nguyên tên) cập nhật trong 180 ngày.
+   * Story 20.1: căn khác chữ ký (khác PN / loại / tòa…) bị bỏ qua — ảnh sảnh, hồ bơi chung tòa dễ trùng giữa các căn.
    */
   public static async checkVisualMatch(
     newImageHashes: string[],
-    district: string
+    district: string,
+    unit: UnitSignature = {}
   ): Promise<{ matchedApartment: IApartment; matchedCount: number } | null> {
     const hashes = newImageHashes.filter(PHashUtil.isInformative);
     if (hashes.length === 0) return null;
@@ -71,13 +99,18 @@ export class DedupService {
     // district do AI bóc tách từ tin public → phải escape regex; neo ^$ để không khớp chuỗi con
     if (district) query['location.district'] = new RegExp(`^${escapeRegex(district.trim())}$`, 'i');
 
-    // Chỉ lấy imageHashes để so sánh; tải đầy đủ document cho căn khớp duy nhất ở cuối.
+    // Chỉ lấy trường cần so; tải đầy đủ document cho căn khớp duy nhất ở cuối.
     // Story 19.11: giới hạn 500 căn mới cập nhật gần nhất cùng quận (không tải cả kho vào bộ nhớ)
-    const candidates = await Apartment.find(query).sort({ updatedAt: -1 }).limit(VISUAL_MATCH_LIMIT).select('imageHashes').lean();
+    const candidates = await Apartment.find(query)
+      .sort({ updatedAt: -1 })
+      .limit(VISUAL_MATCH_LIMIT)
+      .select('imageHashes attributes location.buildingName location.unitLabel')
+      .lean<IApartment[]>();
 
     // Khớp khi có >= 2 ảnh trùng (hoặc 1 ảnh nếu bài chỉ có 1 ảnh duy nhất)
     const threshold = hashes.length === 1 ? 1 : 2;
     for (const apt of candidates) {
+      if (compareUnit(unit, unitOfApartment(apt)) === 'DIFFERENT') continue;
       const existingHashes = (apt.imageHashes || []).filter(PHashUtil.isInformative);
       // Ghép 1-1: mỗi ảnh cũ chỉ khớp 1 ảnh mới — 3 góc chụp giống nhau của tin mới không được tính là 3 ảnh trùng với CÙNG 1 ảnh cũ
       const used = new Set<number>();
@@ -122,36 +155,26 @@ export class DedupService {
     }
 
     const ext = parseResult.extracted;
+    const unit = unitOfParsed(ext);
 
     // Ảnh tải muộn (Telegram): chỉ đẩy lên Cloudinary khi tin đã qua bộ lọc rác
     if (!input.mediaUrls && input.loadMediaUrls) input = { ...input, mediaUrls: await input.loadMediaUrls() };
 
-    // Bước 2: Tải ảnh 1 lần và tính mã pHash (ảnh đã tải được dùng lại cho Gemini Vision ở Bước 5)
+    // Bước 2: Tải ảnh 1 lần và tính mã pHash
     const mediaUrls = input.mediaUrls || [];
-    const newImageHashes: string[] = [];
-    const downloadedImages: { url: string; buffer: Buffer }[] = [];
+    const { imageHashes: newImageHashes, downloadedImages } = await downloadImages(mediaUrls);
 
-    for (const url of mediaUrls) {
-      try {
-        const buffer = await fetchImageBuffer(url);
-        const hash = await PHashUtil.computeDHash(buffer); // ảnh hỏng sẽ lỗi ở đây và bị bỏ qua
-        if (PHashUtil.isInformative(hash)) newImageHashes.push(hash); // Story 14.2: ảnh trơn / banner không dùng để so trùng
-        downloadedImages.push({ url, buffer });
-      } catch (_e) {
-        // Bỏ qua lỗi nếu 1 ảnh không tải được
-      }
-    }
-
-    // Bước 3: Khử trùng lặp Tầng 1 (SĐT + tên đường)
-    const detMatch = await this.checkDeterministicMatch(ext.ownerContact.phone, ext.street || '', ext.district);
+    // Bước 3: Khử trùng lặp Tầng 1 (SĐT + tên đường + chữ ký căn)
+    const { match: detMatch, uncertain } = await this.checkDeterministicMatch(ext.ownerContact.phone, ext.street || '', ext.district, unit);
     if (detMatch) {
-      await this.mergeIntoMaster(detMatch, input, ext);
+      const subListingId = await this.mergeIntoMaster(detMatch, input, ext);
       return {
         isRentalListing: true,
         isDuplicate: true,
         masterApartmentId: detMatch._id,
+        subListingId,
         apartment: masterSummary(detMatch), // Story 19.2: Nhật ký / phản hồi có tên căn đã gộp
-
+        matchReason: `Cùng SĐT chủ & tên đường, cùng ${unitText(detMatch)}`,
         matchType: 'DETERMINISTIC',
         confidence: 100,
         message: 'Đã phát hiện trùng lặp theo SĐT & Địa chỉ. Tự động gộp vào căn Master.',
@@ -160,14 +183,16 @@ export class DedupService {
 
     // Bước 4: Khử trùng lặp Tầng 2 (Thị giác ảnh pHash)
     if (newImageHashes.length > 0) {
-      const visMatch = await this.checkVisualMatch(newImageHashes, ext.district);
+      const visMatch = await this.checkVisualMatch(newImageHashes, ext.district, unit);
       if (visMatch) {
-        await this.mergeIntoMaster(visMatch.matchedApartment, input, ext);
+        const subListingId = await this.mergeIntoMaster(visMatch.matchedApartment, input, ext);
         return {
           isRentalListing: true,
           isDuplicate: true,
           masterApartmentId: visMatch.matchedApartment._id,
+          subListingId,
           apartment: masterSummary(visMatch.matchedApartment),
+          matchReason: `Trùng ${visMatch.matchedCount} ảnh phòng`,
           matchType: 'IMAGE_PHASH',
           confidence: 90,
           matchedImagesCount: visMatch.matchedCount,
@@ -176,87 +201,25 @@ export class DedupService {
       }
     }
 
-    // Bước 5: Tin hoàn toàn mới -> Gemini Vision đánh dấu ảnh dán SĐT nguồn cũ (Story 5.2) -> Tạo Master
-    const phoneImageIndexes = await GeminiVisionService.detectImagesWithPhone(downloadedImages.map((img) => img.buffer));
-    // Gắn tọa độ: tên đường (Story 15.6) → điểm mốc trong địa chỉ → tâm khu vực, để tin nhập tự động cũng tìm được theo bán kính
-    const fromStreet = await geocodeStreet(ext.street, ext.district);
-    const geo = fromStreet ? null : GeocodingService.resolveCoordinates(ext.address) || GeocodingService.resolveCoordinates(ext.district);
-    // Story 14.2: tin chưa có tên đường không tự gộp theo SĐT → tạo căn mới nhưng báo Quản lý kiểm tra
-    const review =
-      !streetKey(ext.street) && (await this.hasPhoneOwner(ext.ownerContact.phone))
+    // Bước 5: Tin mới → tạo Master. Gắn cờ "có thể trùng" thay vì tự gộp khi:
+    // - Story 20.1: cùng SĐT + đường nhưng không đủ dữ liệu phân biệt căn;
+    // - Story 14.2: tin chưa có tên đường mà SĐT đã có căn.
+    const review = uncertain
+      ? { needsReview: true, reviewReason: `${POSSIBLE_SAME_UNIT_REASON}: ${maskPhonesInText(uncertain.title)}` }
+      : !streetKey(ext.street) && (await this.hasPhoneOwner(ext.ownerContact.phone))
         ? { needsReview: true, reviewReason: POSSIBLE_DUPLICATE_REASON }
         : await applyReviewPolicy(ext); // Story 13.5: cờ "cần kiểm tra" theo chính sách Admin chọn
 
-    const newApartment = await Apartment.create({
-      title: ext.title,
-      description: input.rawText,
-      price: ext.price,
-      priceUsd: ext.priceUsd,
-      minLeaseMonths: ext.minLeaseMonths,
-      includedServices: ext.includedServices,
-      location: {
-        address: ext.address,
-        street: ext.street,
-        houseNumber: ext.houseNumber,
-        zone: ext.zone,
-        ward: ext.ward,
-        district: ext.district,
-        city: ext.city,
-        coordinates: fromStreet ?? geo?.coordinates,
-        geoPrecision: fromStreet ? 'STREET' : geo ? 'AREA' : undefined,
-      },
-      attributes: {
-        propertyType: ext.propertyType,
-        area: ext.area,
-        bedrooms: ext.bedrooms,
-        bathrooms: ext.bathrooms,
-        furnishing: ext.furnishing,
-        elevator: ext.elevator,
-        allowPets: ext.allowPets,
-        carParking: ext.carParking,
-        pcccStandard: ext.pcccStandard,
-        pool: ext.pool,
-        distanceToBeachM: ext.distanceToBeachM,
-        motorbikeParking: ext.motorbikeParking,
-        gym: ext.gym,
-        bathtub: ext.bathtub,
-        riverView: ext.riverView,
-        seaView: ext.seaView,
-        sauna: ext.sauna,
-        balcony: false,
-        washingMachine: 'SHARED',
-      },
-      fees: ext.fees,
-      images: mediaUrls,
-      imageHashes: newImageHashes,
-      hiddenImages: phoneImageIndexes.map((index) => downloadedImages[index].url),
-      ownerContact: ext.ownerContact,
-      subListings: [
-        {
-          sourceType: input.sourceType,
-          sourceName: input.sourceName || 'Chính chủ đăng',
-          sourceUrl: input.sourceUrl,
-          price: ext.price,
-          ownerContact: ext.ownerContact,
-          images: mediaUrls,
-          rawContent: input.rawText,
-          postedAt: new Date(),
-        },
-      ],
-      // Tin cần kiểm tra vẫn là "Trống" — chỉ gắn cờ cho Quản lý (trước đây bị đổi sai thành "Sắp trống")
-      status: 'AVAILABLE',
-      ...review,
-      managerId: input.managerId,
-    });
-
-    LeadMatchingService.runInBackground(newApartment); // Story 6.3: báo CTV có khách phù hợp
-    publishApartmentEvent('apartment.created', newApartment); // Story 11.4: CTV đang mở app thấy căn mới ngay
+    const newApartment = await createMasterApartment(input, { ext, mediaUrls, imageHashes: newImageHashes, downloadedImages, review });
     return {
       isRentalListing: true,
       isDuplicate: false,
       apartmentId: newApartment._id,
       apartment: newApartment,
-      message: 'Tin căn hộ mới độc lập đã được thêm vào Bảng hàng.',
+      ...(uncertain && { possibleDuplicateOf: masterSummary(uncertain) }),
+      message: uncertain
+        ? 'Đã thêm căn mới — có thể trùng căn cùng chủ, cùng đường (đã gắn cờ để Quản lý kiểm tra).'
+        : 'Tin căn hộ mới độc lập đã được thêm vào Bảng hàng.',
     };
   }
 
@@ -268,18 +231,22 @@ export class DedupService {
   private static async mergeIntoMaster(master: IApartment, input: IProcessListingInput, ext: { price: number; ownerContact: unknown }) {
     const wasTaken = (master.status === 'DEPOSITED' || master.status === 'RENTED') && !master.needsReview;
     if (wasTaken) master.set({ needsReview: true, reviewReason: SOURCE_AVAILABLE_REASON });
-    await this.aggregateSubListing(master, input, ext);
-    if (!wasTaken) return;
+    const subListingId = await this.aggregateSubListing(master, input, ext);
+    if (!wasTaken) return subListingId;
     NotificationService.notifyManagers({
       type: 'SOURCE_AVAILABLE_AGAIN',
       title: 'Căn đã cọc / đã thuê được đăng lại',
       body: `${maskPhonesInText(master.title)}: ${SOURCE_AVAILABLE_REASON}`,
       apartmentId: String(master._id),
     }).catch(() => undefined); // Lỗi gửi thông báo không làm hỏng việc nhập tin
+    return subListingId;
   }
 
-  /** Thêm tin làm nguồn phụ của căn Master. Story 14.2: KHÔNG cộng hash ảnh nguồn phụ vào Master (càng cộng càng dễ gộp nhầm). */
-  public static async aggregateSubListing(master: IApartment, input: IProcessListingInput, ext: { price: number; ownerContact: unknown }): Promise<void> {
+  /**
+   * Thêm tin làm nguồn phụ của căn Master, trả mã nguồn vừa thêm (Story 20.2: để tách lại nếu gộp nhầm).
+   * Story 14.2: KHÔNG cộng hash ảnh nguồn phụ vào Master (càng cộng càng dễ gộp nhầm).
+   */
+  public static async aggregateSubListing(master: IApartment, input: IProcessListingInput, ext: { price: number; ownerContact: unknown }) {
     master.subListings.push({
       sourceType: input.sourceType,
       sourceName: input.sourceName || 'Nguồn tham chiếu mới',
@@ -292,6 +259,6 @@ export class DedupService {
     } as any);
     master.updatedAt = new Date();
     await master.save();
+    return String(master.subListings.at(-1)!._id);
   }
 }
-

@@ -17,7 +17,7 @@ Xác định bài đăng có phải là "Tin cho thuê căn hộ / chung cư min
 - Đặt isRentalListing = true nếu là tin CHÍNH CHỦ hoặc MÔI GIỚI ĐĂNG CHO THUÊ phòng/căn hộ.
 
 BƯỚC 2: NẾU LÀ TIN CHO THUÊ, TRÍCH XUẤT CÁC THÔNG SỐ CHUẨN XÁC:
-- title: Tiêu đề tiếng Việt ngắn gọn, chuyên nghiệp (VD: "Cho thuê căn 2PN Bà Huyện Thanh Quan, Mỹ An, Ngũ Hành Sơn").
+- title: Tiêu đề ngắn gọn, chuyên nghiệp, CÙNG NGÔN NGỮ với tin gốc (VD: "Cho thuê căn 2PN Bà Huyện Thanh Quan, Mỹ An, Ngũ Hành Sơn" hoặc "1BR Apartment for rent – Son Tra").
 - price: Giá thuê số nguyên VNĐ/tháng. Chuẩn hóa:
   + "6tr5", "6.5tr", "6500k", "6,5 triệu" -> 6500000.
   + "4tr8" -> 4800000.
@@ -33,7 +33,10 @@ BƯỚC 2: NẾU LÀ TIN CHO THUÊ, TRÍCH XUẤT CÁC THÔNG SỐ CHUẨN XÁC:
 - propertyType: Loại căn, một trong: "APARTMENT" (căn hộ chung cư, căn hộ dịch vụ, phòng trong tòa nhà), "STUDIO", "DUPLEX" (có gác xép/gác lửng 2 tầng),
   "PENTHOUSE", "HOUSE" (nhà nguyên căn, nhà riêng), "VILLA" (biệt thự). Không rõ -> "APARTMENT".
 - bedrooms: Số phòng ngủ (Studio = 1, 1N1K = 1, 1BR = 1, 2N1K = 2, 2BR = 2, Duplex = 1 hoặc 2, mặc định = 1).
+- bedroomsStated: boolean — true nếu tin GHI RÕ số phòng ngủ hoặc loại tương đương (Studio, 1BR, 2PN, 1N1K…); false nếu bedrooms chỉ là mặc định.
 - bathrooms: Số phòng tắm (mặc định = 1).
+- buildingName: Tên tòa nhà / dự án nếu tin ghi rõ (VD "Monarchy", "Sơn Trà Ocean View"), không có -> null. KHÔNG lấy tên đường.
+- unitLabel: Số phòng / số căn / tầng nếu tin ghi rõ (VD "P.502", "căn 1208", "tầng 8"), không có -> null.
 - furnishing: "FULL" (đầy đủ nội thất, full đồ, fully furnished) | "BASIC" (cơ bản: điều hòa, nóng lạnh; HOẶC tin không nhắc nội thất) | "EMPTY" (phòng trống).
 - elevator: boolean (thang máy = true, thang bộ = false).
 - allowPets: boolean (cho nuôi pet, chó, mèo, pets allowed = true).
@@ -77,7 +80,10 @@ Hãy trả về DUY NHẤT một chuỗi JSON hợp lệ (không kèm markdown \
     "area": 35,
     "propertyType": "APARTMENT",
     "bedrooms": 1,
+    "bedroomsStated": true,
     "bathrooms": 1,
+    "buildingName": null,
+    "unitLabel": null,
     "furnishing": "FULL",
     "elevator": true,
     "allowPets": true,

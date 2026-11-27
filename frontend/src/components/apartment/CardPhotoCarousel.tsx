@@ -10,7 +10,12 @@ const MAX_SLIDES = 5;
  * sau khi vuốt cuộn → vuốt không mở chi tiết, chạm mới mở. Chỉ ảnh đầu tải ngay, ảnh sau tải khi vuốt tới.
  * Khung 4:3 có kích thước cố định từ đầu → không giật bố cục khi ảnh về.
  */
-export const CardPhotoCarousel: React.FC<{ photos: string[]; videoCount: number; title: string }> = ({ photos, videoCount, title }) => {
+export const CardPhotoCarousel: React.FC<{ photos: string[]; videoCount: number; title: string; onPhotoTap?: (index: number) => void }> = ({
+  photos,
+  videoCount,
+  title,
+  onPhotoTap,
+}) => {
   const [index, setIndex] = useState(0);
   // Chỉ gắn link cho ảnh đã / sắp xem (Chrome vẫn tải sớm ảnh lazy trong vùng đệm cuộn ngang) → tiết kiệm 4G
   const [reach, setReach] = useState(0);
@@ -42,6 +47,14 @@ export const CardPhotoCarousel: React.FC<{ photos: string[]; videoCount: number;
               decoding="async"
               draggable={false}
               crossOrigin={imageCors(src)}
+              // Story 20.8: chạm ảnh → xem toàn màn hình (không mở chi tiết); vuốt cuộn không phát click nên không mở nhầm
+              onClick={
+                onPhotoTap &&
+                ((e) => {
+                  e.stopPropagation();
+                  onPhotoTap(i);
+                })
+              }
               className="w-full h-full shrink-0 snap-center object-cover"
             />
           ))}

@@ -21,6 +21,10 @@ const APARTMENT_MEDIA_FOLDER = 'apartment_sale/apartments';
 
 const apartmentId = (req: AuthRequest) => String(req.params.id);
 
+// Story 20.5: có gửi link Google Maps mà vị trí lưu không phải EXACT → link không đọc được (đã dùng toạ độ ước lượng)
+const mapWarnings = (body: { location?: { mapUrl?: string | null } }, saved: { location?: { geoPrecision?: string } }) =>
+  body.location?.mapUrl && saved.location?.geoPrecision !== 'EXACT' ? ['MAP_URL_UNRESOLVED'] : undefined;
+
 export class ApartmentController {
   // Upload nhiều hình ảnh/video lên Cloudinary
   static uploadMedia = asyncHandler(async (req, res) => {
@@ -74,13 +78,13 @@ export class ApartmentController {
   static create = asyncHandler(async (req, res) => {
     const data = await ApartmentService.create(createApartmentSchema.parse(req.body), req.user!.id);
     AuditService.log(auditActor(req), 'CREATE_APARTMENT', { type: 'APARTMENT', id: data._id, title: data.title }, { price: data.price }); // Story 16.2
-    res.status(201).json({ success: true, message: 'Thêm mới căn hộ thành công', data });
+    res.status(201).json({ success: true, message: 'Thêm mới căn hộ thành công', data, warnings: mapWarnings(req.body, data) });
   });
 
   // Cập nhật thông tin căn hộ (cập nhật một phần, không ghi đè trường không gửi lên)
   static update = asyncHandler(async (req, res) => {
     const data = await ApartmentService.update(apartmentId(req), updateApartmentSchema.parse(req.body), auditActor(req));
-    res.status(200).json({ success: true, message: 'Cập nhật căn hộ thành công', data });
+    res.status(200).json({ success: true, message: 'Cập nhật căn hộ thành công', data, warnings: mapWarnings(req.body, data) });
   });
 
   // Cập nhật nhanh 1-Click trạng thái phòng (Story 2.2)

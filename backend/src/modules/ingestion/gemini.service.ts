@@ -11,6 +11,7 @@ import { NEW_AMENITY_KEYS } from '../search/slang.dictionary.js';
 import { OTHER_ZONE, PROPERTY_TYPES, PropertyType, Zone, inferPropertyType, roundLeaseMonths } from '../apartments/listing-taxonomy.js';
 import { INCLUDED_SERVICES, IncludedService } from '../apartments/apartment.model.js';
 import { toVnPhone } from '../../utils/validators.js';
+import { extractPostTitle } from './post-title.js';
 
 // Số nguyên dương trong khoảng cho phép, ngược lại undefined (AI có thể trả chuỗi/số âm/null)
 const positiveInt = (value: unknown, max: number) => {
@@ -47,7 +48,10 @@ export interface IParsedApartmentData {
   propertyType: PropertyType;
   zone: Zone;
   bedrooms: number;
+  bedroomsStated: boolean; // Story 20.1: tin có ghi rõ số PN không (bedrooms mặc định 1 không dùng để tách căn)
   bathrooms: number;
+  buildingName?: string; // Story 20.1: tên tòa / số phòng — phân biệt các căn cùng tòa của cùng môi giới
+  unitLabel?: string;
   furnishing: 'FULL' | 'BASIC' | 'EMPTY';
   elevator: boolean;
   allowPets: boolean;
@@ -83,6 +87,9 @@ export interface IParsedResult {
   rejectReason: string | null;
   extracted?: IParsedApartmentData;
 }
+
+// Chuỗi AI trả (có thể null / số / rỗng) → chuỗi ≤ 60 ký tự hoặc undefined
+const shortText = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim().slice(0, 60) : undefined);
 
 /** Story 19.6: Studio = 0 phòng ngủ (`Number(x) || 1` từng biến 0 thành 1); chỉ mặc định 1 khi AI không trả số nguyên hợp lệ */
 export function toBedrooms(value: unknown): number {
@@ -241,7 +248,7 @@ ${rawText.trim()}
       isRentalListing: true,
       rejectReason: null,
       extracted: {
-        title: ext.title || 'Căn hộ cho thuê',
+        title: extractPostTitle(rawText) || ext.title || 'Căn hộ cho thuê',
         price,
         address,
         houseNumber: splitAddress(address).houseNumber,
@@ -252,7 +259,10 @@ ${rawText.trim()}
         propertyType: guessedType || 'APARTMENT',
         area: ext.area ? Number(ext.area) : undefined,
         bedrooms: toBedrooms(ext.bedrooms),
+        bedroomsStated: ext.bedroomsStated !== false, // AI không trả trường → coi như có ghi (giữ hành vi gộp cũ)
         bathrooms: Number(ext.bathrooms) || 1,
+        buildingName: shortText(ext.buildingName),
+        unitLabel: shortText(ext.unitLabel),
         furnishing: ['FULL', 'BASIC', 'EMPTY'].includes(ext.furnishing) ? ext.furnishing : 'BASIC',
         elevator: Boolean(ext.elevator),
         allowPets: Boolean(ext.allowPets),

@@ -9,8 +9,8 @@ import { Navigation, ChevronRight } from 'lucide-react';
 const placeOf = (pin: MapPin) => [pin.street, zoneText(pin)].filter(Boolean).join(', ');
 const typeOf = (pin: MapPin) => roomParts({ propertyType: pin.propertyType as PropertyType | undefined, bedrooms: pin.bedrooms }).join(' · ');
 const priceOf = (pin: MapPin) => (pin.price ? formatVnd(pin.price) : `$${pin.priceUsd}`);
-// Google Maps tự mở ứng dụng trên điện thoại, dẫn đường tới đúng toạ độ căn
-const directionsUrl = (pin: MapPin) => `https://www.google.com/maps/dir/?api=1&destination=${pin.coordinates[1]},${pin.coordinates[0]}`;
+// Google Maps tự mở ứng dụng trên điện thoại. Story 20.5: có link chủ nhà gửi → mở đúng link đó (toạ độ căn có thể chỉ là ước lượng)
+const directionsUrl = (pin: MapPin) => pin.mapUrl || `https://www.google.com/maps/dir/?api=1&destination=${pin.coordinates[1]},${pin.coordinates[0]}`;
 
 const PinSummary: React.FC<{ pin: MapPin; onOpen: (id: string) => void; extra?: React.ReactNode }> = ({ pin, onOpen, extra }) => (
   <div className="space-y-3">

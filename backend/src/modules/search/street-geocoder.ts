@@ -16,9 +16,9 @@ const MISS_TTL_MS = 7 * DAY_MS;
 const GAP_MS = 1000;
 const TIMEOUT_MS = 4000;
 
-// Hàng đợi tuần tự cho cả máy chủ: request sau chạy sau request trước + 1 giây
+// Hàng đợi tuần tự cho cả máy chủ: request sau chạy sau request trước + 1 giây (dùng chung với ô tìm địa chỉ — Story 20.4)
 let queue: Promise<unknown> = Promise.resolve();
-function throttled<T>(task: () => Promise<T>): Promise<T> {
+export function throttled<T>(task: () => Promise<T>): Promise<T> {
   const run = queue.then(task);
   queue = run.catch(() => undefined).then(() => new Promise((resolve) => setTimeout(resolve, GAP_MS)));
   return run;

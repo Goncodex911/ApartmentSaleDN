@@ -1,6 +1,6 @@
 import React from 'react';
 import { Apartment } from '../../api/apartmentApi.js';
-import { Field, FormSection, ToggleChip, inputClass, numberOr } from './formFields.js';
+import { Field, ToggleChip, inputClass, numberOr } from './formFields.js';
 import { LEASE_STEPS, roundLeaseMonths } from '../../utils/danang.js';
 
 // Giá trị form dạng chuỗi (ô nhập số để trống = không có thông tin). Tiện ích (hồ bơi, dịch vụ...) nằm ở AmenitiesSection (Story 8.5)
@@ -31,31 +31,42 @@ export const fromMarketForm = (form: MarketFormValues, empty: null | undefined) 
   minLeaseMonths: form.minLeaseMonths ?? empty,
 });
 
-// Khu nhập thông tin đặc thù Đà Nẵng (Story 7.2): khoảng cách biển, giá USD, thuê tối thiểu
-export const MarketFieldsSection: React.FC<{ value: MarketFormValues; onChange: (next: MarketFormValues) => void }> = ({ value, onChange }) => {
+interface MarketFieldProps {
+  field: 'beach' | 'usd' | 'lease';
+  value: MarketFormValues;
+  onChange: (next: MarketFormValues) => void;
+}
+
+/**
+ * 1 ô thông tin đặc thù Đà Nẵng (Story 7.2). Story 20.9: tách từng ô để form xếp đúng thứ tự tin mẫu
+ * (Cách biển → Giá USD cạnh giá VNĐ → Thuê tối thiểu).
+ */
+export const MarketField: React.FC<MarketFieldProps> = ({ field, value, onChange }) => {
   const set = (patch: Partial<MarketFormValues>) => onChange({ ...value, ...patch });
 
+  if (field === 'beach')
+    return (
+      <Field label="Cách biển (m)">
+        <input type="number" inputMode="numeric" min={0} placeholder="600" value={value.distanceToBeachM} onChange={(e) => set({ distanceToBeachM: e.target.value })} className={inputClass} />
+      </Field>
+    );
+  if (field === 'usd')
+    return (
+      <Field label="Giá USD">
+        <input type="number" inputMode="numeric" min={0} placeholder="760" value={value.priceUsd} onChange={(e) => set({ priceUsd: e.target.value })} className={inputClass} />
+      </Field>
+    );
   return (
-    <FormSection title="Biển & thời hạn thuê">
-      <div className="grid grid-cols-2 gap-3 items-end">
-        <Field label="Cách biển (m)">
-          <input type="number" inputMode="numeric" min={0} placeholder="600" value={value.distanceToBeachM} onChange={(e) => set({ distanceToBeachM: e.target.value })} className={inputClass} />
-        </Field>
-        <Field label="Giá USD">
-          <input type="number" inputMode="numeric" min={0} placeholder="760" value={value.priceUsd} onChange={(e) => set({ priceUsd: e.target.value })} className={inputClass} />
-        </Field>
+    <div className="space-y-1">
+      <span className="text-sm font-medium text-slate-700">Thuê tối thiểu</span>
+      <div className="flex flex-wrap gap-2">
+        {LEASE_STEPS.map((months) => (
+          // Bấm lại mốc đang chọn → bỏ chọn
+          <ToggleChip key={months} checked={value.minLeaseMonths === months} onChange={(on) => set({ minLeaseMonths: on ? months : undefined })}>
+            {months} tháng
+          </ToggleChip>
+        ))}
       </div>
-      <div className="space-y-1">
-        <span className="text-sm font-medium text-slate-700">Thuê tối thiểu</span>
-        <div className="flex flex-wrap gap-2">
-          {LEASE_STEPS.map((months) => (
-            // Bấm lại mốc đang chọn → bỏ chọn
-            <ToggleChip key={months} checked={value.minLeaseMonths === months} onChange={(on) => set({ minLeaseMonths: on ? months : undefined })}>
-              {months} tháng
-            </ToggleChip>
-          ))}
-        </div>
-      </div>
-    </FormSection>
+    </div>
   );
 };

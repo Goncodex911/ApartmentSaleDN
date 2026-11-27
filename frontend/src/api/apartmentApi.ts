@@ -56,6 +56,15 @@ export interface MapPin {
   bedrooms: number;
   image?: string;
   approximate: boolean; // Toạ độ ước lượng (chưa có link Google Maps)
+  mapUrl?: string; // Story 20.5: link Google Maps chủ nhà gửi — Chỉ đường ưu tiên link này
+}
+
+// Story 20.4: kết quả ô tìm địa chỉ trên bản đồ đặt vị trí
+export interface GeoPlace {
+  label: string;
+  detail?: string;
+  coordinates: [number, number]; // [kinh độ, vĩ độ]
+  source: 'OSM' | 'GOOGLE_LINK' | 'PLUS_CODE';
 }
 
 // Story 15.4: điểm mốc đang tìm (tâm + bán kính) & tiện ích Đà Nẵng trên bản đồ
@@ -197,6 +206,8 @@ export const apartmentApi = {
 
   // Story 11.2: ghim bản đồ theo cùng bộ lọc (tối đa 500 căn, dữ liệu nhẹ)
   // natural: hiểu câu tự nhiên như danh sách (Story 19.7) — route riêng có giới hạn tần suất vì gọi Gemini
+  searchGeo: async (q: string): Promise<GeoPlace[]> => (await apiClient.get('/apartments/search/geo', { params: { q } })).data.data,
+
   getMapPins: async (params: Record<string, any> = {}, natural = false): Promise<MapPinsResult> => {
     const res = await apiClient.get(natural ? '/apartments/search/pins/natural' : '/apartments/search/pins', { params });
     return res.data.data;

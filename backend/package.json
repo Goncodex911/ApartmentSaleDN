@@ -13,6 +13,8 @@
     "normalize-owner-phones": "tsx src/scripts/normalize-owner-phones.ts",
     "geocode-streets": "tsx src/scripts/geocode-streets.ts",
     "audit-street-dedup": "tsx src/scripts/audit-street-dedup.ts",
+    "audit-unit-merge": "tsx src/scripts/audit-unit-merge.ts",
+    "audit-map-links": "tsx src/scripts/audit-map-links.ts",
     "test": "vitest run"
   },
   "dependencies": {

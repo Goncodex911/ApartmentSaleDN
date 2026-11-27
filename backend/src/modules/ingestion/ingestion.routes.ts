@@ -28,6 +28,10 @@ ingestionRoutes.post('/extension-import-public', requireWebhookSecret, Ingestion
 
 // 5. AC4: Hộp thoại Nhập Nhanh trên Portal Web
 ingestionRoutes.post('/quick-paste', ...managerOnly, IngestionController.quickPaste);
+// Story 20.2: tách nguồn gộp nhầm / giữ căn riêng / gộp căn "có thể trùng"
+ingestionRoutes.post('/split', ...managerOnly, IngestionController.split);
+ingestionRoutes.post('/keep-separate', ...managerOnly, IngestionController.keepSeparate);
+ingestionRoutes.post('/merge-into', ...managerOnly, IngestionController.mergeInto);
 
 // 6. Story CE-01: Cổng Userbot Telegram Scraper tự phục vụ & Lắng nghe thời gian thực
 ingestionRoutes.use('/telegram-userbot', telegramUserbotRoutes);

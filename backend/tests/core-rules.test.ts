@@ -2,11 +2,78 @@ import { describe, expect, it } from 'vitest';
 import { sameStreet, streetKey, suspectNumberedStreets } from '../src/modules/dedup/street-key.js';
 import { splitAddress } from '../src/utils/street.js';
 import { isTripletDuplicate } from '../src/modules/dedup/similar-apartment.js';
-import { decodePlusCode, isValidDanangCoordinates } from '../src/utils/google-maps.js';
+import { decodePlusCode, extractMapUrl, isValidDanangCoordinates } from '../src/utils/google-maps.js';
+
+describe('extractMapUrl (Story 20.5)', () => {
+  it.each([
+    ['Vị trí: https://maps.app.goo.gl/AbC123xyz.', 'https://maps.app.goo.gl/AbC123xyz'],
+    ['Map (https://www.google.com/maps/place/X/@16.05,108.24,17z)', 'https://www.google.com/maps/place/X/@16.05,108.24,17z'],
+    ['Zalo https://zalo.me/g/abc rồi map https://goo.gl/maps/xyz', 'https://goo.gl/maps/xyz'],
+    ['Không có link', undefined],
+    ['Zalo group: https://zalo.me/g/hnnqia792', undefined],
+    ['http://maps.app.goo.gl/abc (không https)', undefined],
+  ])('%j', (text, expected) => expect(extractMapUrl(text)).toBe(expected));
+});
 import { toBedrooms } from '../src/modules/ingestion/gemini.service.js';
 import { FilterBuilder } from '../src/modules/search/filter.builder.js';
 import { buildPhoneRegex, matchesTargetListing } from '../src/modules/ingestion/telegram-match.util.js';
 import { toTelegramError } from '../src/modules/ingestion/telegram-errors.js';
+import { extractPostTitle } from '../src/modules/ingestion/post-title.js';
+import { compareUnit, unitHintsFromText } from '../src/modules/dedup/unit-signature.js';
+
+describe('compareUnit (Story 20.1)', () => {
+  const A = { propertyType: 'APARTMENT', bedrooms: 1, area: 45 };
+  it.each([
+    ['đăng lại cùng căn', { propertyType: 'APARTMENT', bedrooms: 1, area: 45 }, 'SAME'],
+    ['m² lệch ≤ 10%', { propertyType: 'APARTMENT', bedrooms: 1, area: 48 }, 'SAME'],
+    ['khác số PN', { propertyType: 'APARTMENT', bedrooms: 2, area: 45 }, 'DIFFERENT'],
+    ['m² lệch > 10%', { propertyType: 'APARTMENT', bedrooms: 1, area: 55 }, 'DIFFERENT'],
+    ['Studio vs căn hộ', { propertyType: 'STUDIO', bedrooms: 0, area: 45 }, 'DIFFERENT'],
+    ['khác tòa', { ...A, buildingName: 'Monarchy' }, 'SAME'], // A chưa có tên tòa → không tách
+    ['tin không ghi m²', { propertyType: 'APARTMENT', bedrooms: 1 }, 'SAME'],
+    ['không biết PN, không m²', { propertyType: 'APARTMENT' }, 'UNKNOWN'],
+    ['không biết PN nhưng m² khớp', { propertyType: 'APARTMENT', area: 46 }, 'SAME'],
+  ])('%s', (_name, b, expected) => expect(compareUnit(A, b)).toBe(expected));
+
+  it('tên tòa / số phòng chỉ tách khi cả 2 bên có và khác nhau sau chuẩn hóa', () => {
+    expect(compareUnit({ ...A, buildingName: 'Sea View' }, { ...A, buildingName: 'Monarchy' })).toBe('DIFFERENT');
+    expect(compareUnit({ ...A, buildingName: 'Tòa Monarchy' }, { ...A, buildingName: 'monarchy' })).toBe('SAME');
+    expect(compareUnit({ ...A, unitLabel: 'P.502' }, { ...A, unitLabel: 'P.803' })).toBe('DIFFERENT');
+    expect(compareUnit({ ...A, unitLabel: 'P.502' }, { ...A, unitLabel: 'phòng 502' })).toBe('SAME');
+    expect(compareUnit({ ...A, unitLabel: 'Căn hộ 1208' }, { ...A, unitLabel: 'căn 1208' })).toBe('SAME');
+  });
+
+  it('unitHintsFromText: đọc PN / m², không nhầm khoảng cách tới biển là diện tích', () => {
+    expect(unitHintsFromText('1BR apartment\n2️⃣ Rooms: 1 bedroom\n3️⃣ Square meters: 45 m2\n5️⃣ less than 600m to the sea')).toEqual({ bedrooms: 1, area: 45 });
+    expect(unitHintsFromText('Cho thuê căn 2PN 70m² Mỹ An')).toEqual({ bedrooms: 2, area: 70 });
+    expect(unitHintsFromText('Studio full nội thất')).toEqual({ bedrooms: 0, area: undefined });
+    expect(unitHintsFromText('Cho thuê gấp, giá tốt')).toEqual({ bedrooms: undefined, area: undefined });
+  });
+});
+
+describe('extractPostTitle (Story 20.3)', () => {
+  it.each([
+    ['1BR Apartment for rent – Son Tra\n1️⃣ Type: apartment', '1BR Apartment for rent – Son Tra'],
+    ['\n  1BR apartment in My An near river\n0️⃣ Type: apartment', '1BR apartment in My An near river'],
+    ['🏠🏠 CHO THUÊ CĂN HỘ 2PN MỸ AN 🔥\nGiá 7tr', 'CHO THUÊ CĂN HỘ 2PN MỸ AN'],
+    ['Căn 2PN Mỹ An (gần biển)', 'Căn 2PN Mỹ An (gần biển)'],
+    ['1️⃣ Type: apartment\n2️⃣ Rooms: 1 bedroom', null],
+    ['🔟 Contact +84939277097', null],
+    ['1. Cho thuê căn hộ Mỹ An', null],
+    ['Address: An Trung Dong 1', null],
+    ['Địa chỉ: 12 Hồ Nghinh', null],
+    ['0905 123 456 chính chủ', null],
+    ['Xem tại https://zalo.me/g/abc', null],
+    ['🔥🔥', null],
+    ['', null],
+  ])('%j → %j', (raw, expected) => expect(extractPostTitle(raw)).toBe(expected));
+
+  it('cắt dòng dài ở khoảng trắng, tối đa 120 ký tự', () => {
+    const title = extractPostTitle('Căn hộ cao cấp '.repeat(12))!;
+    expect(title.length).toBeLessThanOrEqual(120);
+    expect(title.endsWith(' ')).toBe(false);
+  });
+});
 
 // Story 19.12: bộ test tối thiểu cho các hàm thuần quyết định khử trùng, định vị, lọc, cào tin Telegram
 
@@ -90,6 +157,16 @@ describe('Căn Studio 0 phòng ngủ (Story 19.6)', () => {
   it('bộ lọc nhận bedrooms = 0', () => {
     expect((FilterBuilder.build({ bedrooms: 0 } as any) as any)['attributes.bedrooms']).toBe(0);
     expect((FilterBuilder.build({} as any) as any)['attributes.bedrooms']).toBeUndefined();
+  });
+});
+
+describe('Lọc diện tích (Story 20.7)', () => {
+  const areaOf = (options: object) => (FilterBuilder.build(options as any) as any)['attributes.area'];
+  it('nửa mở [min, max): căn 50 m² thuộc 50–80, không thuộc 30–50', () => {
+    expect(areaOf({ minArea: 30, maxArea: 50 })).toEqual({ $gte: 30, $lt: 50 });
+    expect(areaOf({ minArea: 80 })).toEqual({ $gte: 80 });
+    expect(areaOf({ maxArea: 30 })).toEqual({ $lt: 30 });
+    expect(areaOf({})).toBeUndefined();
   });
 });
 

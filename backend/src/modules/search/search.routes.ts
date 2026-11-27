@@ -21,5 +21,10 @@ searchRoutes.get('/pins', authMiddleware, SearchController.pins);
 // Ghim bản đồ theo câu tự nhiên (Story 19.7) — có gọi Gemini nên dùng chung giới hạn tần suất với /natural
 searchRoutes.get('/pins/natural', authMiddleware, naturalLimiter, SearchController.naturalPins);
 
+// GET /api/v1/apartments/search/geo?q= - Tìm địa chỉ / link Google Maps khi đặt vị trí căn (Story 20.4)
+// Gọi Nominatim công cộng (1 req/s cho cả máy chủ) → giới hạn 20 lần / phút / tài khoản
+const geoLimiter = rateLimit({ windowMs: 60_000, max: 20, message: 'Bạn tìm địa chỉ quá nhanh, vui lòng chờ một chút', key: (req) => (req as AuthRequest).user!.id });
+searchRoutes.get('/geo', authMiddleware, geoLimiter, SearchController.geo);
+
 // GET /api/v1/apartments/search - Tìm kiếm mờ, tiếng lóng, bán kính GPS & Faceted
 searchRoutes.get('/', authMiddleware, SearchController.search);

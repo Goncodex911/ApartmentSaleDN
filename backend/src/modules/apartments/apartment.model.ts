@@ -61,6 +61,7 @@ export interface IApartment extends Document {
     coordinates?: [number, number]; // [kinh độ, vĩ độ] index 2dsphere
     geoPrecision?: GeoPrecision; // Story 15.6 / 15.7: độ chính xác tọa độ (căn cũ không có → xem locationPrecision)
     buildingName?: string; // Story 15.7: tên tòa nhà / dự án
+    unitLabel?: string; // Story 20.1: số phòng / căn / tầng — nội bộ, dùng phân biệt căn cùng tòa
   };
   attributes: {
     propertyType?: PropertyType; // Loại căn (Story 8.4)
@@ -158,6 +159,7 @@ const apartmentSchema = new Schema<IApartment>(
       coordinates: { type: [Number], index: '2dsphere' },
       geoPrecision: { type: String, enum: GEO_PRECISIONS },
       buildingName: { type: String, trim: true },
+      unitLabel: { type: String, trim: true },
     },
     attributes: {
       propertyType: { type: String, enum: PROPERTY_TYPES, index: true },

@@ -154,6 +154,11 @@ export const LocationSection: React.FC<{ value: LocationFormValues; onChange: (n
               if (!value.street.trim() && info?.street) patch.street = info.street;
               if (!value.zone && info?.zone) patch.zone = info.zone;
               if (!value.ward?.trim() && info?.ward) patch.ward = info.ward;
+              // Story 20.4: định vị bằng link Google Maps dán trên bản đồ → lưu link cho nút Chỉ đường
+              if (info?.mapUrl) {
+                patch.mapUrl = info.mapUrl;
+                setMode('MAP_LINK');
+              }
               set(patch);
               setPicking(false);
             }}

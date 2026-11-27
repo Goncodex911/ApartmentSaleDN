@@ -17,3 +17,9 @@ export const parseRawPostSchema = z.object({
 
 export type ParseRawPostInput = z.infer<typeof parseRawPostSchema>;
 
+// Story 20.2: sửa quyết định gộp của AI
+const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Mã không hợp lệ');
+export const splitSchema = z.object({ masterId: objectId, subListingId: objectId });
+export const keepSeparateSchema = z.object({ apartmentId: objectId });
+export const mergeIntoSchema = z.object({ apartmentId: objectId, targetId: objectId });
+

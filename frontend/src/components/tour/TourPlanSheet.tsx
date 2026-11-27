@@ -63,7 +63,8 @@ export const TourPlanSheet: React.FC<{ ids: string[]; onClose: () => void }> = (
     start.setHours(hours || 0, minutes || 0, 0, 0);
     return suggestTimes(start, legKm);
   }, [startTime, legKm]);
-  const mapsUrl = stops && stops.length ? buildGoogleMapsDirUrl(origin, stops.map((stop) => stop.coordinates)) : '';
+  // Story 20.5: lộ trình 1 căn có link chủ nhà gửi → mở đúng link; ≥ 2 căn cần toạ độ cho các điểm dừng
+  const mapsUrl = !stops?.length ? '' : stops.length === 1 && stops[0].location.mapUrl ? stops[0].location.mapUrl : buildGoogleMapsDirUrl(origin, stops.map((stop) => stop.coordinates));
 
   return (
     <div role="dialog" aria-label="Lộ trình xem nhà" className="fixed inset-0 z-50 flex flex-col bg-slate-50">

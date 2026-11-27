@@ -44,6 +44,7 @@ export async function findMapPins(options: ISearchOptions) {
       bedrooms: attributes.bedrooms,
       image: images?.find((url) => !hiddenImages?.includes(url) && !url.includes('/video/upload/')),
       approximate: locationPrecision(location) !== 'EXACT', // Story 15.6: theo tên đường / khu vực → viền nét đứt
+      mapUrl: location.mapUrl || undefined, // Story 20.5: Chỉ đường mở đúng link chủ nhà gửi (CTV vẫn xem được link ở chi tiết căn)
     })),
     withoutLocation,
     // Story 15.4: tâm + bán kính điểm mốc đang tìm → bản đồ vẽ vòng tròn
